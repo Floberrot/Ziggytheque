@@ -1,0 +1,57 @@
+doctrine:
+    dbal:
+        url: '%env(resolve:DATABASE_URL)%'
+        profiling_collect_backtrace: '%kernel.debug%'
+    orm:
+        naming_strategy: doctrine.orm.naming_strategy.underscore
+        identity_generation_preferences:
+            Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
+        auto_mapping: false
+        mappings:
+            PriceCode:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/PriceCode/Domain'
+                prefix: 'App\PriceCode\Domain'
+            Manga:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Manga/Domain'
+                prefix: 'App\Manga\Domain'
+            Collection:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Collection/Domain'
+                prefix: 'App\Collection\Domain'
+            Wishlist:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Wishlist/Domain'
+                prefix: 'App\Wishlist\Domain'
+            Notification:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Notification/Domain'
+                prefix: 'App\Notification\Domain'
+
+when@test:
+    doctrine:
+        dbal:
+            dbname_suffix: '_test%env(default::TEST_TOKEN)%'
+
+when@prod:
+    doctrine:
+        orm:
+            query_cache_driver:
+                type: pool
+                pool: doctrine.system_cache_pool
+            result_cache_driver:
+                type: pool
+                pool: doctrine.result_cache_pool
+    framework:
+        cache:
+            pools:
+                doctrine.result_cache_pool:
+                    adapter: cache.app
+                doctrine.system_cache_pool:
+                    adapter: cache.system

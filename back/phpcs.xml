@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<ruleset name="ZiggyTheque">
+    <description>PSR-12 coding standard</description>
+
+    <file>src</file>
+
+    <arg name="colors"/>
+    <arg value="p"/>
+
+    <rule ref="PSR12"/>
+
+    <rule ref="Generic.Files.LineLength">
+        <properties>
+            <property name="lineLimit" value="120"/>
+            <property name="absoluteLineLimit" value="0"/>
+        </properties>
+    </rule>
+</ruleset>

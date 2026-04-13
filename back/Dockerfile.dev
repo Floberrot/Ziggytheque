@@ -1,0 +1,23 @@
+FROM dunglas/frankenphp:php8.4-alpine
+
+WORKDIR /app
+
+RUN install-php-extensions \
+    pdo_pgsql \
+    intl \
+    opcache \
+    zip \
+    apcu
+
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+ENV SERVER_NAME=":80"
+ENV APP_ENV=dev
+
+COPY docker-entrypoint.dev.sh /usr/local/bin/docker-entrypoint.dev.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.dev.sh
+
+EXPOSE 80
+
+ENTRYPOINT ["docker-entrypoint.dev.sh"]
+CMD ["frankenphp", "run", "--config", "/etc/frankenphp/Caddyfile", "--adapter", "caddyfile"]

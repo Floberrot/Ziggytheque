@@ -1,0 +1,59 @@
+parameters:
+    gate_password: '%env(GATE_PASSWORD)%'
+    jwt_ttl: '%env(int:JWT_TTL)%'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/*/Domain/Exception/'
+            - '../src/Shared/Domain/'
+
+    # Gate auth
+    App\Auth\Infrastructure\Http\GateUserProvider:
+        arguments:
+            $monitorUser: '%env(MONITOR_USER)%'
+            $monitorPassword: '%env(MONITOR_PASSWORD)%'
+
+    App\Auth\Application\Gate\GateHandler:
+        arguments:
+            $gatePassword: '%env(GATE_PASSWORD)%'
+        tags:
+            - { name: messenger.message_handler, bus: command.bus }
+
+    # Bus interfaces bound to Messenger implementations
+    App\Shared\Application\Bus\CommandBusInterface:
+        alias: App\Shared\Infrastructure\Bus\MessengerCommandBus
+
+    App\Shared\Application\Bus\QueryBusInterface:
+        alias: App\Shared\Infrastructure\Bus\MessengerQueryBus
+
+    App\Shared\Application\Bus\EventBusInterface:
+        alias: App\Shared\Infrastructure\Bus\MessengerEventBus
+
+    # Repository interfaces bound to Doctrine implementations
+    App\PriceCode\Domain\PriceCodeRepositoryInterface:
+        alias: App\PriceCode\Infrastructure\Doctrine\DoctrinePriceCodeRepository
+
+    App\Manga\Domain\MangaRepositoryInterface:
+        alias: App\Manga\Infrastructure\Doctrine\DoctrineMangaRepository
+
+    App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient:
+        arguments:
+            $apiKey: '%env(GOOGLE_BOOKS_API_KEY)%'
+
+    App\Manga\Domain\ExternalApiClientInterface:
+        alias: App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient
+
+    App\Collection\Domain\CollectionRepositoryInterface:
+        alias: App\Collection\Infrastructure\Doctrine\DoctrineCollectionRepository
+
+    App\Wishlist\Domain\WishlistRepositoryInterface:
+        alias: App\Wishlist\Infrastructure\Doctrine\DoctrineWishlistRepository
+
+    App\Notification\Domain\NotificationRepositoryInterface:
+        alias: App\Notification\Infrastructure\Doctrine\DoctrineNotificationRepository

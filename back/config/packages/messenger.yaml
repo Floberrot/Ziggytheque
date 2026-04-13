@@ -1,0 +1,44 @@
+framework:
+    messenger:
+        failure_transport: failed
+
+        transports:
+            async:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    use_notify: true
+                    check_delayed_interval: 1000
+                retry_strategy:
+                    max_retries: 3
+                    multiplier: 2
+            failed: 'doctrine://default?queue_name=failed'
+            sync: 'sync://'
+
+        default_bus: command.bus
+        buses:
+            command.bus:
+                middleware:
+                    - doctrine_transaction
+            query.bus: ~
+            event.bus:
+                default_middleware: allow_no_handlers
+
+        routing:
+            App\PriceCode\Application\Create\CreatePriceCodeCommand: sync
+            App\PriceCode\Application\Update\UpdatePriceCodeCommand: sync
+            App\PriceCode\Application\Delete\DeletePriceCodeCommand: sync
+            App\Manga\Application\Import\ImportMangaCommand: sync
+            App\Manga\Application\AddVolume\AddVolumeCommand: sync
+            App\Collection\Application\Add\AddToCollectionCommand: sync
+            App\Collection\Application\Remove\RemoveFromCollectionCommand: sync
+            App\Collection\Application\ToggleVolume\ToggleVolumeCommand: sync
+            App\Collection\Application\UpdateStatus\UpdateReadingStatusCommand: sync
+            App\Wishlist\Application\Add\AddWishlistItemCommand: sync
+            App\Wishlist\Application\Remove\RemoveWishlistItemCommand: sync
+            App\Wishlist\Application\Purchase\PurchaseWishlistItemCommand: sync
+
+when@test:
+    framework:
+        messenger:
+            transports:
+                async: 'in-memory://'

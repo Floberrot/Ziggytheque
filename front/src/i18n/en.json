@@ -1,0 +1,92 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "collection": "Collection",
+    "wishlist": "Wishlist",
+    "add": "Add",
+    "priceCodes": "Price Codes",
+    "notifications": "Notifications",
+    "logout": "Logout"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "ownedVolumes": "Owned Volumes",
+    "readVolumes": "Read Volumes",
+    "wishlist": "Wishlist",
+    "collectionValue": "Total Value",
+    "genreBreakdown": "Genre Breakdown",
+    "recentAdditions": "Recent Additions"
+  },
+  "collection": {
+    "title": "My Collection",
+    "add": "Add Manga",
+    "addToCollection": "Add to Collection",
+    "added": "Added to collection",
+    "removed": "Removed from collection",
+    "empty": "Your collection is empty",
+    "volumes": "Volumes",
+    "owned": "owned"
+  },
+  "wishlist": {
+    "title": "Wishlist",
+    "addToWishlist": "Add to Wishlist",
+    "added": "Added to wishlist",
+    "purchased": "Manga purchased and added to collection",
+    "purchase": "Purchased",
+    "empty": "Your wishlist is empty"
+  },
+  "add": {
+    "title": "Add a Manga",
+    "search": "Search",
+    "info": "Info",
+    "destination": "Destination",
+    "destinationHint": "Where would you like to add this manga?",
+    "searchPlaceholder": "Search for a manga...",
+    "searchHint": "Type at least 2 characters to search",
+    "searchUnavailable": "External search not configured — fill in the form manually",
+    "noResults": "No results. You can fill in the form manually.",
+    "fillManually": "Fill manually",
+    "selectResult": "Select",
+    "selectedResult": "Selected"
+  },
+  "manga": {
+    "title": "Title",
+    "edition": "Edition",
+    "language": "Language",
+    "author": "Author",
+    "genre": "Genre",
+    "coverUrl": "Cover URL",
+    "summary": "Summary"
+  },
+  "priceCodes": {
+    "title": "Price Codes",
+    "add": "New Code",
+    "new": "New Price Code",
+    "edit": "Edit Code",
+    "code": "Code",
+    "label": "Label",
+    "value": "Value",
+    "saved": "Price code saved"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "No notifications",
+    "markRead": "Mark as read"
+  },
+  "status": {
+    "not_started": "Not started",
+    "in_progress": "In progress",
+    "completed": "Completed",
+    "on_hold": "On hold",
+    "dropped": "Dropped"
+  },
+  "common": {
+    "search": "Search...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "remove": "Remove",
+    "next": "Next"
+  }
+}

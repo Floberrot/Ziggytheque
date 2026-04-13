@@ -1,0 +1,22 @@
+# Dependencies
+back/vendor/
+front/node_modules/
+
+# Environment
+back/.env.local
+back/.env.*.local
+back/config/jwt/
+
+# Build
+back/var/
+front/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,29 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: all;
+}
+
+@layer base {
+  :root {
+    --transition-speed: 200ms;
+  }
+}
+
+/* Manga card hover animation */
+.manga-card {
+  @apply transition-all duration-200 ease-out;
+}
+.manga-card:hover {
+  @apply -translate-y-1 shadow-xl;
+}
+
+/* Volume grid states */
+.volume-owned {
+  @apply opacity-100;
+}
+.volume-wished {
+  @apply opacity-60 saturate-50;
+}
+.volume-missing {
+  @apply opacity-30 grayscale;
+}

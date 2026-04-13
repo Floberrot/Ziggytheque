@@ -1,0 +1,92 @@
+{
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "collection": "Collection",
+    "wishlist": "Liste de souhaits",
+    "add": "Ajouter",
+    "priceCodes": "Codes prix",
+    "notifications": "Notifications",
+    "logout": "Déconnexion"
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "ownedVolumes": "Tomes possédés",
+    "readVolumes": "Tomes lus",
+    "wishlist": "Souhaits",
+    "collectionValue": "Valeur totale",
+    "genreBreakdown": "Répartition par genre",
+    "recentAdditions": "Ajouts récents"
+  },
+  "collection": {
+    "title": "Ma collection",
+    "add": "Ajouter un manga",
+    "addToCollection": "Ajouter à la collection",
+    "added": "Ajouté à la collection",
+    "removed": "Retiré de la collection",
+    "empty": "Votre collection est vide",
+    "volumes": "Tomes",
+    "owned": "possédés"
+  },
+  "wishlist": {
+    "title": "Liste de souhaits",
+    "addToWishlist": "Ajouter à la liste de souhaits",
+    "added": "Ajouté à la liste de souhaits",
+    "purchased": "Manga acheté et ajouté à la collection",
+    "purchase": "Acheté",
+    "empty": "Votre liste de souhaits est vide"
+  },
+  "add": {
+    "title": "Ajouter un manga",
+    "search": "Recherche",
+    "info": "Informations",
+    "destination": "Destination",
+    "destinationHint": "Où souhaitez-vous ajouter ce manga ?",
+    "searchPlaceholder": "Rechercher un manga...",
+    "searchHint": "Tapez au moins 2 caractères pour lancer la recherche",
+    "searchUnavailable": "Recherche externe non configurée — saisissez les informations manuellement",
+    "noResults": "Aucun résultat. Vous pouvez saisir les informations manuellement.",
+    "fillManually": "Saisir manuellement",
+    "selectResult": "Sélectionner",
+    "selectedResult": "Sélectionné"
+  },
+  "manga": {
+    "title": "Titre",
+    "edition": "Édition",
+    "language": "Langue",
+    "author": "Auteur",
+    "genre": "Genre",
+    "coverUrl": "URL de couverture",
+    "summary": "Résumé"
+  },
+  "priceCodes": {
+    "title": "Codes prix",
+    "add": "Nouveau code",
+    "new": "Nouveau code prix",
+    "edit": "Modifier le code",
+    "code": "Code",
+    "label": "Libellé",
+    "value": "Valeur",
+    "saved": "Code prix enregistré"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "Aucune notification",
+    "markRead": "Marquer comme lu"
+  },
+  "status": {
+    "not_started": "Non commencé",
+    "in_progress": "En cours",
+    "completed": "Terminé",
+    "on_hold": "En pause",
+    "dropped": "Abandonné"
+  },
+  "common": {
+    "search": "Rechercher...",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "remove": "Retirer",
+    "next": "Suivant"
+  }
+}

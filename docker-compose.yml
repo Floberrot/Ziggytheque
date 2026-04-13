@@ -1,0 +1,74 @@
+services:
+  back:
+    build:
+      context: ./back
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8000:80"
+    volumes:
+      - ./back:/app
+      - back_vendor:/app/vendor
+    environment:
+      APP_ENV: dev
+      SERVER_NAME: "http://:80"
+      DATABASE_URL: postgresql://ziggy:ziggy@db:5432/ziggytheque?serverVersion=17&charset=utf8
+      MESSENGER_TRANSPORT_DSN: doctrine://default?auto_setup=0
+      CORS_ALLOW_ORIGIN: "^https?://(localhost|127\\.0\\.0\\.1)(:[0-9]+)?$"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    image: node:22-alpine
+    working_dir: /app
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./front:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm run dev -- --host"
+    environment:
+      NODE_ENV: development
+      BACKEND_URL: http://back:80
+
+  db:
+    image: postgres:17-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ziggy
+      POSTGRES_PASSWORD: ziggy
+      POSTGRES_DB: ziggytheque
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ziggy -d ziggytheque"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mailer:
+    image: axllent/mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  worker:
+    build:
+      context: ./back
+      dockerfile: Dockerfile.dev
+    command: php bin/console messenger:consume async --time-limit=3600 -vv
+    volumes:
+      - ./back:/app
+      - back_vendor:/app/vendor
+    environment:
+      APP_ENV: dev
+      DATABASE_URL: postgresql://ziggy:ziggy@db:5432/ziggytheque?serverVersion=17&charset=utf8
+      MESSENGER_TRANSPORT_DSN: doctrine://default?auto_setup=0
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data:
+  back_vendor:
