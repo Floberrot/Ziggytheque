@@ -51,15 +51,15 @@ const totalVolumes = computed(() => collection.value?.reduce((s, e) => s + e.tot
 
           <!-- Stats pills -->
           <div class="flex gap-3 flex-wrap items-center">
-            <div class="stat-pill bg-success/10 text-success">
+            <div class="flex flex-col items-center px-4 py-2 rounded-xl bg-success/10 text-success">
               <span class="font-bold text-lg">{{ totalOwned }}</span>
               <span class="text-xs opacity-70">possédés</span>
             </div>
-            <div v-if="totalWished > 0" class="stat-pill bg-warning/10 text-warning">
+            <div v-if="totalWished > 0" class="flex flex-col items-center px-4 py-2 rounded-xl bg-warning/10 text-warning">
               <span class="font-bold text-lg">{{ totalWished }}</span>
               <span class="text-xs opacity-70">souhaités</span>
             </div>
-            <div class="stat-pill bg-base-200 text-base-content/70">
+            <div class="flex flex-col items-center px-4 py-2 rounded-xl bg-base-200 text-base-content/70">
               <span class="font-bold text-lg">{{ totalVolumes }}</span>
               <span class="text-xs opacity-70">au total</span>
             </div>
@@ -156,10 +156,6 @@ const totalVolumes = computed(() => collection.value?.reduce((s, e) => s + e.tot
 </template>
 
 <style scoped>
-.stat-pill {
-  @apply flex flex-col items-center px-4 py-2 rounded-xl gap-0;
-}
-
 .card-appear {
   animation: fadeSlideUp 0.4s ease-out both;
 }
