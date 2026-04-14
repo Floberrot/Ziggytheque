@@ -32,6 +32,7 @@ export interface MangaDetail extends Manga {
 }
 
 export type ReadingStatus = 'not_started' | 'in_progress' | 'completed' | 'on_hold' | 'dropped'
+export type VolumeToggleField = 'isOwned' | 'isRead' | 'isWished'
 
 export interface VolumeEntry {
   id: string
@@ -41,6 +42,7 @@ export interface VolumeEntry {
   priceCode: PriceCode | null
   isOwned: boolean
   isRead: boolean
+  isWished: boolean
   review: string | null
   rating: number | null
 }
@@ -53,6 +55,7 @@ export interface CollectionEntry {
   rating: number | null
   ownedCount: number
   readCount: number
+  wishedCount: number
   totalVolumes: number
   addedAt: string
 }
@@ -61,12 +64,8 @@ export interface CollectionEntryDetail extends CollectionEntry {
   volumes: VolumeEntry[]
 }
 
-export interface WishlistItem {
-  id: string
-  manga: Manga
-  isPurchased: boolean
-  addedAt: string
-}
+/** Alias: wishlist view reuses CollectionEntryDetail (filtered to wished volumes) */
+export type WishlistEntry = CollectionEntryDetail
 
 export interface Stats {
   totalMangas: number

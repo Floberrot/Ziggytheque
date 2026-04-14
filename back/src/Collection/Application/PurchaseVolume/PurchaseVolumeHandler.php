@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Collection\Application\ToggleVolume;
+namespace App\Collection\Application\PurchaseVolume;
 
 use App\Collection\Domain\CollectionRepositoryInterface;
 use App\Collection\Domain\VolumeEntry;
@@ -10,13 +10,13 @@ use App\Shared\Domain\Exception\NotFoundException;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler(bus: 'command.bus')]
-final readonly class ToggleVolumeHandler
+final readonly class PurchaseVolumeHandler
 {
     public function __construct(private CollectionRepositoryInterface $repository)
     {
     }
 
-    public function __invoke(ToggleVolumeCommand $command): void
+    public function __invoke(PurchaseVolumeCommand $command): void
     {
         $entry = $this->repository->findById($command->collectionEntryId);
 
@@ -32,16 +32,8 @@ final readonly class ToggleVolumeHandler
             throw new NotFoundException('VolumeEntry', $command->volumeEntryId);
         }
 
-        if ($command->field === 'isOwned') {
-            $volumeEntry->isOwned = !$volumeEntry->isOwned;
-            if ($volumeEntry->isOwned) {
-                $volumeEntry->isWished = false;
-            }
-        } elseif ($command->field === 'isRead') {
-            $volumeEntry->isRead = !$volumeEntry->isRead;
-        } elseif ($command->field === 'isWished') {
-            $volumeEntry->isWished = !$volumeEntry->isWished;
-        }
+        $volumeEntry->isOwned = true;
+        $volumeEntry->isWished = false;
 
         $this->repository->save($entry);
     }
