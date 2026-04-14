@@ -12,7 +12,7 @@
     "title": "Dashboard",
     "ownedVolumes": "Owned Volumes",
     "readVolumes": "Read Volumes",
-    "wishlist": "Wishlist",
+    "wishlist": "Wishlisted Volumes",
     "collectionValue": "Total Value",
     "genreBreakdown": "Genre Breakdown",
     "recentAdditions": "Recent Additions"
@@ -25,15 +25,29 @@
     "removed": "Removed from collection",
     "empty": "Your collection is empty",
     "volumes": "Volumes",
-    "owned": "owned"
+    "owned": "owned",
+    "read": "read",
+    "missing": "missing",
+    "noVolumes": "No volumes registered for this manga.",
+    "oeuvres": "works",
+    "totalVolumes": "volumes total",
+    "wishlisted": "wishlisted"
   },
   "wishlist": {
     "title": "Wishlist",
     "addToWishlist": "Add to Wishlist",
     "added": "Added to wishlist",
-    "purchased": "Manga purchased and added to collection",
-    "purchase": "Purchased",
-    "empty": "Your wishlist is empty"
+    "purchased": "Volumes purchased and added to collection",
+    "purchase": "All Purchased",
+    "empty": "Your wishlist is empty",
+    "removeFromWishlist": "Remove from wishlist",
+    "removed": "Removed from wishlist",
+    "inWishlist": "in wishlist",
+    "toGet": "to buy",
+    "oeuvres": "series",
+    "volumesToBuy": "volumes to buy",
+    "addRemaining": "Wishlist remaining volumes",
+    "remainingAdded": "Missing volumes added to wishlist"
   },
   "add": {
     "title": "Add a Manga",

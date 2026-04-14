@@ -6,9 +6,6 @@ namespace App\Stats\Application\GetStats;
 
 use App\Collection\Domain\CollectionEntry;
 use App\Collection\Domain\VolumeEntry;
-use App\Manga\Domain\Manga;
-use App\Manga\Domain\Volume;
-use App\Wishlist\Domain\WishlistItem;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -41,10 +38,12 @@ final readonly class GetStatsHandler
             ->getQuery()
             ->getSingleScalarResult();
 
+        // Count wishlisted volumes that are not yet owned
         $totalWishlist = (int) $this->em->createQueryBuilder()
-            ->select('COUNT(w.id)')
-            ->from(WishlistItem::class, 'w')
-            ->where('w.isPurchased = false')
+            ->select('COUNT(ve.id)')
+            ->from(VolumeEntry::class, 've')
+            ->where('ve.isWishlisted = true')
+            ->andWhere('ve.isOwned = false')
             ->getQuery()
             ->getSingleScalarResult();
 

@@ -41,6 +41,7 @@ export interface VolumeEntry {
   priceCode: PriceCode | null
   isOwned: boolean
   isRead: boolean
+  isWishlisted: boolean
   review: string | null
   rating: number | null
 }
@@ -53,6 +54,7 @@ export interface CollectionEntry {
   rating: number | null
   ownedCount: number
   readCount: number
+  wishlistCount: number
   totalVolumes: number
   addedAt: string
 }

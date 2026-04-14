@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Wishlist\Application\Add;
 
+use App\Collection\Domain\CollectionEntry;
+use App\Collection\Domain\CollectionRepositoryInterface;
+use App\Collection\Domain\VolumeEntry;
 use App\Manga\Domain\MangaRepositoryInterface;
 use App\Shared\Domain\Exception\NotFoundException;
-use App\Wishlist\Domain\WishlistItem;
-use App\Wishlist\Domain\WishlistRepositoryInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Uid\Uuid;
 
@@ -15,7 +16,7 @@ use Symfony\Component\Uid\Uuid;
 final readonly class AddWishlistItemHandler
 {
     public function __construct(
-        private WishlistRepositoryInterface $repository,
+        private CollectionRepositoryInterface $collectionRepository,
         private MangaRepositoryInterface $mangaRepository,
     ) {
     }
@@ -28,9 +29,34 @@ final readonly class AddWishlistItemHandler
             throw new NotFoundException('Manga', $command->mangaId);
         }
 
-        $item = new WishlistItem(id: Uuid::v4()->toRfc4122(), manga: $manga);
-        $this->repository->save($item);
+        // Find or create a CollectionEntry for this manga
+        $entry = $this->collectionRepository->findByMangaId($command->mangaId);
 
-        return $item->id;
+        if ($entry === null) {
+            $entry = new CollectionEntry(
+                id: Uuid::v4()->toRfc4122(),
+                manga: $manga,
+            );
+
+            foreach ($manga->volumes as $volume) {
+                $entry->volumeEntries->add(new VolumeEntry(
+                    id: Uuid::v4()->toRfc4122(),
+                    collectionEntry: $entry,
+                    volume: $volume,
+                ));
+            }
+        }
+
+        // Mark all unowned volumes as wishlisted
+        foreach ($entry->volumeEntries as $ve) {
+            /** @var VolumeEntry $ve */
+            if (!$ve->isOwned) {
+                $ve->isWishlisted = true;
+            }
+        }
+
+        $this->collectionRepository->save($entry);
+
+        return $entry->id;
     }
 }

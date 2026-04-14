@@ -48,6 +48,7 @@ class CollectionEntry
             'rating' => $this->rating,
             'ownedCount' => $this->volumeEntries->filter(fn (VolumeEntry $ve) => $ve->isOwned)->count(),
             'readCount' => $this->volumeEntries->filter(fn (VolumeEntry $ve) => $ve->isRead)->count(),
+            'wishlistCount' => $this->volumeEntries->filter(fn (VolumeEntry $ve) => $ve->isWishlisted && !$ve->isOwned)->count(),
             'totalVolumes' => $this->manga->volumes->count(),
             'addedAt' => $this->addedAt->format(\DateTimeInterface::ATOM),
         ];

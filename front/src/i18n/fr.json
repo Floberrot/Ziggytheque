@@ -12,7 +12,7 @@
     "title": "Tableau de bord",
     "ownedVolumes": "Tomes possédés",
     "readVolumes": "Tomes lus",
-    "wishlist": "Souhaits",
+    "wishlist": "Tomes souhaités",
     "collectionValue": "Valeur totale",
     "genreBreakdown": "Répartition par genre",
     "recentAdditions": "Ajouts récents"
@@ -25,15 +25,29 @@
     "removed": "Retiré de la collection",
     "empty": "Votre collection est vide",
     "volumes": "Tomes",
-    "owned": "possédés"
+    "owned": "possédés",
+    "read": "lus",
+    "missing": "manquants",
+    "noVolumes": "Aucun tome enregistré pour ce manga.",
+    "oeuvres": "œuvres",
+    "totalVolumes": "tomes au total",
+    "wishlisted": "en liste de souhaits"
   },
   "wishlist": {
     "title": "Liste de souhaits",
-    "addToWishlist": "Ajouter à la liste de souhaits",
+    "addToWishlist": "Ajouter à la liste",
     "added": "Ajouté à la liste de souhaits",
-    "purchased": "Manga acheté et ajouté à la collection",
-    "purchase": "Acheté",
-    "empty": "Votre liste de souhaits est vide"
+    "purchased": "Tomes achetés et ajoutés à la collection",
+    "purchase": "Tous achetés",
+    "empty": "Votre liste de souhaits est vide",
+    "removeFromWishlist": "Retirer de la liste",
+    "removed": "Retiré de la liste de souhaits",
+    "inWishlist": "en liste de souhaits",
+    "toGet": "à acheter",
+    "oeuvres": "séries",
+    "volumesToBuy": "tomes à acheter",
+    "addRemaining": "Mettre les manquants en souhait",
+    "remainingAdded": "Tomes manquants ajoutés à la liste de souhaits"
   },
   "add": {
     "title": "Ajouter un manga",

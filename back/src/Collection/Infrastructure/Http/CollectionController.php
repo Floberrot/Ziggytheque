@@ -10,6 +10,7 @@ use App\Collection\Application\GetDetail\GetCollectionDetailQuery;
 use App\Collection\Application\Remove\RemoveFromCollectionCommand;
 use App\Collection\Application\ToggleVolume\ToggleVolumeCommand;
 use App\Collection\Application\UpdateStatus\UpdateReadingStatusCommand;
+use App\Collection\Application\WishlistRemaining\WishlistRemainingCommand;
 use App\Shared\Application\Bus\CommandBusInterface;
 use App\Shared\Application\Bus\QueryBusInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -69,6 +70,14 @@ final readonly class CollectionController
         #[MapRequestPayload] ToggleVolumeRequest $request,
     ): JsonResponse {
         $this->commandBus->dispatch(new ToggleVolumeCommand($id, $volumeEntryId, $request->field));
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    #[Route('/{id}/wishlist-remaining', methods: ['POST'])]
+    public function wishlistRemaining(string $id): JsonResponse
+    {
+        $this->commandBus->dispatch(new WishlistRemainingCommand($id));
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }

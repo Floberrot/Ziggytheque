@@ -34,8 +34,14 @@ final readonly class ToggleVolumeHandler
 
         if ($command->field === 'isOwned') {
             $volumeEntry->isOwned = !$volumeEntry->isOwned;
+            // When marking as owned, clear wishlist flag
+            if ($volumeEntry->isOwned) {
+                $volumeEntry->isWishlisted = false;
+            }
         } elseif ($command->field === 'isRead') {
             $volumeEntry->isRead = !$volumeEntry->isRead;
+        } elseif ($command->field === 'isWishlisted') {
+            $volumeEntry->isWishlisted = !$volumeEntry->isWishlisted;
         }
 
         $this->repository->save($entry);

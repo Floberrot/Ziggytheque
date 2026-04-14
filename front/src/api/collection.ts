@@ -27,7 +27,11 @@ export async function updateReadingStatus(id: string, status: ReadingStatus): Pr
 export async function toggleVolume(
   collectionId: string,
   volumeEntryId: string,
-  field: 'isOwned' | 'isRead',
+  field: 'isOwned' | 'isRead' | 'isWishlisted',
 ): Promise<void> {
   await client.patch(`/collection/${collectionId}/volumes/${volumeEntryId}/toggle`, { field })
+}
+
+export async function wishlistRemaining(collectionId: string): Promise<void> {
+  await client.post(`/collection/${collectionId}/wishlist-remaining`)
 }
