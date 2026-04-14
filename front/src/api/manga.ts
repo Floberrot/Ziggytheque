@@ -26,6 +26,27 @@ export async function importManga(payload: {
   return res.data
 }
 
+/** Google Books search for individual volume covers/metadata */
+export async function searchVolumeExternal(q: string): Promise<{
+  externalId: string
+  title: string
+  edition: string | null
+  coverUrl: string | null
+  language: string
+  totalVolumes: number | null
+}[]> {
+  const res = await client.get('/manga/volume-search', { params: { q } })
+  return res.data
+}
+
+export async function updateVolume(
+  mangaId: string,
+  volumeId: string,
+  payload: { coverUrl?: string; releaseDate?: string; priceCode?: string },
+): Promise<void> {
+  await client.patch(`/manga/${mangaId}/volumes/${volumeId}`, payload)
+}
+
 export async function addVolume(
   mangaId: string,
   payload: {

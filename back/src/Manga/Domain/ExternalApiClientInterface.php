@@ -13,9 +13,10 @@ interface ExternalApiClientInterface
     /**
      * Search mangas by title from the external API.
      *
+     * @param string $type One of: manga, manhwa, manhua
      * @return ExternalMangaDto[]
      */
-    public function searchByTitle(string $query): array;
+    public function searchByTitle(string $query, string $type = 'manga', int $page = 1): array;
 
     /**
      * Fetch full manga details including volumes from the external API.

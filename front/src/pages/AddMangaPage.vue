@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { importManga } from '@/api/manga'
@@ -17,7 +17,14 @@ const { t } = useI18n()
 const step = ref<1 | 2 | 3>(1)
 const collectionEntryId = ref('')
 
-const { query, results, isLoading: searchLoading, error: searchError, clear: clearSearch } = useExternalSearch()
+const { query, results, isLoading: searchLoading, isLoadingMore, hasMore, loadMore, error: searchError, clear: clearSearch } = useExternalSearch()
+
+function onResultsScroll(event: Event) {
+  const el = event.target as HTMLElement
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100) {
+    loadMore()
+  }
+}
 
 const form = ref({
   title: '',
@@ -96,6 +103,47 @@ const goWishlistMutation = useMutation({
 })
 
 const genres = ['shonen', 'shojo', 'seinen', 'josei', 'isekai', 'fantasy', 'action', 'romance', 'horror', 'sci_fi', 'slice_of_life', 'sports', 'other']
+
+const frenchEditions = [
+  'Pika Édition',
+  'Glénat',
+  'Kana',
+  'Ki-oon',
+  'Kazé Manga',
+  'Kurokawa',
+  'Delcourt / Tonkam',
+  'Akata',
+  'Nobi Nobi!',
+  'Doki-Doki',
+  'Soleil Manga',
+  'Michel Lafon',
+  'J\'ai Lu',
+  'Panini Comics',
+  'Bamboo Édition',
+  'Kami',
+  'Vega-Dupuis',
+]
+
+const editionInput = ref('')
+watch(() => form.value.edition, (v) => { if (v !== editionInput.value) editionInput.value = v })
+const editionFiltered = computed(() => {
+  const q = editionInput.value.toLowerCase().trim()
+  if (!q) return frenchEditions
+  return frenchEditions.filter((e) => e.toLowerCase().includes(q))
+})
+const showEditionDropdown = ref(false)
+
+function selectEdition(edition: string) {
+  form.value.edition = edition
+  editionInput.value = edition
+  showEditionDropdown.value = false
+}
+
+// Sync editionInput when form.edition changes (e.g. from applyResult)
+function onEditionInput() {
+  form.value.edition = editionInput.value
+  showEditionDropdown.value = true
+}
 </script>
 
 <template>
@@ -117,7 +165,7 @@ const genres = ['shonen', 'shojo', 'seinen', 'josei', 'isekai', 'fantasy', 'acti
     </ul>
 
     <!-- ── Step 1 : Recherche ── -->
-    <div v-if="step === 1" class="space-y-4">
+    <div v-if="step === 1" class="space-y-3">
       <label class="input input-bordered flex items-center gap-2 w-full">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-50 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -134,31 +182,42 @@ const genres = ['shonen', 'shojo', 'seinen', 'josei', 'isekai', 'fantasy', 'acti
 
       <div v-if="searchError" class="alert alert-warning text-sm py-2">{{ searchError }}</div>
 
-      <div v-if="results.length" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-        <button
-          v-for="result in results"
-          :key="result.externalId"
-          class="group flex flex-col items-center gap-1.5 text-left"
-          @click="applyResult(result)"
-        >
-          <div class="w-full aspect-[2/3] relative rounded-xl overflow-hidden bg-base-200 shadow group-hover:shadow-lg group-hover:scale-105 transition-all duration-150 ring-2 ring-transparent group-hover:ring-primary">
-            <img
-              v-if="result.coverUrl"
-              :src="result.coverUrl"
-              :alt="result.title"
-              class="w-full h-full object-cover"
-            />
-            <div v-else class="w-full h-full flex items-center justify-center text-3xl opacity-30">📚</div>
-            <!-- Volume count badge -->
-            <div v-if="result.totalVolumes" class="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none">
-              {{ result.totalVolumes }}T
+      <!-- Scrollable results container — fires loadMore when scrolled near bottom -->
+      <div
+        v-if="results.length"
+        class="overflow-y-auto max-h-[55vh] rounded-xl border border-base-200"
+        @scroll="onResultsScroll"
+      >
+        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 p-3">
+          <button
+            v-for="result in results"
+            :key="result.externalId"
+            class="group flex flex-col items-center gap-1.5 text-left"
+            @click="applyResult(result)"
+          >
+            <div class="w-full aspect-[2/3] relative rounded-xl overflow-hidden bg-base-200 shadow group-hover:shadow-lg group-hover:scale-105 transition-all duration-150 ring-2 ring-transparent group-hover:ring-primary">
+              <img
+                v-if="result.coverUrl"
+                :src="result.coverUrl"
+                :alt="result.title"
+                class="w-full h-full object-cover"
+              />
+              <div v-else class="w-full h-full flex items-center justify-center text-3xl opacity-30">📚</div>
+              <div v-if="result.totalVolumes" class="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                {{ result.totalVolumes }}T
+              </div>
             </div>
-          </div>
-          <div class="w-full px-0.5">
-            <p class="text-xs font-medium leading-tight line-clamp-2">{{ result.title }}</p>
-            <p v-if="result.author" class="text-[10px] text-base-content/40 truncate">{{ result.author }}</p>
-          </div>
-        </button>
+            <div class="w-full px-0.5">
+              <p class="text-xs font-medium leading-tight line-clamp-2">{{ result.title }}</p>
+              <p v-if="result.author" class="text-[10px] text-base-content/40 truncate">{{ result.author }}</p>
+            </div>
+          </button>
+        </div>
+        <!-- Load more indicator -->
+        <div v-if="isLoadingMore || hasMore" class="py-3 flex items-center justify-center gap-2 text-xs text-base-content/40 border-t border-base-200">
+          <span v-if="isLoadingMore" class="loading loading-spinner loading-xs" />
+          <span v-else>Faites défiler pour en voir plus</span>
+        </div>
       </div>
 
       <p v-else-if="!searchLoading && query.length >= 2" class="text-sm text-center text-base-content/40 py-4">
@@ -197,9 +256,34 @@ const genres = ['shonen', 'shojo', 'seinen', 'josei', 'isekai', 'fantasy', 'acti
             <label class="label py-1"><span class="label-text text-xs font-medium">{{ t('manga.title') }} *</span></label>
             <input v-model="form.title" type="text" class="input input-bordered input-sm" required />
           </div>
-          <div class="form-control">
+          <!-- Edition combobox -->
+          <div class="form-control relative">
             <label class="label py-1"><span class="label-text text-xs font-medium">{{ t('manga.edition') }} *</span></label>
-            <input v-model="form.edition" type="text" class="input input-bordered input-sm" placeholder="Kana, Glénat…" required />
+            <input
+              v-model="editionInput"
+              type="text"
+              class="input input-bordered input-sm"
+              placeholder="Pika, Glénat, Kana…"
+              required
+              autocomplete="off"
+              @input="onEditionInput"
+              @focus="showEditionDropdown = true"
+              @blur="() => setTimeout(() => (showEditionDropdown = false), 150)"
+            />
+            <!-- Dropdown suggestions -->
+            <ul
+              v-if="showEditionDropdown && editionFiltered.length"
+              class="absolute top-full left-0 right-0 z-30 mt-0.5 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-40 overflow-y-auto text-sm"
+            >
+              <li
+                v-for="ed in editionFiltered"
+                :key="ed"
+                class="px-3 py-1.5 cursor-pointer hover:bg-primary hover:text-primary-content transition-colors"
+                @mousedown.prevent="selectEdition(ed)"
+              >
+                {{ ed }}
+              </li>
+            </ul>
           </div>
         </div>
 

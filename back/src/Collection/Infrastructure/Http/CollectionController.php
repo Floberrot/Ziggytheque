@@ -6,6 +6,7 @@ namespace App\Collection\Infrastructure\Http;
 
 use App\Collection\Application\Add\AddToCollectionCommand;
 use App\Collection\Application\AddRemainingToWishlist\AddRemainingToWishlistCommand;
+use App\Collection\Application\SyncVolumes\SyncVolumesCommand;
 use App\Collection\Application\Get\GetCollectionQuery;
 use App\Collection\Application\GetDetail\GetCollectionDetailQuery;
 use App\Collection\Application\PurchaseVolume\PurchaseVolumeCommand;
@@ -15,6 +16,7 @@ use App\Collection\Application\UpdateStatus\UpdateReadingStatusCommand;
 use App\Shared\Application\Bus\CommandBusInterface;
 use App\Shared\Application\Bus\QueryBusInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
@@ -87,6 +89,21 @@ final readonly class CollectionController
     public function purchaseVolume(string $id, string $volumeEntryId): JsonResponse
     {
         $this->commandBus->dispatch(new PurchaseVolumeCommand($id, $volumeEntryId));
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * Sync volume placeholders for ongoing manga.
+     * Body: { upToVolume: 30 } — creates missing Volume and VolumeEntry records up to that number.
+     */
+    #[Route('/{id}/sync-volumes', methods: ['POST'])]
+    public function syncVolumes(string $id, Request $request): JsonResponse
+    {
+        $body = json_decode($request->getContent(), true) ?? [];
+        $upToVolume = isset($body['upToVolume']) ? (int) $body['upToVolume'] : null;
+
+        $this->commandBus->dispatch(new SyncVolumesCommand($id, $upToVolume));
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }

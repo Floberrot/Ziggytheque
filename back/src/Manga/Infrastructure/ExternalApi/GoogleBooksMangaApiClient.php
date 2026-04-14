@@ -21,7 +21,7 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
     /**
      * @return ExternalMangaDto[]
      */
-    public function searchByTitle(string $query): array
+    public function searchByTitle(string $query, string $type = 'manga', int $page = 1): array
     {
         $response = $this->httpClient->request('GET', self::BASE_URL . '/volumes', [
             'query' => [

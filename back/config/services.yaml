@@ -45,6 +45,11 @@ services:
     App\Manga\Domain\ExternalApiClientInterface:
         alias: App\Manga\Infrastructure\ExternalApi\JikanMangaApiClient
 
+    # Google Books: kept separately for per-volume cover enrichment
+    App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient:
+        arguments:
+            $apiKey: '%env(GOOGLE_BOOKS_API_KEY)%'
+
     App\Collection\Domain\CollectionRepositoryInterface:
         alias: App\Collection\Infrastructure\Doctrine\DoctrineCollectionRepository
 

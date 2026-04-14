@@ -22,17 +22,23 @@ final readonly class JikanMangaApiClient implements ExternalApiClientInterface
     {
     }
 
+    private const RESULTS_PER_PAGE = 8;
+
     /** @return ExternalMangaDto[] */
-    public function searchByTitle(string $query): array
+    public function searchByTitle(string $query, string $type = 'manga', int $page = 1): array
     {
+        $allowedTypes = ['manga', 'manhwa', 'manhua', 'novel', 'lightnovel', 'oneshot', 'doujin'];
+        $safeType = in_array($type, $allowedTypes, true) ? $type : 'manga';
+
         $response = $this->httpClient->request('GET', self::BASE_URL . '/manga', [
             'query' => [
-                'q'      => $query,
-                'type'   => 'manga',
-                'sfw'    => 'true',
-                'limit'  => 20,
+                'q'        => $query,
+                'type'     => $safeType,
+                'sfw'      => 'true',
+                'limit'    => self::RESULTS_PER_PAGE,
+                'page'     => max(1, $page),
                 'order_by' => 'popularity',
-                'sort'   => 'asc',
+                'sort'     => 'asc',
             ],
         ]);
 

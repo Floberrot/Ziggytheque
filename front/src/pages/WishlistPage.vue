@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { getWishlist, clearWishlist, purchaseVolume } from '@/api/wishlist'
 import { useUiStore } from '@/stores/useUiStore'
@@ -20,6 +20,67 @@ function wishedVolumes(entry: WishlistEntry): VolumeEntry[] {
   return entry.volumes.filter((v) => v.isWished && !v.isOwned)
 }
 
+// ── Batch selection ──
+const batchMode = ref(false)
+const selectedVeIds = ref<Set<string>>(new Set())
+const isBatchProcessing = ref(false)
+
+// Map ve.id → collection entry id for batch purchase calls
+const veToEntry = computed(() => {
+  const map = new Map<string, string>()
+  entries.value?.forEach((entry) => {
+    entry.volumes.forEach((ve) => map.set(ve.id, entry.id))
+  })
+  return map
+})
+
+function toggleBatchMode() {
+  batchMode.value = !batchMode.value
+  if (!batchMode.value) selectedVeIds.value = new Set()
+}
+
+function toggleVolumeSelect(veId: string) {
+  const next = new Set(selectedVeIds.value)
+  if (next.has(veId)) next.delete(veId)
+  else next.add(veId)
+  selectedVeIds.value = next
+}
+
+function selectAllWished() {
+  const next = new Set<string>()
+  entries.value?.forEach((entry) => {
+    wishedVolumes(entry).forEach((v) => next.add(v.id))
+  })
+  selectedVeIds.value = next
+}
+
+function selectEntryWished(entry: WishlistEntry) {
+  const next = new Set(selectedVeIds.value)
+  wishedVolumes(entry).forEach((v) => next.add(v.id))
+  selectedVeIds.value = next
+}
+
+async function batchPurchase() {
+  if (selectedVeIds.value.size === 0) return
+  const count = selectedVeIds.value.size
+  const items = [...selectedVeIds.value]
+    .map((veId) => ({ veId, entryId: veToEntry.value.get(veId) }))
+    .filter((item): item is { veId: string; entryId: string } => !!item.entryId)
+
+  isBatchProcessing.value = true
+  try {
+    await Promise.all(items.map(({ entryId, veId }) => purchaseVolume(entryId, veId)))
+    await qc.invalidateQueries({ queryKey: ['wishlist'] })
+    await qc.invalidateQueries({ queryKey: ['collection'] })
+    await qc.invalidateQueries({ queryKey: ['stats'] })
+    selectedVeIds.value = new Set()
+    ui.addToast(`${count} tome${count > 1 ? 's' : ''} marqué${count > 1 ? 's' : ''} comme acheté${count > 1 ? 's' : ''}`, 'success')
+  } finally {
+    isBatchProcessing.value = false
+  }
+}
+
+// ── Single mutations ──
 const clearMutation = useMutation({
   mutationFn: (id: string) => clearWishlist(id),
   onSuccess: () => {
@@ -59,19 +120,40 @@ function goToDetail(id: string) {
             </template>
           </p>
         </div>
-        <RouterLink to="/add" class="btn btn-warning btn-sm gap-1.5 shadow">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
-          </svg>
-          Ajouter une série
-        </RouterLink>
+        <div class="flex gap-2">
+          <!-- Batch mode toggle -->
+          <button
+            v-if="entries?.length"
+            class="btn btn-sm gap-1.5"
+            :class="batchMode ? 'btn-primary' : 'btn-ghost'"
+            @click="toggleBatchMode"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+            </svg>
+            {{ batchMode ? 'Terminer' : 'Sélectionner' }}
+          </button>
+          <RouterLink to="/add" class="btn btn-warning btn-sm gap-1.5 shadow">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
+            </svg>
+            Ajouter
+          </RouterLink>
+        </div>
+      </div>
+
+      <!-- Batch quick-select row -->
+      <div v-if="batchMode" class="max-w-5xl mx-auto mt-3 flex flex-wrap gap-2 text-sm">
+        <span class="text-xs text-base-content/40 self-center">Sélectionner :</span>
+        <button class="btn btn-xs btn-ghost" @click="selectAllWished">Tous les tomes</button>
+        <button class="btn btn-xs btn-ghost text-base-content/30" @click="selectedVeIds = new Set()">Vider</button>
       </div>
     </div>
 
-    <div class="max-w-5xl mx-auto px-6 py-8 space-y-6">
+    <div class="max-w-5xl mx-auto px-6 py-8 space-y-5">
       <!-- Loading -->
       <div v-if="isPending" class="space-y-4">
-        <div v-for="i in 3" :key="i" class="h-48 rounded-2xl bg-base-200 animate-pulse" />
+        <div v-for="i in 3" :key="i" class="h-44 rounded-2xl bg-base-200 animate-pulse" />
       </div>
 
       <!-- Empty -->
@@ -83,151 +165,196 @@ function goToDetail(id: string) {
         </p>
       </div>
 
-      <!-- Oeuvre cards -->
+      <!-- Wishlist cards -->
       <div
+        v-for="(entry, idx) in entries"
         v-else
-        class="space-y-5"
+        :key="entry.id"
+        class="wishlist-card rounded-2xl bg-base-100 shadow-md ring-1 ring-warning/30 transition-all duration-300 hover:shadow-lg hover:ring-warning/50"
+        :style="{ animationDelay: `${idx * 60}ms` }"
       >
-        <div
-          v-for="(entry, idx) in entries"
-          :key="entry.id"
-          class="wishlist-card rounded-2xl bg-base-100 shadow-md ring-1 ring-warning/30 overflow-hidden transition-all duration-300 hover:shadow-lg hover:ring-warning/60"
-          :style="{ animationDelay: `${idx * 60}ms` }"
-        >
-          <div class="flex gap-0">
-            <!-- Cover sidebar -->
-            <div
-              class="shrink-0 w-24 sm:w-32 cursor-pointer relative overflow-hidden"
-              @click="goToDetail(entry.id)"
-            >
-              <img
-                v-if="entry.manga.coverUrl"
-                :src="entry.manga.coverUrl"
-                :alt="entry.manga.title"
-                class="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
-              />
-              <div v-else class="w-full h-full min-h-36 flex items-center justify-center bg-base-200 text-3xl text-base-content/20">
-                📚
+        <div class="flex min-h-[180px]">
+          <!-- Cover sidebar — fixed width, image fills height via flex stretch -->
+          <div
+            class="shrink-0 w-28 sm:w-36 relative cursor-pointer overflow-hidden rounded-l-2xl bg-base-200"
+            @click="goToDetail(entry.id)"
+          >
+            <img
+              v-if="entry.manga.coverUrl"
+              :src="entry.manga.coverUrl"
+              :alt="entry.manga.title"
+              class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+            />
+            <div v-else class="absolute inset-0 flex items-center justify-center text-3xl text-base-content/20">📚</div>
+            <!-- Wished count badge -->
+            <div class="absolute top-2 left-2 z-10">
+              <span class="badge badge-warning badge-sm font-bold shadow">⭐ {{ wishedVolumes(entry).length }}</span>
+            </div>
+          </div>
+
+          <!-- Content -->
+          <div class="flex-1 min-w-0 p-5 flex flex-col gap-3">
+            <!-- Title row -->
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <button
+                  class="text-left font-bold text-lg leading-tight hover:text-primary transition-colors line-clamp-2"
+                  @click="goToDetail(entry.id)"
+                >
+                  {{ entry.manga.title }}
+                </button>
+                <p class="text-sm text-base-content/50 mt-0.5 truncate">
+                  {{ entry.manga.edition }}<span v-if="entry.manga.author"> · {{ entry.manga.author }}</span>
+                </p>
               </div>
-              <!-- Wished badge -->
-              <div class="absolute top-2 left-2">
-                <span class="badge badge-warning badge-sm font-bold shadow">⭐ {{ wishedVolumes(entry).length }}</span>
+              <!-- Actions -->
+              <div class="flex gap-1.5 shrink-0 items-center">
+                <!-- Select all for this card (batch mode) -->
+                <button
+                  v-if="batchMode"
+                  class="btn btn-ghost btn-xs gap-1 text-xs"
+                  @click="selectEntryWished(entry)"
+                >
+                  Tout
+                </button>
+                <button
+                  class="btn btn-ghost btn-xs text-error"
+                  :class="{ loading: clearMutation.isPending.value }"
+                  title="Retirer de la liste de souhaits"
+                  @click="clearMutation.mutate(entry.id)"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
             </div>
 
-            <!-- Content -->
-            <div class="flex-1 min-w-0 p-4 space-y-3">
-              <!-- Title row -->
-              <div class="flex items-start justify-between gap-2">
-                <div class="min-w-0">
-                  <button
-                    class="text-left font-bold text-lg leading-tight hover:text-primary transition-colors line-clamp-2"
-                    @click="goToDetail(entry.id)"
-                  >
-                    {{ entry.manga.title }}
-                  </button>
-                  <p class="text-sm text-base-content/50 mt-0.5">
-                    {{ entry.manga.edition }}
-                    <span v-if="entry.manga.author" class="ml-1">· {{ entry.manga.author }}</span>
-                  </p>
-                </div>
-                <!-- Actions -->
-                <div class="flex gap-1.5 shrink-0">
-                  <button
-                    class="btn btn-ghost btn-xs text-error"
-                    :class="{ loading: clearMutation.isPending.value }"
-                    title="Retirer de la liste de souhaits"
-                    @click="clearMutation.mutate(entry.id)"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
+            <!-- Stats pills -->
+            <div class="flex items-center gap-3 text-sm">
+              <span class="flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-success inline-block" />
+                <span class="text-base-content/70"><span class="font-semibold text-success">{{ entry.ownedCount }}</span> possédé{{ entry.ownedCount !== 1 ? 's' : '' }}</span>
+              </span>
+              <span class="flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-warning inline-block" />
+                <span class="text-base-content/70"><span class="font-semibold text-warning">{{ wishedVolumes(entry).length }}</span> souhaité{{ wishedVolumes(entry).length !== 1 ? 's' : '' }}</span>
+              </span>
+              <span class="text-base-content/30">/ {{ entry.totalVolumes }} tomes</span>
+            </div>
 
-              <!-- Owned vs wished summary -->
-              <div class="flex items-center gap-3 text-sm">
-                <span class="flex items-center gap-1">
-                  <span class="w-2 h-2 rounded-full bg-success inline-block" />
-                  <span class="text-base-content/70"><span class="font-semibold text-success">{{ entry.ownedCount }}</span> possédé{{ entry.ownedCount !== 1 ? 's' : '' }}</span>
-                </span>
-                <span class="flex items-center gap-1">
-                  <span class="w-2 h-2 rounded-full bg-warning inline-block" />
-                  <span class="text-base-content/70"><span class="font-semibold text-warning">{{ wishedVolumes(entry).length }}</span> souhaité{{ wishedVolumes(entry).length !== 1 ? 's' : '' }}</span>
-                </span>
-                <span class="text-base-content/30">/ {{ entry.totalVolumes }} tomes</span>
-              </div>
-
-              <!-- Wished volumes scroll -->
-              <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            <!-- Volume chips row — horizontal scroll -->
+            <!-- py-3 gives room for scale transforms (overflow-x:auto clips y otherwise) -->
+            <div class="overflow-x-auto py-3 -mx-1">
+              <div class="flex gap-2.5 flex-nowrap px-1">
                 <div
                   v-for="ve in wishedVolumes(entry).sort((a, b) => a.number - b.number)"
                   :key="ve.id"
-                  class="volume-chip group relative shrink-0 cursor-pointer"
-                  :title="`Tome ${ve.number} — Marquer comme acheté`"
+                  class="shrink-0 cursor-pointer"
+                  :title="batchMode ? `Tome ${ve.number} — Sélectionner` : `Tome ${ve.number} — Marquer acheté`"
+                  @click="batchMode ? toggleVolumeSelect(ve.id) : purchaseMutation.mutate({ entryId: entry.id, veId: ve.id })"
                 >
-                  <!-- Cover thumbnail or number -->
-                  <div class="w-10 h-14 rounded-lg overflow-hidden ring-2 ring-warning/60 bg-base-200 relative transition-all duration-150 group-hover:ring-success group-hover:scale-105">
+                  <div
+                    class="w-14 h-20 rounded-xl overflow-hidden ring-2 bg-base-200 relative transition-all duration-150"
+                    :class="batchMode && selectedVeIds.has(ve.id)
+                      ? 'ring-primary ring-offset-2 ring-offset-base-100 scale-105 shadow-lg'
+                      : batchMode
+                        ? 'ring-base-300/50 hover:ring-primary/50 hover:scale-105'
+                        : 'ring-warning/60 hover:ring-success hover:scale-110 hover:shadow-md hover:z-10'"
+                  >
                     <img
                       v-if="ve.coverUrl"
                       :src="ve.coverUrl"
                       :alt="`Tome ${ve.number}`"
                       class="w-full h-full object-cover"
                     />
-                    <div v-else class="w-full h-full flex items-center justify-center text-xs font-bold text-base-content/60">
+                    <div v-else class="w-full h-full flex items-center justify-center text-sm font-bold text-base-content/50">
                       {{ ve.number }}
                     </div>
-                    <!-- Purchase overlay on hover -->
-                    <button
-                      class="absolute inset-0 bg-success/90 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-success-content"
-                      :class="{ 'opacity-100': purchaseMutation.isPending.value }"
-                      @click.stop="purchaseMutation.mutate({ entryId: entry.id, veId: ve.id })"
+
+                    <!-- Selected overlay (batch mode) -->
+                    <div
+                      v-if="batchMode"
+                      class="absolute inset-0 flex items-center justify-center transition-all duration-150"
+                      :class="selectedVeIds.has(ve.id) ? 'bg-primary/80' : 'bg-transparent hover:bg-base-content/10'"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg v-if="selectedVeIds.has(ve.id)" class="w-6 h-6 text-white drop-shadow" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                      </svg>
+                    </div>
+
+                    <!-- Purchase overlay (normal mode hover) -->
+                    <div
+                      v-else
+                      class="absolute inset-0 bg-success/90 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center text-success-content"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
                       </svg>
-                    </button>
+                    </div>
                   </div>
-                  <div class="text-center text-[10px] mt-0.5 text-warning/80 tabular-nums font-medium">
+                  <div
+                    class="text-center text-[11px] mt-1 tabular-nums font-medium leading-none"
+                    :class="batchMode && selectedVeIds.has(ve.id) ? 'text-primary font-bold' : 'text-warning/70'"
+                  >
                     T{{ ve.number }}
                   </div>
                 </div>
 
                 <!-- View all CTA -->
-                <button
-                  class="shrink-0 w-10 flex flex-col items-center justify-center gap-1 text-base-content/30 hover:text-primary transition-colors"
-                  @click="goToDetail(entry.id)"
-                >
-                  <div class="w-10 h-14 rounded-lg border-2 border-dashed border-base-300 hover:border-primary flex items-center justify-center transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div class="shrink-0 cursor-pointer" @click="goToDetail(entry.id)">
+                  <div class="w-14 h-20 rounded-xl border-2 border-dashed border-base-300 hover:border-primary flex items-center justify-center transition-colors text-base-content/30 hover:text-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                     </svg>
                   </div>
-                  <span class="text-[9px]">tout voir</span>
-                </button>
+                  <div class="text-center text-[10px] mt-1 text-base-content/25 leading-none">voir tout</div>
+                </div>
               </div>
-
-              <!-- Tip: click volume to mark as purchased -->
-              <p class="text-[10px] text-base-content/25 italic">
-                Survolez un tome pour le marquer comme acheté
-              </p>
             </div>
+
+            <!-- Hint text -->
+            <p class="text-[10px] text-base-content/25 italic leading-tight">
+              {{ batchMode ? 'Cliquez sur les tomes pour les sélectionner' : 'Survolez un tome pour le marquer comme acheté' }}
+            </p>
           </div>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- ── Batch Purchase Action Bar ── -->
+  <Teleport to="body">
+    <Transition name="slide-up">
+      <div
+        v-if="batchMode && selectedVeIds.size > 0"
+        class="fixed bottom-0 left-0 right-0 z-50 bg-base-100/95 backdrop-blur-sm border-t-2 border-warning/40 shadow-2xl"
+      >
+        <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3 flex-wrap">
+          <span class="badge badge-warning badge-lg shrink-0">
+            {{ selectedVeIds.size }} tome{{ selectedVeIds.size > 1 ? 's' : '' }}
+          </span>
+          <div class="flex-1" />
+          <button
+            class="btn btn-success btn-sm gap-1.5"
+            :disabled="isBatchProcessing"
+            :class="{ loading: isBatchProcessing }"
+            @click="batchPurchase"
+          >
+            🛒 Marquer acheté{{ selectedVeIds.size > 1 ? 's' : '' }}
+          </button>
+          <button class="btn btn-ghost btn-sm shrink-0" @click="selectedVeIds = new Set()">
+            Vider
+          </button>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
 .wishlist-card {
   animation: fadeSlideUp 0.4s ease-out both;
-}
-
-.scrollbar-thin {
-  scrollbar-width: thin;
-  scrollbar-color: oklch(var(--wa) / 0.3) transparent;
 }
 
 @keyframes fadeSlideUp {
@@ -239,5 +366,15 @@ function goToDetail(id: string) {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: transform 0.25s ease, opacity 0.2s ease;
+}
+.slide-up-enter-from,
+.slide-up-leave-to {
+  transform: translateY(100%);
+  opacity: 0;
 }
 </style>
