@@ -19,6 +19,8 @@ export async function importManga(payload: {
   summary?: string
   coverUrl?: string
   genre?: string
+  externalId?: string
+  totalVolumes?: number
 }): Promise<{ id: string }> {
   const res = await client.post('/manga', payload)
   return res.data

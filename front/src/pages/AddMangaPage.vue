@@ -27,6 +27,8 @@ const form = ref({
   summary: '',
   coverUrl: '',
   genre: '',
+  totalVolumes: '' as string | number,
+  externalId: '',
 })
 
 const coverPreview = computed(() => form.value.coverUrl || null)
@@ -40,6 +42,8 @@ function applyResult(result: ExternalMangaResult): void {
     summary: result.summary ?? '',
     coverUrl: result.coverUrl ?? '',
     genre: result.genre ?? '',
+    totalVolumes: result.totalVolumes ?? '',
+    externalId: result.externalId ?? '',
   }
   clearSearch()
   step.value = 2
@@ -60,6 +64,8 @@ const importMutation = useMutation({
       summary: form.value.summary || undefined,
       coverUrl: form.value.coverUrl || undefined,
       genre: form.value.genre || undefined,
+      externalId: form.value.externalId || undefined,
+      totalVolumes: form.value.totalVolumes !== '' ? Number(form.value.totalVolumes) : undefined,
     }),
   onSuccess: async (data) => {
     // Always add to collection first (creates the oeuvre tracker with all volumes)
@@ -135,7 +141,7 @@ const genres = ['shonen', 'shojo', 'seinen', 'josei', 'isekai', 'fantasy', 'acti
           class="group flex flex-col items-center gap-1.5 text-left"
           @click="applyResult(result)"
         >
-          <div class="w-full aspect-[2/3] rounded-xl overflow-hidden bg-base-200 shadow group-hover:shadow-lg group-hover:scale-105 transition-all duration-150 ring-2 ring-transparent group-hover:ring-primary">
+          <div class="w-full aspect-[2/3] relative rounded-xl overflow-hidden bg-base-200 shadow group-hover:shadow-lg group-hover:scale-105 transition-all duration-150 ring-2 ring-transparent group-hover:ring-primary">
             <img
               v-if="result.coverUrl"
               :src="result.coverUrl"
@@ -143,10 +149,14 @@ const genres = ['shonen', 'shojo', 'seinen', 'josei', 'isekai', 'fantasy', 'acti
               class="w-full h-full object-cover"
             />
             <div v-else class="w-full h-full flex items-center justify-center text-3xl opacity-30">📚</div>
+            <!-- Volume count badge -->
+            <div v-if="result.totalVolumes" class="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+              {{ result.totalVolumes }}T
+            </div>
           </div>
           <div class="w-full px-0.5">
             <p class="text-xs font-medium leading-tight line-clamp-2">{{ result.title }}</p>
-            <p v-if="result.edition" class="text-xs text-base-content/40 truncate">{{ result.edition }}</p>
+            <p v-if="result.author" class="text-[10px] text-base-content/40 truncate">{{ result.author }}</p>
           </div>
         </button>
       </div>
@@ -222,9 +232,29 @@ const genres = ['shonen', 'shojo', 'seinen', 'josei', 'isekai', 'fantasy', 'acti
           </div>
         </div>
 
-        <div class="form-control">
-          <label class="label py-1"><span class="label-text text-xs font-medium">{{ t('manga.summary') }}</span></label>
-          <textarea v-model="form.summary" class="textarea textarea-bordered textarea-sm resize-none" rows="3" />
+        <!-- Total volumes + summary row -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="form-control sm:col-span-2">
+            <label class="label py-1"><span class="label-text text-xs font-medium">{{ t('manga.summary') }}</span></label>
+            <textarea v-model="form.summary" class="textarea textarea-bordered textarea-sm resize-none" rows="3" />
+          </div>
+          <div class="form-control">
+            <label class="label py-1">
+              <span class="label-text text-xs font-medium">{{ t('manga.totalVolumes') }}</span>
+              <span class="label-text-alt text-base-content/30">optionnel</span>
+            </label>
+            <input
+              v-model="form.totalVolumes"
+              type="number"
+              min="0"
+              max="9999"
+              class="input input-bordered input-sm"
+              placeholder="ex: 25"
+            />
+            <label class="label py-0.5">
+              <span class="label-text-alt text-base-content/30">Pré-remplit les {{ form.totalVolumes || '?' }} tomes</span>
+            </label>
+          </div>
         </div>
 
         <button

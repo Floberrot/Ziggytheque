@@ -23,6 +23,8 @@ final readonly class ImportMangaRequest
         public ?string $coverUrl = null,
         public ?string $genre = null,
         public ?string $externalId = null,
+        #[Assert\PositiveOrZero]
+        public ?int $totalVolumes = null,
     ) {
     }
 }

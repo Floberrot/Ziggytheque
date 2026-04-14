@@ -57,7 +57,8 @@
     "author": "Auteur",
     "genre": "Genre",
     "coverUrl": "URL de couverture",
-    "summary": "Résumé"
+    "summary": "Résumé",
+    "totalVolumes": "Nombre de tomes"
   },
   "priceCodes": {
     "title": "Codes prix",

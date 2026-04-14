@@ -60,6 +60,7 @@ final readonly class MangaController
             coverUrl: $request->coverUrl,
             genre: $request->genre,
             externalId: $request->externalId,
+            totalVolumes: $request->totalVolumes,
         ));
 
         return new JsonResponse(['id' => $id], Response::HTTP_CREATED);
