@@ -15,6 +15,7 @@ final readonly class ImportMangaCommand
         public ?string $coverUrl = null,
         public ?string $genre = null,
         public ?string $externalId = null,
+        public ?int $totalVolumes = null,
     ) {
     }
 }

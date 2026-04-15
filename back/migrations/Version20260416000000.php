@@ -1,0 +1,172 @@
+<?php
+
+declare(strict_types=1);
+
+namespace DoctrineMigrations;
+
+use Doctrine\DBAL\Schema\Schema;
+use Doctrine\Migrations\AbstractMigration;
+
+final class Version20260416000000 extends AbstractMigration
+{
+    public function getDescription(): string
+    {
+        return 'Squashed initial schema';
+    }
+
+    public function up(Schema $schema): void
+    {
+        $this->addSql(<<<'SQL'
+            CREATE TABLE price_codes (
+                code       VARCHAR(20)   NOT NULL,
+                label      VARCHAR(100)  NOT NULL,
+                value      NUMERIC(10,2) NOT NULL,
+                created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+                PRIMARY KEY (code)
+            )
+        SQL);
+
+        $this->addSql(<<<'SQL'
+            CREATE TABLE mangas (
+                id          VARCHAR(36)  NOT NULL,
+                title       VARCHAR(255) NOT NULL,
+                edition     VARCHAR(100) NOT NULL,
+                language    VARCHAR(10)  NOT NULL,
+                author      VARCHAR(255) DEFAULT NULL,
+                summary     TEXT         DEFAULT NULL,
+                cover_url   VARCHAR(255) DEFAULT NULL,
+                genre       VARCHAR(255) DEFAULT NULL,
+                external_id VARCHAR(255) DEFAULT NULL,
+                created_at  TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+                PRIMARY KEY (id)
+            )
+        SQL);
+
+        $this->addSql(<<<'SQL'
+            CREATE TABLE volumes (
+                id           VARCHAR(36)  NOT NULL,
+                manga_id     VARCHAR(36)  NOT NULL,
+                price_code   VARCHAR(20)  DEFAULT NULL,
+                number       INT          NOT NULL,
+                cover_url    VARCHAR(255) DEFAULT NULL,
+                release_date TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
+                PRIMARY KEY (id),
+                CONSTRAINT fk_volumes_manga
+                    FOREIGN KEY (manga_id) REFERENCES mangas(id) ON DELETE CASCADE,
+                CONSTRAINT fk_volumes_price_code
+                    FOREIGN KEY (price_code) REFERENCES price_codes(code) ON DELETE SET NULL,
+                CONSTRAINT UNIQ_7ADCAA157B646196901F54 UNIQUE (manga_id, number)
+            )
+        SQL);
+
+        $this->addSql(<<<'SQL'
+            CREATE TABLE collection_entries (
+                id             VARCHAR(36)  NOT NULL,
+                manga_id       VARCHAR(36)  NOT NULL,
+                reading_status VARCHAR(255) NOT NULL,
+                review         TEXT         DEFAULT NULL,
+                rating         INT          DEFAULT NULL,
+                added_at       TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+                PRIMARY KEY (id),
+                CONSTRAINT fk_collection_manga
+                    FOREIGN KEY (manga_id) REFERENCES mangas(id) ON DELETE CASCADE,
+                CONSTRAINT UNIQ_79D4C1147B6461 UNIQUE (manga_id)
+            )
+        SQL);
+
+        $this->addSql(<<<'SQL'
+            CREATE TABLE volume_entries (
+                id                  VARCHAR(36) NOT NULL,
+                collection_entry_id VARCHAR(36) NOT NULL,
+                volume_id           VARCHAR(36) NOT NULL,
+                is_owned            BOOLEAN     NOT NULL,
+                is_read             BOOLEAN     NOT NULL,
+                is_wished           BOOLEAN     NOT NULL,
+                review              TEXT        DEFAULT NULL,
+                rating              INT         DEFAULT NULL,
+                PRIMARY KEY (id),
+                CONSTRAINT fk_volume_entry_collection
+                    FOREIGN KEY (collection_entry_id) REFERENCES collection_entries(id) ON DELETE CASCADE,
+                CONSTRAINT fk_volume_entry_volume
+                    FOREIGN KEY (volume_id) REFERENCES volumes(id) ON DELETE CASCADE,
+                CONSTRAINT UNIQ_46C7979D4BB687728FD80EEA UNIQUE (collection_entry_id, volume_id)
+            )
+        SQL);
+
+        $this->addSql(<<<'SQL'
+            CREATE TABLE wishlist_items (
+                id           VARCHAR(36) NOT NULL,
+                manga_id     VARCHAR(36) NOT NULL,
+                is_purchased BOOLEAN     NOT NULL,
+                added_at     TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+                PRIMARY KEY (id),
+                CONSTRAINT fk_wishlist_manga
+                    FOREIGN KEY (manga_id) REFERENCES mangas(id) ON DELETE CASCADE
+            )
+        SQL);
+
+        $this->addSql(<<<'SQL'
+            CREATE TABLE notifications (
+                id         VARCHAR(36) NOT NULL,
+                type       VARCHAR(50) NOT NULL,
+                message    TEXT        NOT NULL,
+                is_read    BOOLEAN     NOT NULL,
+                created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+                PRIMARY KEY (id)
+            )
+        SQL);
+
+        $this->addSql(<<<'SQL'
+            CREATE TABLE messenger_messages (
+                id           BIGINT GENERATED BY DEFAULT AS IDENTITY NOT NULL,
+                body         TEXT         NOT NULL,
+                headers      TEXT         NOT NULL,
+                queue_name   VARCHAR(190) NOT NULL,
+                created_at   TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+                available_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+                delivered_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
+                PRIMARY KEY (id)
+            )
+        SQL);
+
+        $this->addSql(<<<'SQL'
+            CREATE TABLE processed_messages (
+                id              INT GENERATED BY DEFAULT AS IDENTITY NOT NULL,
+                run_id          INT          NOT NULL,
+                attempt         SMALLINT     NOT NULL,
+                message_type    VARCHAR(255) NOT NULL,
+                description     VARCHAR(255) DEFAULT NULL,
+                dispatched_at   TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+                received_at     TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+                finished_at     TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+                wait_time       BIGINT       NOT NULL,
+                handle_time     BIGINT       NOT NULL,
+                memory_usage    BIGINT       NOT NULL,
+                transport       VARCHAR(255) NOT NULL,
+                tags            VARCHAR(255) DEFAULT NULL,
+                failure_type    VARCHAR(255) DEFAULT NULL,
+                failure_message TEXT         DEFAULT NULL,
+                results         JSON         DEFAULT NULL,
+                PRIMARY KEY (id)
+            )
+        SQL);
+
+        $this->addSql('CREATE INDEX IDX_7ADCAA157B6461 ON volumes (manga_id)');
+        $this->addSql('CREATE INDEX IDX_46C7979D4BB68772 ON volume_entries (collection_entry_id)');
+        $this->addSql('CREATE INDEX IDX_B5BB81B57B6461 ON wishlist_items (manga_id)');
+        $this->addSql('CREATE INDEX IDX_75EA56E0FB7336F0E3BD61CE16BA31DBBF396750 ON messenger_messages (queue_name, available_at, delivered_at, id)');
+    }
+
+    public function down(Schema $schema): void
+    {
+        $this->addSql('DROP TABLE processed_messages');
+        $this->addSql('DROP TABLE messenger_messages');
+        $this->addSql('DROP TABLE notifications');
+        $this->addSql('DROP TABLE wishlist_items');
+        $this->addSql('DROP TABLE volume_entries');
+        $this->addSql('DROP TABLE collection_entries');
+        $this->addSql('DROP TABLE volumes');
+        $this->addSql('DROP TABLE mangas');
+        $this->addSql('DROP TABLE price_codes');
+    }
+}
