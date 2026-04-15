@@ -28,7 +28,7 @@ final readonly class SearchExternalMangaHandler
                 'language' => $dto->language,
                 'totalVolumes' => $dto->totalVolumes,
             ],
-            $this->client->searchByTitle($query->query),
+            $this->client->searchByTitle($query->query, $query->type, $query->page),
         );
     }
 }

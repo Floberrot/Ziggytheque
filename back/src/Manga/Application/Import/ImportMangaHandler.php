@@ -7,6 +7,7 @@ namespace App\Manga\Application\Import;
 use App\Manga\Domain\GenreEnum;
 use App\Manga\Domain\Manga;
 use App\Manga\Domain\MangaRepositoryInterface;
+use App\Manga\Domain\Volume;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Uid\Uuid;
 
@@ -30,6 +31,17 @@ final readonly class ImportMangaHandler
             genre: $command->genre !== null ? GenreEnum::from($command->genre) : null,
             externalId: $command->externalId,
         );
+
+        // Auto-create volume placeholders when total is known from external API
+        if ($command->totalVolumes !== null && $command->totalVolumes > 0) {
+            for ($n = 1; $n <= $command->totalVolumes; $n++) {
+                $manga->addVolume(new Volume(
+                    id: Uuid::v4()->toRfc4122(),
+                    manga: $manga,
+                    number: $n,
+                ));
+            }
+        }
 
         $this->repository->save($manga);
 

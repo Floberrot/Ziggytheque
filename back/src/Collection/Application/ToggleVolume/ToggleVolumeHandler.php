@@ -34,8 +34,13 @@ final readonly class ToggleVolumeHandler
 
         if ($command->field === 'isOwned') {
             $volumeEntry->isOwned = !$volumeEntry->isOwned;
+            if ($volumeEntry->isOwned) {
+                $volumeEntry->isWished = false;
+            }
         } elseif ($command->field === 'isRead') {
             $volumeEntry->isRead = !$volumeEntry->isRead;
+        } elseif ($command->field === 'isWished') {
+            $volumeEntry->isWished = !$volumeEntry->isWished;
         }
 
         $this->repository->save($entry);

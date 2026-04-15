@@ -1,4 +1,8 @@
 security:
+    password_hashers:
+        App\Auth\Infrastructure\Http\MonitorUser:
+            algorithm: plaintext
+
     providers:
         gate_provider:
             id: App\Auth\Infrastructure\Http\GateUserProvider

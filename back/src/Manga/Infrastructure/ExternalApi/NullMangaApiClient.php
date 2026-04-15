@@ -13,7 +13,7 @@ use App\Manga\Domain\ExternalMangaDto;
  */
 final class NullMangaApiClient implements ExternalApiClientInterface
 {
-    public function searchByTitle(string $query): array
+    public function searchByTitle(string $query, string $type = 'manga', int $page = 1): array
     {
         return [];
     }

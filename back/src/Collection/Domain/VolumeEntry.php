@@ -26,6 +26,8 @@ class VolumeEntry
         public bool $isOwned = false,
         #[ORM\Column]
         public bool $isRead = false,
+        #[ORM\Column]
+        public bool $isWished = false,
         #[ORM\Column(type: 'text', nullable: true)]
         public ?string $review = null,
         #[ORM\Column(nullable: true)]
@@ -43,6 +45,7 @@ class VolumeEntry
             'priceCode' => $this->volume->priceCode?->toArray(),
             'isOwned' => $this->isOwned,
             'isRead' => $this->isRead,
+            'isWished' => $this->isWished,
             'review' => $this->review,
             'rating' => $this->rating,
         ];
