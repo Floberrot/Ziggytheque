@@ -14,6 +14,7 @@ final readonly class GetWishlistHandler
     {
     }
 
+    /** @return array<int, array<string, mixed>> */
     public function __invoke(GetWishlistQuery $query): array
     {
         return array_map(

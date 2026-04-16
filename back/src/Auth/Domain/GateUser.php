@@ -8,6 +8,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
 
 final class GateUser implements UserInterface
 {
+    /** @phpstan-param non-empty-string $identifier */
     public function __construct(public readonly string $identifier = 'gate')
     {
     }
@@ -21,6 +22,7 @@ final class GateUser implements UserInterface
     {
     }
 
+    /** @return non-empty-string */
     public function getUserIdentifier(): string
     {
         return $this->identifier;

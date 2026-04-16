@@ -14,6 +14,7 @@ final readonly class GetCollectionHandler
     {
     }
 
+    /** @return array<int, array<string, mixed>> */
     public function __invoke(GetCollectionQuery $query): array
     {
         return array_map(

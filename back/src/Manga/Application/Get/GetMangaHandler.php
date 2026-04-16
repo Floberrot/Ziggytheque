@@ -15,6 +15,7 @@ final readonly class GetMangaHandler
     {
     }
 
+    /** @return array<string, mixed> */
     public function __invoke(GetMangaQuery $query): array
     {
         $manga = $this->repository->findById($query->id);

@@ -19,6 +19,7 @@ final readonly class SearchVolumeExternalHandler
     {
     }
 
+    /** @return array<int, array<string, mixed>> */
     public function __invoke(SearchVolumeExternalQuery $query): array
     {
         $results = $this->googleBooks->searchByTitle($query->search);

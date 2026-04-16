@@ -14,6 +14,7 @@ final readonly class SearchMangaHandler
     {
     }
 
+    /** @return array<int, array<string, mixed>> */
     public function __invoke(SearchMangaQuery $query): array
     {
         return array_map(
