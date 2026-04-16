@@ -1,0 +1,66 @@
+name: Database
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+defaults:
+  run:
+    working-directory: back
+
+env:
+  DATABASE_URL: postgresql://ziggy:ziggy@127.0.0.1:5432/ziggytheque?serverVersion=17&charset=utf8
+  APP_SECRET: ci-secret-not-used
+  JWT_PASSPHRASE: ${{ secrets.JWT_PASSPHRASE || 'ci-jwt-passphrase' }}
+
+jobs:
+  migrations:
+    name: Database migrations
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ziggy
+          POSTGRES_PASSWORD: ziggy
+          POSTGRES_DB: ziggytheque
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql, intl
+          tools: composer
+          coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: back/vendor
+          key: composer-${{ hashFiles('back/composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Generate JWT keys
+        run: |
+          mkdir -p config/jwt
+          openssl genrsa -passout pass:${JWT_PASSPHRASE} -out config/jwt/private.pem 4096
+          openssl rsa -pubout -passin pass:${JWT_PASSPHRASE} -in config/jwt/private.pem -out config/jwt/public.pem
+
+      - name: Run migrations
+        run: php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+
+      - name: Validate schema
+        run: php bin/console doctrine:schema:validate

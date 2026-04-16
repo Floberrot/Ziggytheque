@@ -14,6 +14,7 @@ final readonly class SearchExternalMangaHandler
     {
     }
 
+    /** @return array<int, array<string, mixed>> */
     public function __invoke(SearchExternalMangaQuery $query): array
     {
         return array_map(

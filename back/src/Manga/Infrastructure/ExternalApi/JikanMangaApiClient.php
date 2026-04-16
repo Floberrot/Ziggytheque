@@ -67,6 +67,7 @@ final readonly class JikanMangaApiClient implements ExternalApiClientInterface
         return $this->mapToDto($data['data']);
     }
 
+    /** @param array<string, mixed> $item */
     private function mapToDto(array $item): ?ExternalMangaDto
     {
         $malId = $item['mal_id'] ?? null;
@@ -111,7 +112,7 @@ final readonly class JikanMangaApiClient implements ExternalApiClientInterface
         );
     }
 
-    /** @param array<array{person: array{name: string}}> $authors */
+    /** @param array<array{person: array{name?: string}}> $authors */
     private function extractAuthor(array $authors): ?string
     {
         if (empty($authors)) {
@@ -128,6 +129,10 @@ final readonly class JikanMangaApiClient implements ExternalApiClientInterface
         return !empty($names) ? implode(', ', $names) : null;
     }
 
+    /**
+     * @param array<array{name?: string}> $genres
+     * @param array<array{name?: string}> $themes
+     */
     private function extractGenre(array $genres, array $themes): ?string
     {
         $all = array_merge($genres, $themes);

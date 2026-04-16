@@ -27,6 +27,7 @@ class WishlistItem
         $this->addedAt = new \DateTimeImmutable();
     }
 
+    /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [

@@ -9,6 +9,10 @@ use Symfony\Component\Security\Core\User\UserInterface;
 
 final class MonitorUser implements UserInterface, PasswordAuthenticatedUserInterface
 {
+    /**
+     * @phpstan-param non-empty-string $username
+     * @phpstan-param non-empty-string $password
+     */
     public function __construct(
         private readonly string $username,
         private readonly string $password,
@@ -24,6 +28,7 @@ final class MonitorUser implements UserInterface, PasswordAuthenticatedUserInter
     {
     }
 
+    /** @return non-empty-string */
     public function getUserIdentifier(): string
     {
         return $this->username;
