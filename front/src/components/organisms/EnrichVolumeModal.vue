@@ -27,8 +27,11 @@ const isSearching = ref(false)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 let skipNextSearch = false
 
-watch(() => [props.open, props.volume] as const, ([open, vol]) => {
-  if (open && vol) {
+watch(() => [props.open, props.volume] as const, ([open, vol], prev) => {
+  const wasOpen = prev?.[0] ?? false
+  const justOpened = open && !wasOpen
+
+  if (justOpened && vol) {
     if (vol.coverUrl) skipNextSearch = true
     searchQuery.value = `${props.mangaTitle} tome ${vol.number} ${props.mangaEdition}`.trim()
     if (!vol.coverUrl) {
@@ -78,11 +81,16 @@ const enrichMutation = useMutation({
 const toggleMutation = useMutation({
   mutationFn: ({ field }: { field: 'isOwned' | 'isRead' | 'isWished' }) =>
     toggleVolume(props.collectionEntryId, props.volume!.id, field),
-  onSuccess: () => {
+  onSuccess: (_, { field }) => {
     qc.invalidateQueries({ queryKey: ['collection', props.collectionEntryId] })
     qc.invalidateQueries({ queryKey: ['collection'] })
     qc.invalidateQueries({ queryKey: ['wishlist'] })
     qc.invalidateQueries({ queryKey: ['stats'] })
+    if (field === 'isOwned') {
+      ui.addToast(props.volume?.isOwned ? 'Tome retiré de la collection' : 'Tome marqué comme possédé', 'success')
+    } else if (field === 'isWished') {
+      ui.addToast(props.volume?.isWished ? 'Retiré de la wishlist' : 'Ajouté à la wishlist', 'success')
+    }
   },
 })
 
