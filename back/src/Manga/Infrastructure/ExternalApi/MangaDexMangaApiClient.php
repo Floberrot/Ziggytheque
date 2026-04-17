@@ -32,8 +32,8 @@ final readonly class MangaDexMangaApiClient implements ExternalApiClientInterfac
                     'title' => $query,
                     'limit' => 20,
                     'offset' => ($page - 1) * 20,
-                    'contentRating' => 'safe,suggestive,erotica,pornographic',
-                    'includes' => 'cover_art,author',
+                    'contentRating' => ['safe', 'suggestive', 'erotica', 'pornographic'],
+                    'includes' => ['cover_art', 'author'],
                 ],
             ]);
 
@@ -66,7 +66,7 @@ final readonly class MangaDexMangaApiClient implements ExternalApiClientInterfac
         try {
             $response = $this->httpClient->request('GET', self::BASE_URL . '/manga/' . $externalId, [
                 'query' => [
-                    'includes' => 'cover_art,author',
+                    'includes' => ['cover_art', 'author'],
                 ],
             ]);
 
