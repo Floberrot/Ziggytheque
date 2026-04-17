@@ -6,6 +6,7 @@ namespace App\Collection\Infrastructure\Doctrine;
 
 use App\Collection\Domain\CollectionEntry;
 use App\Collection\Domain\CollectionRepositoryInterface;
+use App\Collection\Domain\VolumeEntry;
 use Doctrine\ORM\EntityManagerInterface;
 
 final readonly class DoctrineCollectionRepository implements CollectionRepositoryInterface
@@ -29,6 +30,19 @@ final readonly class DoctrineCollectionRepository implements CollectionRepositor
     {
         return $this->em->getRepository(CollectionEntry::class)
             ->findBy([], ['addedAt' => 'DESC']);
+    }
+
+    public function findWithWishedVolumes(): array
+    {
+        return $this->em->createQueryBuilder()
+            ->select('DISTINCT c')
+            ->from(CollectionEntry::class, 'c')
+            ->join('c.volumeEntries', 've')
+            ->where('ve.isWished = true')
+            ->andWhere('ve.isOwned = false')
+            ->orderBy('c.addedAt', 'DESC')
+            ->getQuery()
+            ->getResult();
     }
 
     public function save(CollectionEntry $entry): void

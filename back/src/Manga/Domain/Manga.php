@@ -12,7 +12,13 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'mangas')]
 class Manga
 {
-    #[ORM\OneToMany(targetEntity: Volume::class, mappedBy: 'manga', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    /** @var Collection<int, Volume> */
+    #[ORM\OneToMany(
+        targetEntity: Volume::class,
+        mappedBy: 'manga',
+        cascade: ['persist', 'remove'],
+        orphanRemoval: true,
+    )]
     #[ORM\OrderBy(['number' => 'ASC'])]
     public Collection $volumes;
 
@@ -51,6 +57,7 @@ class Manga
         }
     }
 
+    /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [
@@ -68,6 +75,7 @@ class Manga
         ];
     }
 
+    /** @return array<string, mixed> */
     public function toDetailArray(): array
     {
         return array_merge($this->toArray(), [

@@ -6,6 +6,7 @@ namespace App\Manga\Infrastructure\ExternalApi;
 
 use App\Manga\Domain\ExternalApiClientInterface;
 use App\Manga\Domain\ExternalMangaDto;
+use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInterface
@@ -15,48 +16,73 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
     public function __construct(
         private HttpClientInterface $httpClient,
         private string $apiKey,
+        private LoggerInterface $logger,
     ) {
     }
 
     /**
      * @return ExternalMangaDto[]
      */
-    public function searchByTitle(string $query): array
+    public function searchByTitle(string $query, string $type = 'manga', int $page = 1): array
     {
-        $response = $this->httpClient->request('GET', self::BASE_URL . '/volumes', [
-            'query' => [
-                'q' => $query . '+manga',
-                'langRestrict' => 'fr',
-                'printType' => 'books',
-                'maxResults' => 20,
-                'orderBy' => 'relevance',
-                'key' => $this->apiKey,
-            ],
-        ]);
+        $this->logger->info('GoogleBooks: searching', ['query' => $query, 'type' => $type, 'page' => $page]);
 
-        $data = $response->toArray();
+        try {
+            $response = $this->httpClient->request('GET', self::BASE_URL . '/volumes', [
+                'query' => [
+                    'q' => $query . '+manga',
+                    'langRestrict' => 'fr',
+                    'printType' => 'books',
+                    'maxResults' => 20,
+                    'startIndex' => ($page - 1) * 20,
+                    'orderBy' => 'relevance',
+                    'key' => $this->apiKey,
+                ],
+            ]);
 
-        if (empty($data['items'])) {
-            return [];
+            $data = $response->toArray();
+            $this->logger->info('GoogleBooks: received response', ['items_count' => count($data['items'] ?? [])]);
+
+            if (empty($data['items'])) {
+                $this->logger->info('GoogleBooks: no results found');
+                return [];
+            }
+
+            $results = array_values(array_filter(array_map(
+                fn (array $item) => $this->mapToDto($item),
+                $data['items'],
+            )));
+
+            $this->logger->info('GoogleBooks: returning results', ['count' => count($results)]);
+
+            return $results;
+        } catch (\Throwable $e) {
+            $this->logger->error('GoogleBooks: search failed', ['error' => $e->getMessage()]);
+            throw $e;
         }
-
-        return array_values(array_filter(array_map(
-            fn (array $item) => $this->mapToDto($item),
-            $data['items'],
-        )));
     }
 
     public function getMangaById(string $externalId): ?ExternalMangaDto
     {
-        $response = $this->httpClient->request('GET', self::BASE_URL . '/volumes/' . $externalId, [
-            'query' => ['key' => $this->apiKey],
-        ]);
+        $this->logger->info('GoogleBooks: fetching by id', ['externalId' => $externalId]);
 
-        $data = $response->toArray();
+        try {
+            $response = $this->httpClient->request('GET', self::BASE_URL . '/volumes/' . $externalId, [
+                'query' => ['key' => $this->apiKey],
+            ]);
 
-        return $this->mapToDto($data);
+            $data = $response->toArray();
+            $result = $this->mapToDto($data);
+            $this->logger->info('GoogleBooks: fetch complete', ['found' => $result !== null]);
+
+            return $result;
+        } catch (\Throwable $e) {
+            $this->logger->error('GoogleBooks: fetch failed', ['error' => $e->getMessage()]);
+            throw $e;
+        }
     }
 
+    /** @param array<string, mixed> $item */
     private function mapToDto(array $item): ?ExternalMangaDto
     {
         $info = $item['volumeInfo'] ?? [];
@@ -84,9 +110,11 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
             genre: $genre,
             language: $language,
             totalVolumes: $totalVolumes,
+            source: 'google',
         );
     }
 
+    /** @param array<string, mixed> $info */
     private function extractCoverUrl(array $info): ?string
     {
         $url = $info['imageLinks']['thumbnail']
@@ -101,6 +129,7 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
         return str_replace('http://', 'https://', $url);
     }
 
+    /** @param string[] $categories */
     private function extractGenre(array $categories): ?string
     {
         if (empty($categories)) {
@@ -125,6 +154,7 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
         };
     }
 
+    /** @param array<string, mixed> $info */
     private function extractVolumeNumber(array $info): ?int
     {
         // Try seriesInfo first

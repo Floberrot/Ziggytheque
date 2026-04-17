@@ -8,7 +8,7 @@ const router = createRouter({
       path: '/gate',
       name: 'gate',
       component: () => import('@/pages/GatePage.vue'),
-      meta: { public: true },
+      meta: { public: true, title: 'Accès' },
     },
     {
       path: '/',
@@ -20,36 +20,43 @@ const router = createRouter({
           path: 'dashboard',
           name: 'dashboard',
           component: () => import('@/pages/DashboardPage.vue'),
+          meta: { title: 'Tableau de bord' },
         },
         {
           path: 'collection',
           name: 'collection',
           component: () => import('@/pages/CollectionPage.vue'),
+          meta: { title: 'Collection' },
         },
         {
           path: 'collection/:id',
           name: 'collection-detail',
           component: () => import('@/pages/MangaDetailPage.vue'),
+          meta: { title: 'Série' },
         },
         {
           path: 'wishlist',
           name: 'wishlist',
           component: () => import('@/pages/WishlistPage.vue'),
+          meta: { title: 'Liste de souhaits' },
         },
         {
           path: 'add',
           name: 'add',
           component: () => import('@/pages/AddMangaPage.vue'),
+          meta: { title: 'Ajouter une série' },
         },
         {
           path: 'price-codes',
           name: 'price-codes',
           component: () => import('@/pages/PriceCodesPage.vue'),
+          meta: { title: 'Codes prix' },
         },
         {
           path: 'notifications',
           name: 'notifications',
           component: () => import('@/pages/NotificationsPage.vue'),
+          meta: { title: 'Notifications' },
         },
       ],
     },
@@ -65,6 +72,9 @@ router.beforeEach((to) => {
   if (to.name === 'gate' && auth.isAuthenticated) {
     return { name: 'dashboard' }
   }
+
+  const pageTitle = to.meta.title as string | undefined
+  document.title = pageTitle ? `${pageTitle} — Ziggy` : 'Ziggytheque'
 })
 
 export default router

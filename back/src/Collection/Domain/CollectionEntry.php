@@ -14,7 +14,13 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\UniqueConstraint(columns: ['manga_id'])]
 class CollectionEntry
 {
-    #[ORM\OneToMany(targetEntity: VolumeEntry::class, mappedBy: 'collectionEntry', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    /** @var Collection<int, VolumeEntry> */
+    #[ORM\OneToMany(
+        targetEntity: VolumeEntry::class,
+        mappedBy: 'collectionEntry',
+        cascade: ['persist', 'remove'],
+        orphanRemoval: true,
+    )]
     public Collection $volumeEntries;
 
     #[ORM\Column]
@@ -38,6 +44,7 @@ class CollectionEntry
         $this->addedAt = new \DateTimeImmutable();
     }
 
+    /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [
@@ -48,11 +55,15 @@ class CollectionEntry
             'rating' => $this->rating,
             'ownedCount' => $this->volumeEntries->filter(fn (VolumeEntry $ve) => $ve->isOwned)->count(),
             'readCount' => $this->volumeEntries->filter(fn (VolumeEntry $ve) => $ve->isRead)->count(),
+            'wishedCount' => $this->volumeEntries
+                ->filter(fn (VolumeEntry $ve) => $ve->isWished && !$ve->isOwned)
+                ->count(),
             'totalVolumes' => $this->manga->volumes->count(),
             'addedAt' => $this->addedAt->format(\DateTimeInterface::ATOM),
         ];
     }
 
+    /** @return array<string, mixed> */
     public function toDetailArray(): array
     {
         $volumes = $this->volumeEntries->toArray();

@@ -6,9 +6,6 @@ namespace App\Stats\Application\GetStats;
 
 use App\Collection\Domain\CollectionEntry;
 use App\Collection\Domain\VolumeEntry;
-use App\Manga\Domain\Manga;
-use App\Manga\Domain\Volume;
-use App\Wishlist\Domain\WishlistItem;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -19,6 +16,7 @@ final readonly class GetStatsHandler
     {
     }
 
+    /** @return array<string, mixed> */
     public function __invoke(GetStatsQuery $query): array
     {
         $totalMangas = (int) $this->em->createQueryBuilder()
@@ -42,9 +40,10 @@ final readonly class GetStatsHandler
             ->getSingleScalarResult();
 
         $totalWishlist = (int) $this->em->createQueryBuilder()
-            ->select('COUNT(w.id)')
-            ->from(WishlistItem::class, 'w')
-            ->where('w.isPurchased = false')
+            ->select('COUNT(ve.id)')
+            ->from(VolumeEntry::class, 've')
+            ->where('ve.isWished = true')
+            ->andWhere('ve.isOwned = false')
             ->getQuery()
             ->getSingleScalarResult();
 
@@ -69,7 +68,7 @@ final readonly class GetStatsHandler
 
         $genreBreakdown = [];
         foreach ($genreRows as $row) {
-            $genre = $row['genre'] instanceof \BackedEnum ? $row['genre']->value : ($row['genre'] ?? 'other');
+            $genre = $row['genre'] instanceof \BackedEnum ? $row['genre']->value : 'other';
             $genreBreakdown[$genre] = (int) $row['count'];
         }
 

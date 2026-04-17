@@ -15,8 +15,15 @@ FRONT   := $(DC) exec app
 ##@ Infrastructure
 
 .PHONY: dev
-dev: ## Start all 5 containers
+dev: ## Start all 5 containers + sync vendor locally
 	$(DC) up -d
+	@echo "Waiting for back container to be ready..."
+	@until $(DC) exec back php bin/console about > /dev/null 2>&1; do sleep 2; done
+	@echo "Syncing vendor from container..."
+	$(DC) cp back:/app/vendor ./back/vendor-tmp
+	@rsync -a --delete ./back/vendor-tmp/ ./back/vendor/
+	@rm -rf ./back/vendor-tmp
+	@echo "vendor synced."
 
 .PHONY: down
 down: ## Stop all containers

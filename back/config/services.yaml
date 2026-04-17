@@ -42,12 +42,13 @@ services:
     App\Manga\Domain\MangaRepositoryInterface:
         alias: App\Manga\Infrastructure\Doctrine\DoctrineMangaRepository
 
+    App\Manga\Domain\ExternalApiClientInterface:
+        alias: App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient
+
+    # Google Books for volume cover search
     App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient:
         arguments:
             $apiKey: '%env(GOOGLE_BOOKS_API_KEY)%'
-
-    App\Manga\Domain\ExternalApiClientInterface:
-        alias: App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient
 
     App\Collection\Domain\CollectionRepositoryInterface:
         alias: App\Collection\Infrastructure\Doctrine\DoctrineCollectionRepository

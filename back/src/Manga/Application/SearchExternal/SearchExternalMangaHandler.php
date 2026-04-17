@@ -14,6 +14,7 @@ final readonly class SearchExternalMangaHandler
     {
     }
 
+    /** @return array<int, array<string, mixed>> */
     public function __invoke(SearchExternalMangaQuery $query): array
     {
         return array_map(
@@ -28,7 +29,7 @@ final readonly class SearchExternalMangaHandler
                 'language' => $dto->language,
                 'totalVolumes' => $dto->totalVolumes,
             ],
-            $this->client->searchByTitle($query->query),
+            $this->client->searchByTitle($query->query, $query->type, $query->page),
         );
     }
 }

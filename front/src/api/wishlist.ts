@@ -1,20 +1,26 @@
 import client from './client'
-import type { WishlistItem } from '@/types'
+import type { WishlistEntry } from '@/types'
 
-export async function getWishlist(): Promise<WishlistItem[]> {
+/** Returns collection entries that have at least one wished (non-owned) volume */
+export async function getWishlist(): Promise<WishlistEntry[]> {
   const res = await client.get('/wishlist')
   return res.data
 }
 
-export async function addToWishlist(mangaId: string): Promise<{ id: string }> {
-  const res = await client.post('/wishlist', { mangaId })
-  return res.data
+/** Add all non-owned volumes of an oeuvre to the wishlist */
+export async function addRemainingToWishlist(collectionEntryId: string): Promise<void> {
+  await client.post(`/wishlist/${collectionEntryId}/add-remaining`)
 }
 
-export async function removeFromWishlist(id: string): Promise<void> {
-  await client.delete(`/wishlist/${id}`)
+/** Clear all wished flags for an oeuvre (remove from wishlist view) */
+export async function clearWishlist(collectionEntryId: string): Promise<void> {
+  await client.delete(`/wishlist/${collectionEntryId}`)
 }
 
-export async function purchaseWishlistItem(id: string): Promise<void> {
-  await client.post(`/wishlist/${id}/purchase`)
+/** Mark a specific volume as purchased (owned=true, wished=false) */
+export async function purchaseVolume(
+  collectionEntryId: string,
+  volumeEntryId: string,
+): Promise<void> {
+  await client.post(`/wishlist/${collectionEntryId}/volumes/${volumeEntryId}/purchase`)
 }

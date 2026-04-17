@@ -9,6 +9,9 @@ use App\Manga\Application\Get\GetMangaQuery;
 use App\Manga\Application\Import\ImportMangaCommand;
 use App\Manga\Application\Search\SearchMangaQuery;
 use App\Manga\Application\SearchExternal\SearchExternalMangaQuery;
+use App\Manga\Application\SearchVolumeExternal\SearchVolumeExternalQuery;
+use App\Manga\Application\Update\UpdateMangaCommand;
+use App\Manga\Application\UpdateVolume\UpdateVolumeCommand;
 use App\Shared\Application\Bus\CommandBusInterface;
 use App\Shared\Application\Bus\QueryBusInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -38,8 +41,19 @@ final readonly class MangaController
     public function searchExternal(Request $request): JsonResponse
     {
         $query = $request->query->get('q', '');
+        $type  = $request->query->get('type', 'manga');
+        $page  = max(1, (int) $request->query->get('page', 1));
 
-        return new JsonResponse($this->queryBus->ask(new SearchExternalMangaQuery($query)));
+        return new JsonResponse($this->queryBus->ask(new SearchExternalMangaQuery($query, $type, $page)));
+    }
+
+    /** Google Books search for individual volume covers/metadata */
+    #[Route('/volume-search', methods: ['GET'])]
+    public function searchVolumeExternal(Request $request): JsonResponse
+    {
+        $query = $request->query->get('q', '');
+
+        return new JsonResponse($this->queryBus->ask(new SearchVolumeExternalQuery($query)));
     }
 
     #[Route('/{id}', methods: ['GET'])]
@@ -60,9 +74,22 @@ final readonly class MangaController
             coverUrl: $request->coverUrl,
             genre: $request->genre,
             externalId: $request->externalId,
+            totalVolumes: $request->totalVolumes,
         ));
 
         return new JsonResponse(['id' => $id], Response::HTTP_CREATED);
+    }
+
+    #[Route('/{id}', methods: ['PATCH'])]
+    public function update(string $id, #[MapRequestPayload] UpdateMangaRequest $request): JsonResponse
+    {
+        $this->commandBus->dispatch(new UpdateMangaCommand(
+            mangaId: $id,
+            title: $request->title,
+            edition: $request->edition,
+        ));
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
     #[Route('/{id}/volumes', methods: ['POST'])]
@@ -77,5 +104,22 @@ final readonly class MangaController
         ));
 
         return new JsonResponse(['id' => $volumeId], Response::HTTP_CREATED);
+    }
+
+    #[Route('/{id}/volumes/{volumeId}', methods: ['PATCH'])]
+    public function updateVolume(
+        string $id,
+        string $volumeId,
+        #[MapRequestPayload] UpdateVolumeRequest $request,
+    ): JsonResponse {
+        $this->commandBus->dispatch(new UpdateVolumeCommand(
+            mangaId: $id,
+            volumeId: $volumeId,
+            coverUrl: $request->coverUrl,
+            releaseDate: $request->releaseDate,
+            priceCode: $request->priceCode,
+        ));
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 }

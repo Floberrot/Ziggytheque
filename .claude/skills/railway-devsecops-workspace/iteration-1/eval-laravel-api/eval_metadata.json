@@ -1,0 +1,15 @@
+{
+  "eval_id": 1,
+  "eval_name": "eval-laravel-api",
+  "prompt": "I have a Laravel 11 API project (no frontend, just REST endpoints). It uses PostgreSQL and Redis for queues. I want to deploy it on Railway but I have no Dockerfile or railway.toml yet. My .env file has APP_KEY and DATABASE_URL hardcoded. Can you set everything up for me?",
+  "assertions": [
+    {"id": "dockerfile_created", "description": "A Dockerfile is created"},
+    {"id": "non_root_user", "description": "Dockerfile creates and uses a non-root user"},
+    {"id": "pinned_base_image", "description": "Base image is pinned (not :latest)"},
+    {"id": "multi_stage_composer", "description": "Multi-stage build with a separate Composer install stage"},
+    {"id": "dockerignore_env", "description": ".dockerignore excludes .env files"},
+    {"id": "railway_toml", "description": "railway.toml is created with DOCKERFILE builder"},
+    {"id": "security_report", "description": "Security report flags the hardcoded .env secrets"},
+    {"id": "next_steps", "description": "Next steps for railway up are provided"}
+  ]
+}

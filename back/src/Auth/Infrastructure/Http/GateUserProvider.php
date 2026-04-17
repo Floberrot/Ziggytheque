@@ -11,8 +11,13 @@ use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 
+/** @implements UserProviderInterface<GateUser|MonitorUser> */
 final readonly class GateUserProvider implements UserProviderInterface
 {
+    /**
+     * @phpstan-param non-empty-string $monitorUser
+     * @phpstan-param non-empty-string $monitorPassword
+     */
     public function __construct(
         private string $monitorUser,
         private string $monitorPassword,

@@ -14,6 +14,7 @@ final readonly class ListPriceCodesHandler
     {
     }
 
+    /** @return array<int, array<string, mixed>> */
     public function __invoke(ListPriceCodesQuery $query): array
     {
         return array_map(
