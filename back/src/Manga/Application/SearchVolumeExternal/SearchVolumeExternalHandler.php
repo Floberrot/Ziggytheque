@@ -20,10 +20,13 @@ final readonly class SearchVolumeExternalHandler
     /** @return array{source: string, results: array<int, array<string, mixed>>} */
     public function __invoke(SearchVolumeExternalQuery $query): array
     {
-        $this->logger->info('SearchVolumeExternalHandler: processing query', ['search' => $query->search]);
+        $this->logger->info('SearchVolumeExternalHandler: processing query', [
+            'search' => $query->search,
+            'page' => $query->page,
+        ]);
 
         try {
-            $results = $this->googleBooks->searchByTitle($query->search);
+            $results = $this->googleBooks->searchByTitle($query->search, 'manga', $query->page);
 
             $this->logger->info('SearchVolumeExternalHandler: success', [
                 'count' => count($results),

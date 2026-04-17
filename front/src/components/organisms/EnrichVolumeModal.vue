@@ -24,6 +24,7 @@ const ui = useUiStore()
 
 // ── Escape key + lightbox ──
 const lightboxOpen = ref(false)
+const sentinelEl = ref<HTMLElement | null>(null)
 
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
@@ -31,7 +32,24 @@ function onKeydown(e: KeyboardEvent) {
     else if (props.open) { emit('close') }
   }
 }
-onMounted(() => window.addEventListener('keydown', onKeydown))
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+
+  // Setup infinite scroll observer
+  if (sentinelEl.value) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isLoadingMore.value && hasMoreResults.value) {
+          loadMoreResults()
+        }
+      },
+      { threshold: 0.1 }
+    )
+    observer.observe(sentinelEl.value)
+  }
+})
+
 onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 // ── Search state ──
@@ -40,6 +58,9 @@ const manualCoverUrl = ref('')
 const searchResults = ref<{ externalId: string; title: string; edition: string | null; coverUrl: string | null }[]>([])
 const isSearching = ref(false)
 const currentCoverSource = ref<CoverSource>(null)
+const currentPage = ref(1)
+const hasMoreResults = ref(true)
+const isLoadingMore = ref(false)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 let skipNextSearch = false
 
@@ -81,12 +102,14 @@ async function runSearch(q: string) {
   }
 
   isSearching.value = true
+  currentPage.value = 1
+  hasMoreResults.value = true
   const trimmedQuery = q.trim()
 
-  console.log('[CoverSearch] Searching:', { query: trimmedQuery })
+  console.log('[CoverSearch] Searching:', { query: trimmedQuery, page: 1 })
 
   try {
-    const result = await searchVolumeExternal(trimmedQuery)
+    const result = await searchVolumeExternal(trimmedQuery, 1)
 
     console.log('[CoverSearch] Success:', {
       query: trimmedQuery,
@@ -96,6 +119,7 @@ async function runSearch(q: string) {
 
     searchResults.value = result.results
     currentCoverSource.value = result.source
+    hasMoreResults.value = result.results.length >= 20
 
     if (result.results.length === 0) {
       ui.addToast('Aucune couverture trouvée pour cette recherche', 'warning')
@@ -103,6 +127,7 @@ async function runSearch(q: string) {
   } catch (error) {
     searchResults.value = []
     currentCoverSource.value = null
+    hasMoreResults.value = false
 
     const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue'
     console.error('[CoverSearch] Failed:', {
@@ -113,6 +138,46 @@ async function runSearch(q: string) {
     ui.addToast('Erreur lors de la recherche de couverture — Google Books indisponible', 'error')
   } finally {
     isSearching.value = false
+  }
+}
+
+async function loadMoreResults() {
+  if (isLoadingMore.value || !hasMoreResults.value) return
+
+  isLoadingMore.value = true
+  const nextPage = currentPage.value + 1
+  const trimmedQuery = searchQuery.value.trim()
+
+  console.log('[CoverSearch] Loading more:', { query: trimmedQuery, page: nextPage })
+
+  try {
+    const result = await searchVolumeExternal(trimmedQuery, nextPage)
+
+    if (result.results.length === 0) {
+      hasMoreResults.value = false
+      console.log('[CoverSearch] No more results')
+      return
+    }
+
+    console.log('[CoverSearch] Loaded:', {
+      query: trimmedQuery,
+      page: nextPage,
+      count: result.results.length,
+    })
+
+    searchResults.value = [...searchResults.value, ...result.results]
+    currentPage.value = nextPage
+    hasMoreResults.value = result.results.length >= 20
+  } catch (error) {
+    hasMoreResults.value = false
+    const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue'
+    console.error('[CoverSearch] Load more failed:', {
+      query: trimmedQuery,
+      page: nextPage,
+      error: errorMsg,
+    })
+  } finally {
+    isLoadingMore.value = false
   }
 }
 
@@ -362,6 +427,19 @@ const volumeStatus = computed(() => {
                       <p v-if="result.edition" class="text-[9px] text-base-content/40 truncate">{{ result.edition }}</p>
                     </div>
                   </button>
+                </div>
+
+                <!-- Infinite scroll sentinel -->
+                <div v-if="hasMoreResults && searchResults.length > 0" ref="sentinelEl" class="h-4" />
+
+                <!-- Loading indicator -->
+                <div v-if="isLoadingMore" class="flex justify-center py-4">
+                  <span class="loading loading-spinner loading-sm" />
+                </div>
+
+                <!-- No more results message -->
+                <div v-if="!hasMoreResults && searchResults.length > 0" class="text-center py-4 text-xs text-base-content/30">
+                  Plus de résultats
                 </div>
               </div>
 

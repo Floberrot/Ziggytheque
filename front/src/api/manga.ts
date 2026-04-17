@@ -42,8 +42,8 @@ export async function importManga(payload: {
   return res.data
 }
 
-export async function searchVolumeExternal(q: string): Promise<CoverSearchResponse> {
-  const res = await client.get('/manga/volume-search', { params: { q } })
+export async function searchVolumeExternal(q: string, page: number = 1): Promise<CoverSearchResponse> {
+  const res = await client.get('/manga/volume-search', { params: { q, page } })
   return res.data
 }
 
