@@ -40,14 +40,15 @@ const sortedVolumes = computed<VolumeEntry[]>(() =>
 const missingVolumes = computed(() => sortedVolumes.value.filter((v) => !v.isOwned && !v.isWished))
 
 // ── Modal state ──
-const modalVolume = ref<VolumeEntry | null>(null)
-const modalOpen = computed(() => modalVolume.value !== null)
+const modalVolumeId = ref<string | null>(null)
+const modalOpen = computed(() => modalVolumeId.value !== null)
+const modalVolume = computed(() => sortedVolumes.value.find((v) => v.id === modalVolumeId.value) ?? null)
 
 function openVolumeModal(ve: VolumeEntry) {
-  modalVolume.value = ve
+  modalVolumeId.value = ve.id
 }
 function closeModal() {
-  modalVolume.value = null
+  modalVolumeId.value = null
 }
 
 // ── Sync panel state ──

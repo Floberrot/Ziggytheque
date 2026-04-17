@@ -25,7 +25,7 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
     {
         $response = $this->httpClient->request('GET', self::BASE_URL . '/volumes', [
             'query' => [
-                'q' => $query . '+manga',
+                'q' => $query . '+manga+subject:Comics',
                 'langRestrict' => 'fr',
                 'printType' => 'books',
                 'maxResults' => 20,

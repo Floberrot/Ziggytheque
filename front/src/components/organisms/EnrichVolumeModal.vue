@@ -25,9 +25,11 @@ const searchQuery = ref('')
 const searchResults = ref<{ externalId: string; title: string; edition: string | null; coverUrl: string | null }[]>([])
 const isSearching = ref(false)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
+let skipNextSearch = false
 
 watch(() => [props.open, props.volume] as const, ([open, vol]) => {
   if (open && vol) {
+    if (vol.coverUrl) skipNextSearch = true
     searchQuery.value = `${props.mangaTitle} tome ${vol.number} ${props.mangaEdition}`.trim()
     if (!vol.coverUrl) {
       runSearch(searchQuery.value)
@@ -35,10 +37,16 @@ watch(() => [props.open, props.volume] as const, ([open, vol]) => {
   }
   if (!open) {
     searchResults.value = []
+    skipNextSearch = false
   }
 })
 
 watch(searchQuery, (val) => {
+  if (skipNextSearch) {
+    skipNextSearch = false
+    if (searchTimer) clearTimeout(searchTimer)
+    return
+  }
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => runSearch(val), 500)
 })
