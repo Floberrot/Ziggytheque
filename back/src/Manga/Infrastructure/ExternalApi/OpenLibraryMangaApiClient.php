@@ -11,7 +11,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 final readonly class OpenLibraryMangaApiClient implements ExternalApiClientInterface
 {
-    private const BASE_URL = 'https://openlibrary.org/api';
+    private const BASE_URL = 'https://openlibrary.org';
     private const COVERS_URL = 'https://covers.openlibrary.org/b/id';
 
     public function __construct(
@@ -63,7 +63,7 @@ final readonly class OpenLibraryMangaApiClient implements ExternalApiClientInter
         $this->logger->info('OpenLibrary: fetching by id', ['externalId' => $externalId]);
 
         try {
-            $response = $this->httpClient->request('GET', self::BASE_URL . '/books/' . $externalId . '.json');
+            $response = $this->httpClient->request('GET', self::BASE_URL . '/api/books/' . $externalId . '.json');
             $data = $response->toArray();
 
             $result = $this->mapToDto($data);
