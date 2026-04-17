@@ -86,7 +86,6 @@ final readonly class MangaController
             mangaId: $id,
             number: $request->number,
             coverUrl: $request->coverUrl,
-            priceCode: $request->priceCode,
             releaseDate: $request->releaseDate,
         ));
 
@@ -104,7 +103,7 @@ final readonly class MangaController
             volumeId: $volumeId,
             coverUrl: $request->coverUrl,
             releaseDate: $request->releaseDate,
-            priceCode: $request->priceCode,
+            price: $request->price,
         ));
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);

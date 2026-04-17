@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Manga\Domain;
 
-use App\PriceCode\Domain\PriceCode;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
@@ -23,9 +22,8 @@ class Volume
         public int $number,
         #[ORM\Column(nullable: true)]
         public ?string $coverUrl = null,
-        #[ORM\ManyToOne(targetEntity: PriceCode::class)]
-        #[ORM\JoinColumn(name: 'price_code', referencedColumnName: 'code', nullable: true, onDelete: 'SET NULL')]
-        public ?PriceCode $priceCode = null,
+        #[ORM\Column(type: 'float', nullable: true)]
+        public ?float $price = null,
         #[ORM\Column(nullable: true)]
         public ?\DateTimeImmutable $releaseDate = null,
     ) {
@@ -37,7 +35,7 @@ class Volume
             'id' => $this->id,
             'number' => $this->number,
             'coverUrl' => $this->coverUrl,
-            'priceCode' => $this->priceCode?->toArray(),
+            'price' => $this->price,
             'releaseDate' => $this->releaseDate?->format(\DateTimeInterface::ATOM),
         ];
     }

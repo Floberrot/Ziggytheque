@@ -13,7 +13,6 @@ final readonly class AddVolumeRequest
         #[Assert\Positive]
         public int $number,
         public ?string $coverUrl = null,
-        public ?string $priceCode = null,
         public ?string $releaseDate = null,
     ) {
     }

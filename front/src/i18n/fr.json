@@ -4,7 +4,6 @@
     "collection": "Collection",
     "wishlist": "Liste de souhaits",
     "add": "Ajouter",
-    "priceCodes": "Codes prix",
     "notifications": "Notifications",
     "logout": "Déconnexion"
   },
@@ -13,7 +12,9 @@
     "ownedVolumes": "Tomes possédés",
     "readVolumes": "Tomes lus",
     "wishlist": "Tomes souhaités",
-    "collectionValue": "Valeur totale",
+    "ownedValue": "Valeur possédée",
+    "wishlistValue": "Valeur souhaitée",
+    "totalValue": "Valeur totale",
     "genreBreakdown": "Répartition par genre",
     "recentAdditions": "Ajouts récents"
   },
@@ -25,7 +26,8 @@
     "removed": "Retiré de la collection",
     "empty": "Votre collection est vide",
     "volumes": "Tomes",
-    "owned": "possédés"
+    "owned": "possédés",
+    "batchSetPrice": "Appliquer à tous"
   },
   "wishlist": {
     "title": "Liste de souhaits",
@@ -60,15 +62,8 @@
     "summary": "Résumé",
     "totalVolumes": "Nombre de tomes"
   },
-  "priceCodes": {
-    "title": "Codes prix",
-    "add": "Nouveau code",
-    "new": "Nouveau code prix",
-    "edit": "Modifier le code",
-    "code": "Code",
-    "label": "Libellé",
-    "value": "Valeur",
-    "saved": "Code prix enregistré"
+  "volume": {
+    "price": "Prix (€)"
   },
   "notifications": {
     "title": "Notifications",

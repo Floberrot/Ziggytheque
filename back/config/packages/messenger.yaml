@@ -24,9 +24,6 @@ framework:
                 default_middleware: allow_no_handlers
 
         routing:
-            App\PriceCode\Application\Create\CreatePriceCodeCommand: sync
-            App\PriceCode\Application\Update\UpdatePriceCodeCommand: sync
-            App\PriceCode\Application\Delete\DeletePriceCodeCommand: sync
             App\Manga\Application\Import\ImportMangaCommand: sync
             App\Manga\Application\AddVolume\AddVolumeCommand: sync
             App\Collection\Application\Add\AddToCollectionCommand: sync

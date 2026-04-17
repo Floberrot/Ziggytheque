@@ -92,7 +92,7 @@ const totalVolumes = computed(() => collection.value?.reduce((s, e) => s + e.tot
 
     <div class="max-w-7xl mx-auto px-6 py-8">
       <!-- Loading -->
-      <div v-if="isPending" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-4">
+      <div v-if="isPending" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         <div
           v-for="i in 12"
           :key="i"
@@ -114,7 +114,7 @@ const totalVolumes = computed(() => collection.value?.reduce((s, e) => s + e.tot
       <!-- Grid -->
       <div
         v-else
-        class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-4"
+        class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
       >
         <MangaCard
           v-for="(entry, i) in paginated"

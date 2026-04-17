@@ -1,15 +1,8 @@
-export interface PriceCode {
-  code: string
-  label: string
-  value: number
-  createdAt: string
-}
-
 export interface Volume {
   id: string
   number: number
   coverUrl: string | null
-  priceCode: PriceCode | null
+  price: number | null
   releaseDate: string | null
 }
 
@@ -39,7 +32,7 @@ export interface VolumeEntry {
   volumeId: string
   number: number
   coverUrl: string | null
-  priceCode: PriceCode | null
+  price: number | null
   isOwned: boolean
   isRead: boolean
   isWished: boolean
@@ -58,6 +51,7 @@ export interface CollectionEntry {
   wishedCount: number
   totalVolumes: number
   addedAt: string
+  ownedValue: number
 }
 
 export interface CollectionEntryDetail extends CollectionEntry {
@@ -72,7 +66,9 @@ export interface Stats {
   totalOwned: number
   totalRead: number
   totalWishlist: number
-  collectionValue: number
+  ownedValue: number
+  wishlistValue: number
+  totalValue: number
   genreBreakdown: Record<string, number>
   recentAdditions: CollectionEntry[]
 }

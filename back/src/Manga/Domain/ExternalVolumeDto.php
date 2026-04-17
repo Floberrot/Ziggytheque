@@ -9,7 +9,6 @@ final readonly class ExternalVolumeDto
     public function __construct(
         public int $number,
         public ?string $coverUrl,
-        public ?string $priceCode,
         public ?\DateTimeImmutable $releaseDate,
     ) {
     }

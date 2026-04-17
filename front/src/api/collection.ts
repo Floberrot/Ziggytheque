@@ -43,3 +43,7 @@ export async function purchaseVolume(collectionId: string, volumeEntryId: string
 export async function syncVolumes(collectionId: string, upToVolume?: number): Promise<void> {
   await client.post(`/collection/${collectionId}/sync-volumes`, upToVolume ? { upToVolume } : {})
 }
+
+export async function batchSetVolumePrice(collectionId: string, price: number): Promise<void> {
+  await client.patch(`/collection/${collectionId}/batch-price`, { price })
+}
