@@ -1,0 +1,11 @@
+{
+  "owner": "openlang-cn",
+  "slug": "docker-cli",
+  "displayName": "Docker Cli",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1773308676389,
+    "commit": "https://github.com/openclaw/skills/commit/0ecceedd5bd90805b19ac41d07c5f97d6ae2c807"
+  },
+  "history": []
+}

@@ -1,0 +1,14 @@
+{
+  "eval_id": 2,
+  "eval_name": "eval-vue-spa",
+  "prompt": "hey so i have a Vue 3 + Vite SPA (just the frontend, deployed separately from the backend). i want to dockerize it and push to Railway. no Dockerfile exists. the app uses vue-router in history mode so i need the nginx fallback to index.html",
+  "assertions": [
+    {"id": "dockerfile_created", "description": "A Dockerfile is created"},
+    {"id": "multi_stage_node_nginx", "description": "Multi-stage: node builder then nginx final stage"},
+    {"id": "nginx_spa_fallback", "description": "nginx.conf includes try_files with /index.html fallback for SPA routing"},
+    {"id": "pinned_base_image", "description": "Both node and nginx images are pinned (not :latest)"},
+    {"id": "dockerignore_node_modules", "description": ".dockerignore excludes node_modules/"},
+    {"id": "railway_toml", "description": "railway.toml is created"},
+    {"id": "next_steps", "description": "Next steps for railway up are provided"}
+  ]
+}

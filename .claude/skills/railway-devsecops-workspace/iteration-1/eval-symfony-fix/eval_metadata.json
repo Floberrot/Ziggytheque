@@ -1,0 +1,15 @@
+{
+  "eval_id": 3,
+  "eval_name": "eval-symfony-fix",
+  "prompt": "I have a Symfony 7 project with Webpack Encore for assets. There's already a Dockerfile but it runs php-fpm as root and uses php:latest as base image. I want to fix the security issues and make it work on Railway. Here's the existing Dockerfile:\n\nFROM php:latest\nWORKDIR /app\nRUN apt-get update && apt-get install -y nginx\nCOPY . .\nRUN composer install\nCOPY .env /app/.env\nEXPOSE 80\nCMD [\"php-fpm\"]",
+  "assertions": [
+    {"id": "pinned_base_image", "description": "Updated Dockerfile pins php version (not php:latest)"},
+    {"id": "non_root_user", "description": "Updated Dockerfile creates and uses a non-root user"},
+    {"id": "env_copy_removed", "description": "COPY .env line is removed from the Dockerfile"},
+    {"id": "critical_env_flagged", "description": "Security report has a [CRITICAL] finding about .env being baked into the image"},
+    {"id": "root_warning_flagged", "description": "Security report flags running as root as [WARNING] or higher"},
+    {"id": "latest_tag_flagged", "description": "Security report flags php:latest unpinned tag"},
+    {"id": "railway_toml", "description": "railway.toml is created or updated"},
+    {"id": "dockerignore_env", "description": ".dockerignore excludes .env files"}
+  ]
+}
