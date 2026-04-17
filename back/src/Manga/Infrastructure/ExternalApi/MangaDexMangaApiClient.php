@@ -27,15 +27,15 @@ final readonly class MangaDexMangaApiClient implements ExternalApiClientInterfac
         $this->logger->info('MangaDex: searching', ['query' => $query, 'type' => $type, 'page' => $page]);
 
         try {
-            $response = $this->httpClient->request('GET', self::BASE_URL . '/manga', [
-                'query' => [
-                    'title' => $query,
-                    'limit' => 20,
-                    'offset' => ($page - 1) * 20,
-                    'contentRating' => ['safe', 'suggestive', 'erotica', 'pornographic'],
-                    'includes' => ['cover_art', 'author'],
-                ],
+            $queryString = http_build_query([
+                'title' => $query,
+                'limit' => 20,
+                'offset' => ($page - 1) * 20,
             ]);
+            $queryString .= '&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&contentRating[]=pornographic';
+            $queryString .= '&includes[]=cover_art&includes[]=author';
+
+            $response = $this->httpClient->request('GET', self::BASE_URL . '/manga?' . $queryString);
 
             $data = $response->toArray();
             $this->logger->info('MangaDex: received response', ['results_count' => count($data['data'] ?? [])]);
@@ -64,11 +64,8 @@ final readonly class MangaDexMangaApiClient implements ExternalApiClientInterfac
         $this->logger->info('MangaDex: fetching by id', ['externalId' => $externalId]);
 
         try {
-            $response = $this->httpClient->request('GET', self::BASE_URL . '/manga/' . $externalId, [
-                'query' => [
-                    'includes' => ['cover_art', 'author'],
-                ],
-            ]);
+            $url = self::BASE_URL . '/manga/' . $externalId . '?includes[]=cover_art&includes[]=author';
+            $response = $this->httpClient->request('GET', $url);
 
             $data = $response->toArray();
             $result = $this->mapToDto($data['data']);
