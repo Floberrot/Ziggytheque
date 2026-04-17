@@ -39,6 +39,13 @@ export async function searchVolumeExternal(q: string): Promise<{
   return res.data
 }
 
+export async function updateManga(
+  id: string,
+  payload: { title?: string; edition?: string },
+): Promise<void> {
+  await client.patch(`/manga/${id}`, payload)
+}
+
 export async function updateVolume(
   mangaId: string,
   volumeId: string,

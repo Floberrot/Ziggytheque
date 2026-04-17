@@ -12,6 +12,12 @@ const ownedRatio = computed(() =>
     : 0,
 )
 
+const readRatio = computed(() =>
+  props.entry.totalVolumes > 0
+    ? (props.entry.readCount / props.entry.totalVolumes) * 100
+    : 0,
+)
+
 const wishedRatio = computed(() =>
   props.entry.totalVolumes > 0
     ? (props.entry.wishedCount / props.entry.totalVolumes) * 100
@@ -67,25 +73,28 @@ function open() {
         </p>
         <p class="text-white/60 text-[10px] truncate">{{ entry.manga.edition }}</p>
 
-        <!-- Dual progress bar: owned (green) + wished (yellow) -->
+        <!-- Progress bar: read (info) + owned-unread (success) + wished (warning) -->
         <div class="space-y-0.5">
           <div class="flex justify-between text-[10px] text-white/70">
             <span>
               <span class="text-success font-bold">{{ entry.ownedCount }}</span>
+              <span v-if="entry.readCount > 0" class="text-info font-bold"> · {{ entry.readCount }} lus</span>
               <span v-if="entry.wishedCount > 0" class="text-warning font-bold"> +{{ entry.wishedCount }}</span>
               <span class="opacity-60"> / {{ entry.totalVolumes }}</span>
             </span>
           </div>
-          <!-- Track -->
+          <!-- Track: read (blue) → owned-unread (green) → wished (yellow) -->
           <div class="relative w-full h-1.5 rounded-full bg-white/20 overflow-hidden">
-            <!-- Owned segment -->
             <div
-              class="absolute left-0 top-0 h-full rounded-full bg-success transition-all duration-500"
-              :style="{ width: `${ownedRatio}%` }"
+              class="absolute left-0 top-0 h-full bg-info transition-all duration-500"
+              :style="{ width: `${readRatio}%` }"
             />
-            <!-- Wished segment (stacked after owned) -->
             <div
-              class="absolute top-0 h-full rounded-full bg-warning/80 transition-all duration-500"
+              class="absolute top-0 h-full bg-success transition-all duration-500"
+              :style="{ left: `${readRatio}%`, width: `${ownedRatio - readRatio}%` }"
+            />
+            <div
+              class="absolute top-0 h-full bg-warning/80 transition-all duration-500"
               :style="{ left: `${ownedRatio}%`, width: `${Math.min(wishedRatio, 100 - ownedRatio)}%` }"
             />
           </div>
