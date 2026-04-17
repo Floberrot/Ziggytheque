@@ -1,12 +1,23 @@
-# Feature Plan: Multi-Source Manga Search with Fallback Chain
+# Feature Plan: Multi-Source Cover Search with Fallback Chain
 
 ## Context
 
-**Current state:** Jikan (MyAnimeList) is the primary search client. Google Books is wired separately for volume cover enrichment only. No fallback, no source tracking, no tests.
+**Manga search (adding to collection):** Jikan (MyAnimeList) stays as the sole search client. No change here.
 
-**Target state:** Amazon PA API is primary. Google Books is the automatic fallback. If both fail, a clear 503 domain error is returned. The frontend shows a small source indicator (Amazon or Google logo) next to the search bar.
+**Cover search (volume cover enrichment):** Currently Google Books only. This feature adds Amazon PA API as primary, with Google Books as automatic fallback. If both fail, a 503 domain error is returned.
 
-> **Note for developer:** The Amazon API is the **Product Advertising API 5.0** (PA API). It requires an active Amazon Associates affiliate account and AWS credentials. Confirm this with the product owner before starting Phase 1 — if the associate account isn't ready, Jikan can stay as primary and be swapped later with zero code change.
+**Frontend:** A small source badge (Amazon or Google logo) shown next to the cover search input indicates which API provided the cover results.
+
+> **Note for developer:** The Amazon API is the **Product Advertising API 5.0** (PA API). It requires an active Amazon Associates affiliate account and AWS credentials. Confirm this with the product owner before starting — if the associate account isn't ready, Google Books stays as sole cover client until it is.
+
+---
+
+## Scope summary
+
+| Feature | Client |
+|---------|--------|
+| Manga title search (`GET /api/manga/external`) | Jikan only — unchanged |
+| Volume cover search (`GET /api/manga/volume-search`) | Amazon (primary) → Google Books (fallback) |
 
 ---
 
@@ -17,15 +28,14 @@
 Add a `source` field:
 
 ```php
-public string $source = 'unknown', // 'amazon' | 'google' | 'jikan' | 'unknown'
+public string $source = 'unknown', // 'amazon' | 'google' | 'unknown'
 ```
 
-Every client sets its own identifier on each DTO it builds. This propagates automatically through the fallback chain with no extra plumbing.
-
-Update all three existing clients to set their value:
+Update the two cover-search clients to set their value:
 - `GoogleBooksMangaApiClient` → `source = 'google'`
-- `JikanMangaApiClient` → `source = 'jikan'`
-- `NullMangaApiClient` → `source = 'unknown'`
+- `AmazonBooksMangaApiClient` (new) → `source = 'amazon'`
+
+Jikan and Null clients do not need updating (they are not part of cover search).
 
 ---
 
@@ -34,10 +44,10 @@ Update all three existing clients to set their value:
 **New file:** `back/src/Manga/Infrastructure/ExternalApi/AmazonBooksMangaApiClient.php`
 
 - Implements `ExternalApiClientInterface`
-- Calls **Amazon PA API 5.0** `SearchItems` operation
+- Calls **Amazon PA API 5.0** `SearchItems` operation, focused on cover image retrieval
 - Authentication: AWS4-HMAC-SHA256 signed requests (implement a `signRequest()` private method — see PA API v5 signing guide)
-- Search params: `Keywords = $query`, `SearchIndex = Books`, `Marketplace = www.amazon.fr`
-- Mapping: ASIN → `externalId`, `ItemInfo.Title` → `title`, `ItemInfo.ByLineInfo.Contributors` → `author`, `ItemInfo.ContentInfo.Languages` to validate French editions, `Images.Primary.Large.URL` → `coverUrl`, `ItemInfo.ContentInfo.PagesCount` for volume estimation
+- Search params: `Keywords = $query`, `SearchIndex = Books`, `Marketplace = www.amazon.fr`, resources include `Images.Primary.Large`
+- Mapping: ASIN → `externalId`, `Images.Primary.Large.URL` → `coverUrl`, title/author as available
 - Sets `source = 'amazon'`
 - Required env vars (add to `back/.env` and `.env.example`):
   ```
@@ -59,7 +69,7 @@ final class ExternalApiUnavailableException extends DomainException
     public function __construct()
     {
         parent::__construct(
-            'All search providers are currently unavailable. Please try again later.'
+            'All cover providers are currently unavailable. Please try again later.'
         );
     }
 
@@ -67,49 +77,37 @@ final class ExternalApiUnavailableException extends DomainException
 }
 ```
 
-The existing `ExceptionListener` will handle it automatically, returning `{"error": "..."}` with a 503.
+The existing `ExceptionListener` handles it automatically → `{"error": "..."}` with a 503.
 
 ---
 
-## Phase 4 — Backend: `FallbackExternalApiClient`
+## Phase 4 — Backend: `FallbackCoverApiClient`
 
-**New file:** `back/src/Manga/Infrastructure/ExternalApi/FallbackExternalApiClient.php`
+**New file:** `back/src/Manga/Infrastructure/ExternalApi/FallbackCoverApiClient.php`
+
+This class is **not** wired to `ExternalApiClientInterface` — it is only used by the volume-cover search path.
 
 ```php
-final readonly class FallbackExternalApiClient implements ExternalApiClientInterface
+final readonly class FallbackCoverApiClient
 {
     public function __construct(
-        private ExternalApiClientInterface $primary,
-        private ExternalApiClientInterface $secondary,
+        private ExternalApiClientInterface $primary,   // Amazon
+        private ExternalApiClientInterface $secondary, // Google Books
     ) {}
 
-    public function searchByTitle(string $query, string $type = 'manga', int $page = 1): array
+    /** @return array{source: string, results: ExternalMangaDto[]} */
+    public function search(string $query, int $page = 1): array
     {
         try {
-            $results = $this->primary->searchByTitle($query, $type, $page);
+            $results = $this->primary->searchByTitle($query, 'manga', $page);
             if ($results !== []) {
-                return $results;
+                return ['source' => 'amazon', 'results' => $results];
             }
         } catch (\Throwable) {}
 
         try {
-            return $this->secondary->searchByTitle($query, $type, $page);
-        } catch (\Throwable) {
-            throw new ExternalApiUnavailableException();
-        }
-    }
-
-    public function getMangaById(string $externalId): ?ExternalMangaDto
-    {
-        try {
-            $result = $this->primary->getMangaById($externalId);
-            if ($result !== null) {
-                return $result;
-            }
-        } catch (\Throwable) {}
-
-        try {
-            return $this->secondary->getMangaById($externalId);
+            $results = $this->secondary->searchByTitle($query, 'manga', $page);
+            return ['source' => 'google', 'results' => $results];
         } catch (\Throwable) {
             throw new ExternalApiUnavailableException();
         }
@@ -119,7 +117,7 @@ final readonly class FallbackExternalApiClient implements ExternalApiClientInter
 
 **Fallback trigger conditions:**
 - Primary throws any `\Throwable` (network error, auth error, rate limit)
-- Primary returns an empty array (zero results → try secondary)
+- Primary returns an empty array → try secondary
 
 ---
 
@@ -128,10 +126,12 @@ final readonly class FallbackExternalApiClient implements ExternalApiClientInter
 **File:** `back/config/services.yaml`
 
 ```yaml
+# Manga title search — Jikan, unchanged
 App\Manga\Domain\ExternalApiClientInterface:
-  alias: App\Manga\Infrastructure\ExternalApi\FallbackExternalApiClient
+  alias: App\Manga\Infrastructure\ExternalApi\JikanMangaApiClient
 
-App\Manga\Infrastructure\ExternalApi\FallbackExternalApiClient:
+# Cover search fallback chain
+App\Manga\Infrastructure\ExternalApi\FallbackCoverApiClient:
   arguments:
     $primary: '@App\Manga\Infrastructure\ExternalApi\AmazonBooksMangaApiClient'
     $secondary: '@App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient'
@@ -148,87 +148,77 @@ App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient:
     $apiKey: '%env(GOOGLE_BOOKS_API_KEY)%'
 ```
 
-Remove or comment out the current Jikan alias. Jikan can be kept in the codebase as an optional client (swap `$primary` to test).
-
 ---
 
-## Phase 6 — Backend: Update `SearchExternalMangaHandler`
+## Phase 6 — Backend: Update the volume-cover search handler/controller
 
-**File:** `back/src/Manga/Application/SearchExternalMangaHandler.php`
+Locate the handler or controller behind `GET /api/manga/volume-search` and inject `FallbackCoverApiClient` instead of `GoogleBooksMangaApiClient` directly.
 
-Change the return structure to include `source`:
+Change the response to include `source`:
 
 ```php
-$results = $this->client->searchByTitle($query->query, $query->type, $query->page);
+$result = $this->coverClient->search($query->query, $query->page);
 
 return [
-    'source' => $results !== [] ? $results[0]->source : 'none',
+    'source'  => $result['source'],
     'results' => array_map(static fn ($dto) => [
         'externalId' => $dto->externalId,
-        'title' => $dto->title,
-        // ...existing fields...
-    ], $results),
+        'coverUrl'   => $dto->coverUrl,
+        'title'      => $dto->title,
+    ], $result['results']),
 ];
 ```
-
-The controller returns this as-is — the existing `JsonResponse` encoding handles it.
 
 ---
 
 ## Phase 7 — Frontend: Updated types
 
-**File:** `front/src/api/manga.ts` (or wherever `ExternalMangaResult` is defined)
+**File:** `front/src/api/manga.ts`
 
 ```typescript
-export type SearchSource = 'amazon' | 'google' | 'jikan' | 'none' | null
+export type CoverSource = 'amazon' | 'google' | 'none' | null
 
-export interface ExternalSearchResponse {
-  source: SearchSource
+export interface CoverSearchResponse {
+  source: CoverSource
   results: ExternalMangaResult[]
 }
 ```
 
 ---
 
-## Phase 8 — Frontend: Update `useExternalSearch.ts`
+## Phase 8 — Frontend: Update the cover search composable
 
-- Add `currentSource: Ref<SearchSource>` initialized to `null`
-- On successful search: set `currentSource.value = res.data.source`
-- On `loadMore`: keep existing `currentSource` (source does not reset on pagination)
-- On `clear()`: reset `currentSource.value = null`
-- On error: set `currentSource.value = null`
+Wherever the cover search (`/api/manga/volume-search`) is called:
+- Add `currentCoverSource: Ref<CoverSource>` initialized to `null`
+- On successful search: `currentCoverSource.value = res.data.source`
+- On `clear()` / error: reset to `null`
 - Parse `res.data.results` instead of `res.data`
 
 ---
 
-## Phase 9 — Frontend: `SearchSourceBadge.vue` component
+## Phase 9 — Frontend: `CoverSourceBadge.vue` component
 
-**New file:** `front/src/components/atoms/SearchSourceBadge.vue`
+**New file:** `front/src/components/atoms/CoverSourceBadge.vue`
 
-- Props: `source: SearchSource`
-- Renders a small tooltip-enabled badge to the left of the search input
-- `null` / loading → invisible (no layout shift)
-- `'amazon'` → Amazon logo SVG + tooltip "Résultats via Amazon"
-- `'google'` → Google Books logo SVG + tooltip "Résultats via Google Books"
-- `'jikan'` → MyAnimeList logo SVG + tooltip "Résultats via MyAnimeList"
+- Props: `source: CoverSource`
+- `null` → invisible (no layout shift)
+- `'amazon'` → Amazon logo SVG + DaisyUI tooltip `data-tip="Couvertures via Amazon"`
+- `'google'` → Google Books logo SVG + `data-tip="Couvertures via Google Books"`
 - `'none'` → nothing rendered
-- Use DaisyUI `tooltip` class (`data-tip` attribute) for the tooltip
-- Logos: embed as inline SVG (small, no external dependency)
+- Logos: inline SVG, no external dependency
 
 ---
 
-## Phase 10 — Frontend: Update `AddMangaPage.vue`
+## Phase 10 — Frontend: Place badge in cover search UI
 
-In the search bar section of Step 1, add `SearchSourceBadge` to the left of the `<input>`:
+In the view where volume cover search is displayed, add `CoverSourceBadge` to the left of the search input:
 
 ```vue
 <div class="flex items-center gap-2">
-  <SearchSourceBadge :source="currentSource" />
+  <CoverSourceBadge :source="currentCoverSource" />
   <input ... />
 </div>
 ```
-
-Expose `currentSource` from `useExternalSearch()` destructuring.
 
 ---
 
@@ -241,70 +231,62 @@ Expose `currentSource` from `useExternalSearch()` destructuring.
 | Test | Expected |
 |------|----------|
 | `testSearchReturnsExternalMangaDtos` | mock HTTP 200 → DTOs with `source='amazon'` |
-| `testSearchReturnsEmptyArrayOnNoResults` | mock HTTP 200 empty items → `[]` |
+| `testSearchReturnsEmptyArrayOnNoResults` | mock HTTP 200 empty → `[]` |
 | `testSearchThrowsOnHttpError` | mock HTTP 500 → `\Throwable` |
 | `testSearchThrowsOnNetworkError` | mock transport exception → `\Throwable` |
-| `testGetMangaByIdReturnsMappedDto` | mock item detail response → DTO |
+| `testGetMangaByIdReturnsMappedDto` | mock item detail → DTO |
 | `testGetMangaByIdReturnsNullWhenNotFound` | mock 404 → `null` |
 
-**`tests/Manga/Infrastructure/ExternalApi/FallbackExternalApiClientTest.php`**
+**`tests/Manga/Infrastructure/ExternalApi/FallbackCoverApiClientTest.php`**
 
 | Test | Expected |
 |------|----------|
-| `testPrimarySuccessReturnsPrimaryResults` | primary returns DTOs → returns them, no secondary call |
-| `testPrimaryEmptyCallsSecondary` | primary returns `[]`, secondary returns DTOs → secondary results |
-| `testPrimaryExceptionCallsSecondary` | primary throws, secondary returns DTOs → secondary results |
+| `testPrimarySuccessReturnsPrimaryResults` | primary returns DTOs → `{source:'amazon', results:[...]}` |
+| `testPrimaryEmptyCallsSecondary` | primary `[]`, secondary returns DTOs → `{source:'google', results:[...]}` |
+| `testPrimaryExceptionCallsSecondary` | primary throws, secondary returns DTOs → google results |
 | `testBothFailThrowsUnavailable` | both throw → `ExternalApiUnavailableException` |
-| `testPrimaryEmptyAndSecondaryFailsThrowsUnavailable` | primary `[]`, secondary throws → `ExternalApiUnavailableException` |
-| `testGetMangaByIdPrimarySuccess` | same pattern for `getMangaById` |
-| `testGetMangaByIdPrimaryNullFallback` | primary `null`, secondary returns DTO |
-| `testGetMangaByIdBothFailThrows` | both throw → `ExternalApiUnavailableException` |
+| `testPrimaryEmptySecondaryFailsThrows` | primary `[]`, secondary throws → `ExternalApiUnavailableException` |
 
-**`tests/Manga/Application/SearchExternalMangaHandlerTest.php`**
+**`tests/Manga/Application/SearchVolumeCoverHandlerTest.php`** (or equivalent)
 
 | Test | Expected |
 |------|----------|
 | `testHandlerReturnsSourceAndResults` | mock client → `{source, results[]}` |
-| `testHandlerReturnsNoneSourceOnEmptyResults` | mock returns `[]` → `{source: 'none', results: []}` |
+| `testHandlerReturnsNoneOnEmptyResults` | mock returns `[]` → `{source:'none', results:[]}` |
 | `testHandlerPropagatesDomainException` | mock throws `ExternalApiUnavailableException` → re-thrown |
 
 ### 11.2 Backend functional tests
 
-**`tests/Manga/Infrastructure/Http/MangaSearchExternalTest.php`** (WebTestCase)
+**`tests/Manga/Infrastructure/Http/VolumeSearchTest.php`** (WebTestCase)
 
 | Test | Expected |
 |------|----------|
 | `testSearchRequiresAuthentication` | no JWT → 401 |
 | `testSearchRequiresQParam` | no `?q=` → 400 |
-| `testSearchReturnsSourceAndResults` | mock client via test container → 200 `{source, results}` |
-| `testSearchReturnsBothApisDownError` | mock client throws `ExternalApiUnavailableException` → 503 `{error: "..."}` |
-
-Use Symfony's `KernelTestCase` + `HttpKernelBrowser`. Override `ExternalApiClientInterface` binding with a mock in the test container.
+| `testSearchReturnsSourceAndResults` | mock client → 200 `{source, results}` |
+| `testSearchReturnsBothApisDownError` | mock throws `ExternalApiUnavailableException` → 503 |
 
 ### 11.3 Frontend unit tests
 
-**`front/src/composables/__tests__/useExternalSearch.test.ts`** (Vitest + `@vue/test-utils`)
+**`front/src/composables/__tests__/useCoverSearch.test.ts`** (or the relevant composable name)
 
 | Test | Expected |
 |------|----------|
-| `initial state` | `results=[]`, `isLoading=false`, `currentSource=null`, `error=null` |
-| `search sets loading and calls API` | `isLoading=true` during call, `false` after |
-| `search with amazon response` | `currentSource='amazon'`, results populated |
-| `search with google response` | `currentSource='google'`, results populated |
-| `search returns empty` | `results=[]`, `currentSource='none'` |
-| `search on error` | `error` set, `currentSource=null`, toast triggered |
-| `503 error shows both-down message` | error message mentions retrying |
-| `loadMore appends results and keeps source` | `currentSource` unchanged after page 2 |
-| `clear resets all state including source` | all refs reset to initial values |
-| `query under 2 chars does not call API` | no HTTP call |
+| `initial state` | `results=[]`, `isLoading=false`, `currentCoverSource=null`, `error=null` |
+| `search with amazon response` | `currentCoverSource='amazon'`, results populated |
+| `search with google response` | `currentCoverSource='google'`, results populated |
+| `search returns empty` | `results=[]`, `currentCoverSource='none'` |
+| `search on error` | `error` set, `currentCoverSource=null` |
+| `503 shows both-down message` | error message mentions retrying |
+| `clear resets source` | `currentCoverSource=null` |
 
-**`front/src/components/atoms/__tests__/SearchSourceBadge.test.ts`**
+**`front/src/components/atoms/__tests__/CoverSourceBadge.test.ts`**
 
 | Test | Expected |
 |------|----------|
 | `source=null renders nothing` | no DOM output |
-| `source='amazon' renders Amazon logo` | SVG + tooltip text in French |
-| `source='google' renders Google logo` | SVG + tooltip text in French |
+| `source='amazon' renders Amazon logo and tooltip` | SVG + French tooltip text |
+| `source='google' renders Google logo and tooltip` | SVG + French tooltip text |
 | `source='none' renders nothing` | no DOM output |
 
 ---
@@ -312,21 +294,18 @@ Use Symfony's `KernelTestCase` + `HttpKernelBrowser`. Override `ExternalApiClien
 ## QA Checklist (before merge)
 
 - [ ] `back/.env.example` updated with all four Amazon env vars
-- [ ] `make setup` or README updated with Amazon PA API setup instructions
-- [ ] Amazon credentials work end-to-end: search returns results, source badge shows Amazon logo
+- [ ] Amazon credentials work end-to-end: cover search returns results, badge shows Amazon logo
 - [ ] Amazon credentials absent/invalid: falls back to Google, badge shows Google logo
-- [ ] Amazon returns 0 results for a query: falls back to Google (not treated as error)
-- [ ] Both APIs fail (tested with invalid keys for both): frontend shows the 503 message "both providers unavailable"
-- [ ] Pagination: source badge stays stable across `loadMore()` calls
-- [ ] Source badge invisible while search is loading (no flickering)
-- [ ] No regression on the volume cover search (still calls Google Books directly)
-- [ ] All CI tests pass (`make test` / PHPStan + Vitest)
-- [ ] i18n: all new user-facing strings added to `fr.json` and `en.json`
+- [ ] Amazon returns 0 results: falls back to Google (not treated as error)
+- [ ] Both APIs fail: frontend shows 503 message mentioning retry
+- [ ] Jikan manga title search is completely unaffected
+- [ ] Badge invisible while loading (no layout shift)
+- [ ] All CI tests pass (PHPStan + Vitest)
+- [ ] i18n: new strings added to `fr.json` and `en.json`
 
 ---
 
 ## Out of scope / future consideration
 
-- **True circuit breaker** (open/half-open/closed states with failure rate tracking): the current fallback chain calls both APIs on every failure. A circuit breaker would skip a failing provider for a cooldown window (e.g. 60s) to avoid hammering it. This can be added later using Redis to store circuit state, with negligible changes to `FallbackExternalApiClient`.
-- Caching search results in Redis to reduce external API quota usage.
-- Source persistence across pages (current design: source is re-evaluated per API call — acceptable for now).
+- **True circuit breaker** (open/half-open/closed with cooldown window): current design retries both APIs on every failure. A Redis-backed circuit breaker could skip a failing provider for 60s. Negligible change to `FallbackCoverApiClient` when needed.
+- Caching cover search results in Redis to reduce API quota usage.
