@@ -20,10 +20,10 @@ class FallbackCoverApiClientTest extends TestCase
             edition: null,
             author: null,
             summary: null,
-            coverUrl: 'https://covers.openlibrary.org/b/id/9876543-M.jpg',
+            coverUrl: 'https://covers.mangadex.org/b/id/9876543-M.jpg',
             genre: null,
             language: 'fr',
-            source: 'openlibrary',
+            source: 'mangadex',
         );
 
         $primary = $this->createMock(ExternalApiClientInterface::class);
@@ -34,7 +34,7 @@ class FallbackCoverApiClientTest extends TestCase
         $client = new FallbackCoverApiClient($primary, $secondary);
         $result = $client->search('test manga');
 
-        $this->assertSame('openlibrary', $result['source']);
+        $this->assertSame('mangadex', $result['source']);
         $this->assertCount(1, $result['results']);
         $this->assertSame('Test Manga', $result['results'][0]->title);
     }

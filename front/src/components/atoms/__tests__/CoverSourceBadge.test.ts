@@ -18,12 +18,12 @@ describe('CoverSourceBadge', () => {
     expect(wrapper.html()).toBe('')
   })
 
-  it('renders Open Library logo with tooltip when source is openlibrary', () => {
+  it('renders MangaDex logo with tooltip when source is mangadex', () => {
     const wrapper = mount(CoverSourceBadge, {
-      props: { source: 'openlibrary' },
+      props: { source: 'mangadex' },
     })
-    expect(wrapper.html()).toContain('Open Library')
-    expect(wrapper.html()).toContain('data-tip="Couvertures via Open Library"')
+    expect(wrapper.html()).toContain('MangaDex')
+    expect(wrapper.html()).toContain('data-tip="Couvertures via MangaDex"')
     expect(wrapper.find('svg').exists()).toBe(true)
   })
 

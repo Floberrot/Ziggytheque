@@ -48,7 +48,7 @@ services:
     # Cover search fallback chain
     App\Manga\Infrastructure\ExternalApi\FallbackCoverApiClient:
         arguments:
-            $primary: '@App\Manga\Infrastructure\ExternalApi\OpenLibraryMangaApiClient'
+            $primary: '@App\Manga\Infrastructure\ExternalApi\MangaDexMangaApiClient'
             $secondary: '@App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient'
 
     # Google Books: kept separately for cover search fallback chain

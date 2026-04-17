@@ -26,11 +26,11 @@ final readonly class FallbackCoverApiClient
         $this->logger->info('FallbackCoverApiClient: starting search', ['query' => $query, 'page' => $page]);
 
         try {
-            $this->logger->info('FallbackCoverApiClient: trying primary (OpenLibrary)');
+            $this->logger->info('FallbackCoverApiClient: trying primary (MangaDex)');
             $results = $this->primary->searchByTitle($query, 'manga', $page);
             if ($results !== []) {
                 $this->logger->info('FallbackCoverApiClient: primary succeeded', ['count' => count($results)]);
-                return ['source' => 'openlibrary', 'results' => $results];
+                return ['source' => 'mangadex', 'results' => $results];
             }
             $this->logger->info('FallbackCoverApiClient: primary returned empty results');
         } catch (\Throwable $e) {
