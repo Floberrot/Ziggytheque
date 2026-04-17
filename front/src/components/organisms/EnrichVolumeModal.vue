@@ -411,7 +411,8 @@ const volumeStatus = computed(() => {
                     :disabled="!result.coverUrl"
                     @click="result.coverUrl && enrichMutation.mutate({ coverUrl: result.coverUrl })"
                   >
-                    <div class="w-full aspect-[2/3] rounded-lg overflow-hidden bg-base-200 ring-2 ring-transparent transition-all duration-150"
+                    <div
+class="w-full aspect-[2/3] rounded-lg overflow-hidden bg-base-200 ring-2 ring-transparent transition-all duration-150"
                       :class="result.coverUrl
                         ? 'group-hover:ring-primary group-hover:scale-105 group-hover:shadow-lg cursor-pointer'
                         : 'opacity-40'">

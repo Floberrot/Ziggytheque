@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Manga\Application\SearchVolumeExternal;
 
-use App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient;
+use App\Manga\Domain\ExternalApiClientInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -12,7 +12,7 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 final readonly class SearchVolumeExternalHandler
 {
     public function __construct(
-        private GoogleBooksMangaApiClient $googleBooks,
+        private ExternalApiClientInterface $externalApi,
         private LoggerInterface $logger,
     ) {
     }
@@ -26,7 +26,7 @@ final readonly class SearchVolumeExternalHandler
         ]);
 
         try {
-            $results = $this->googleBooks->searchByTitle($query->search, 'manga', $query->page);
+            $results = $this->externalApi->searchByTitle($query->search, 'manga', $query->page);
 
             $this->logger->info('SearchVolumeExternalHandler: success', [
                 'count' => count($results),
