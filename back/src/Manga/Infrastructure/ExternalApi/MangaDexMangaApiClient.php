@@ -38,6 +38,13 @@ final readonly class MangaDexMangaApiClient implements ExternalApiClientInterfac
             $response = $this->httpClient->request('GET', self::BASE_URL . '/manga?' . $queryString);
 
             $data = $response->toArray();
+
+            if (!empty($data['errors'])) {
+                $errorDetail = $data['errors'][0]['detail'] ?? 'Unknown error';
+                $this->logger->error('MangaDex: API error', ['error' => $errorDetail]);
+                throw new \Exception('MangaDex API error: ' . $errorDetail);
+            }
+
             $this->logger->info('MangaDex: received response', ['results_count' => count($data['data'] ?? [])]);
 
             if (empty($data['data'])) {
@@ -68,7 +75,14 @@ final readonly class MangaDexMangaApiClient implements ExternalApiClientInterfac
             $response = $this->httpClient->request('GET', $url);
 
             $data = $response->toArray();
-            $result = $this->mapToDto($data['data']);
+
+            if (!empty($data['errors'])) {
+                $errorDetail = $data['errors'][0]['detail'] ?? 'Unknown error';
+                $this->logger->error('MangaDex: API error', ['error' => $errorDetail]);
+                throw new \Exception('MangaDex API error: ' . $errorDetail);
+            }
+
+            $result = $this->mapToDto($data['data'] ?? []);
             $this->logger->info('MangaDex: fetch complete', ['found' => $result !== null]);
 
             return $result;
