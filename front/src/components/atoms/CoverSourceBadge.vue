@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CoverSource } from '@/api/manga'
 
-defineProps<{
+const props = defineProps<{
   source: CoverSource
   searchQuery?: string
 }>()
@@ -10,11 +10,6 @@ function openGoogleBooks() {
   const query = props.searchQuery || 'manga'
   window.open(`https://books.google.com/books?q=${encodeURIComponent(query)}`, '_blank')
 }
-
-const props = defineProps<{
-  source: CoverSource
-  searchQuery?: string
-}>()
 </script>
 
 <template>
