@@ -6,6 +6,7 @@ namespace App\Collection\Infrastructure\Http;
 
 use App\Collection\Application\Add\AddToCollectionCommand;
 use App\Collection\Application\AddRemainingToWishlist\AddRemainingToWishlistCommand;
+use App\Collection\Application\BatchSetVolumePrice\BatchSetVolumePriceCommand;
 use App\Collection\Application\SyncVolumes\SyncVolumesCommand;
 use App\Collection\Application\Get\GetCollectionQuery;
 use App\Collection\Application\GetDetail\GetCollectionDetailQuery;
@@ -91,6 +92,14 @@ final readonly class CollectionController
         $this->commandBus->dispatch(new PurchaseVolumeCommand($id, $volumeEntryId));
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    #[Route('/{id}/batch-price', methods: ['PATCH'])]
+    public function batchSetPrice(string $id, #[MapRequestPayload] BatchSetVolumePriceRequest $request): Response
+    {
+        $this->commandBus->dispatch(new BatchSetVolumePriceCommand($id, $request->price));
+
+        return new Response(null, Response::HTTP_NO_CONTENT);
     }
 
     /**

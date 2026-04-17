@@ -2,6 +2,7 @@
 import { useQuery } from '@tanstack/vue-query'
 import { getStats } from '@/api/stats'
 import { useI18n } from 'vue-i18n'
+import GenrePieChart from '@/components/molecules/GenrePieChart.vue'
 
 const { t } = useI18n()
 const { data: stats, isPending } = useQuery({ queryKey: ['stats'], queryFn: getStats })
@@ -31,8 +32,24 @@ const { data: stats, isPending } = useQuery({ queryKey: ['stats'], queryFn: getS
           <div class="stat-value">{{ stats.totalWishlist }}</div>
         </div>
         <div class="stat bg-base-100 rounded-box shadow">
-          <div class="stat-title">{{ t('dashboard.collectionValue') }}</div>
-          <div class="stat-value text-success">{{ stats.collectionValue.toFixed(2) }}€</div>
+          <div class="stat-title">{{ t('dashboard.ownedValue') }}</div>
+          <div class="stat-value text-success">{{ stats.ownedValue.toFixed(2) }} €</div>
+        </div>
+      </div>
+
+      <!-- Value breakdown -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="stat bg-base-100 rounded-box shadow">
+          <div class="stat-title">{{ t('dashboard.ownedValue') }}</div>
+          <div class="stat-value text-success text-2xl">{{ stats.ownedValue.toFixed(2) }} €</div>
+        </div>
+        <div class="stat bg-base-100 rounded-box shadow">
+          <div class="stat-title">{{ t('dashboard.wishlistValue') }}</div>
+          <div class="stat-value text-warning text-2xl">{{ stats.wishlistValue.toFixed(2) }} €</div>
+        </div>
+        <div class="stat bg-base-100 rounded-box shadow">
+          <div class="stat-title">{{ t('dashboard.totalValue') }}</div>
+          <div class="stat-value text-2xl">{{ stats.totalValue.toFixed(2) }} €</div>
         </div>
       </div>
 
@@ -40,21 +57,10 @@ const { data: stats, isPending } = useQuery({ queryKey: ['stats'], queryFn: getS
       <div class="card bg-base-100 shadow">
         <div class="card-body">
           <h2 class="card-title text-lg">{{ t('dashboard.genreBreakdown') }}</h2>
-          <div class="space-y-2">
-            <div
-              v-for="(count, genre) in stats.genreBreakdown"
-              :key="genre"
-              class="flex items-center gap-3"
-            >
-              <span class="w-28 text-sm capitalize shrink-0">{{ genre }}</span>
-              <progress
-                class="progress progress-primary flex-1"
-                :value="count"
-                :max="stats.totalMangas"
-              />
-              <span class="w-6 text-sm text-right">{{ count }}</span>
-            </div>
+          <div v-if="Object.keys(stats.genreBreakdown).length" class="max-w-md mx-auto">
+            <GenrePieChart :breakdown="stats.genreBreakdown" />
           </div>
+          <p v-else class="text-sm text-base-content/40 italic">Aucune donnée</p>
         </div>
       </div>
 

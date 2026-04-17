@@ -36,9 +36,6 @@ services:
         alias: App\Shared\Infrastructure\Bus\MessengerEventBus
 
     # Repository interfaces bound to Doctrine implementations
-    App\PriceCode\Domain\PriceCodeRepositoryInterface:
-        alias: App\PriceCode\Infrastructure\Doctrine\DoctrinePriceCodeRepository
-
     App\Manga\Domain\MangaRepositoryInterface:
         alias: App\Manga\Infrastructure\Doctrine\DoctrineMangaRepository
 

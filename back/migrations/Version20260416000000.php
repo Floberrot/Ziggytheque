@@ -17,16 +17,6 @@ final class Version20260416000000 extends AbstractMigration
     public function up(Schema $schema): void
     {
         $this->addSql(<<<'SQL'
-            CREATE TABLE price_codes (
-                code       VARCHAR(20)   NOT NULL,
-                label      VARCHAR(100)  NOT NULL,
-                value      NUMERIC(10,2) NOT NULL,
-                created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
-                PRIMARY KEY (code)
-            )
-        SQL);
-
-        $this->addSql(<<<'SQL'
             CREATE TABLE mangas (
                 id          VARCHAR(36)  NOT NULL,
                 title       VARCHAR(255) NOT NULL,
@@ -46,15 +36,13 @@ final class Version20260416000000 extends AbstractMigration
             CREATE TABLE volumes (
                 id           VARCHAR(36)  NOT NULL,
                 manga_id     VARCHAR(36)  NOT NULL,
-                price_code   VARCHAR(20)  DEFAULT NULL,
                 number       INT          NOT NULL,
                 cover_url    VARCHAR(255) DEFAULT NULL,
+                price        DOUBLE PRECISION DEFAULT NULL,
                 release_date TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
                 PRIMARY KEY (id),
                 CONSTRAINT fk_volumes_manga
                     FOREIGN KEY (manga_id) REFERENCES mangas(id) ON DELETE CASCADE,
-                CONSTRAINT fk_volumes_price_code
-                    FOREIGN KEY (price_code) REFERENCES price_codes(code) ON DELETE SET NULL,
                 CONSTRAINT UNIQ_7ADCAA157B646196901F54 UNIQUE (manga_id, number)
             )
         SQL);
@@ -167,6 +155,5 @@ final class Version20260416000000 extends AbstractMigration
         $this->addSql('DROP TABLE collection_entries');
         $this->addSql('DROP TABLE volumes');
         $this->addSql('DROP TABLE mangas');
-        $this->addSql('DROP TABLE price_codes');
     }
 }

@@ -43,7 +43,7 @@ class VolumeEntry
             'volumeId' => $this->volume->id,
             'number' => $this->volume->number,
             'coverUrl' => $this->volume->coverUrl,
-            'priceCode' => $this->volume->priceCode?->toArray(),
+            'price' => $this->volume->price,
             'isOwned' => $this->isOwned,
             'isRead' => $this->isRead,
             'isWished' => $this->isWished,

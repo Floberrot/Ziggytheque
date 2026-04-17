@@ -47,12 +47,6 @@ const router = createRouter({
           meta: { title: 'Ajouter une série' },
         },
         {
-          path: 'price-codes',
-          name: 'price-codes',
-          component: () => import('@/pages/PriceCodesPage.vue'),
-          meta: { title: 'Codes prix' },
-        },
-        {
           path: 'notifications',
           name: 'notifications',
           component: () => import('@/pages/NotificationsPage.vue'),
