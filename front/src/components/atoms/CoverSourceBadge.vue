@@ -33,6 +33,11 @@ defineProps<{
 </template>
 
 <style scoped>
+:deep(.tooltip) {
+  position: relative;
+  z-index: 10;
+}
+
 svg {
   opacity: 0.7;
 }

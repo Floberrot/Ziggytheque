@@ -5,19 +5,29 @@ declare(strict_types=1);
 namespace App\Manga\Application\SearchVolumeExternal;
 
 use App\Manga\Infrastructure\ExternalApi\FallbackCoverApiClient;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler(bus: 'query.bus')]
 final readonly class SearchVolumeExternalHandler
 {
-    public function __construct(private FallbackCoverApiClient $coverClient)
-    {
+    public function __construct(
+        private FallbackCoverApiClient $coverClient,
+        private LoggerInterface $logger,
+    ) {
     }
 
     /** @return array{source: string, results: array<int, array<string, mixed>>} */
     public function __invoke(SearchVolumeExternalQuery $query): array
     {
+        $this->logger->info('SearchVolumeExternalHandler: processing query', ['search' => $query->search]);
+
         $result = $this->coverClient->search($query->search);
+
+        $this->logger->info('SearchVolumeExternalHandler: completed', [
+            'source' => $result['source'],
+            'count' => count($result['results']),
+        ]);
 
         return [
             'source' => $result['source'],
