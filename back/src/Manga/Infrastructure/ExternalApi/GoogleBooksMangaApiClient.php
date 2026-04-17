@@ -29,6 +29,7 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
                 'langRestrict' => 'fr',
                 'printType' => 'books',
                 'maxResults' => 20,
+                'startIndex' => ($page - 1) * 20,
                 'orderBy' => 'relevance',
                 'key' => $this->apiKey,
             ],

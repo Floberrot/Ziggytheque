@@ -22,7 +22,7 @@ final readonly class JikanMangaApiClient implements ExternalApiClientInterface
     {
     }
 
-    private const RESULTS_PER_PAGE = 8;
+    private const RESULTS_PER_PAGE = 20;
 
     /** @return ExternalMangaDto[] */
     public function searchByTitle(string $query, string $type = 'manga', int $page = 1): array

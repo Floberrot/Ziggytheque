@@ -15,7 +15,7 @@ export interface ExternalMangaResult {
 }
 
 const EXTERNAL_API_URL = (import.meta.env.VITE_EXTERNAL_API_URL as string | undefined) ?? '/manga/external'
-const PAGE_SIZE = 8
+const PAGE_SIZE = 20
 
 export function useExternalSearch() {
   const ui = useUiStore()
