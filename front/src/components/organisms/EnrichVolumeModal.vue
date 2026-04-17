@@ -20,9 +20,14 @@ const emit = defineEmits<{ close: [] }>()
 const qc = useQueryClient()
 const ui = useUiStore()
 
-// ── Escape key ──
+// ── Escape key + lightbox ──
+const lightboxOpen = ref(false)
+
 function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && props.open) emit('close')
+  if (e.key === 'Escape') {
+    if (lightboxOpen.value) { lightboxOpen.value = false }
+    else if (props.open) { emit('close') }
+  }
 }
 onMounted(() => window.addEventListener('keydown', onKeydown))
 onUnmounted(() => window.removeEventListener('keydown', onKeydown))
@@ -50,6 +55,7 @@ watch(() => [props.open, props.volume] as const, ([open, vol], prev) => {
     searchResults.value = []
     skipNextSearch = false
     manualCoverUrl.value = ''
+    lightboxOpen.value = false
   }
 })
 
@@ -133,7 +139,7 @@ const volumeStatus = computed(() => {
         <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="emit('close')" />
 
         <!-- Modal -->
-        <div class="relative z-10 w-full sm:max-w-2xl bg-base-100 rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90dvh]">
+        <div class="relative z-10 w-full sm:max-w-2xl bg-base-100 rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[90dvh] sm:h-[580px]">
           <!-- Header -->
           <div class="flex items-center justify-between px-5 py-4 border-b border-base-200">
             <div>
@@ -150,10 +156,16 @@ const volumeStatus = computed(() => {
           <!-- Actions (bottom on mobile) + Search (top on mobile) -->
           <div class="flex flex-col-reverse sm:flex-row gap-0 overflow-hidden flex-1 min-h-0">
             <!-- Left: current state + quick actions — sticky at bottom on mobile -->
-            <div class="shrink-0 sm:w-48 p-4 flex flex-col gap-3 border-t sm:border-t-0 sm:border-r border-base-200">
+            <div class="shrink-0 sm:w-48 p-4 flex flex-col gap-3 border-t sm:border-t-0 sm:border-r border-base-200 overflow-y-auto">
               <!-- Current cover -->
-              <div class="mx-auto w-28 aspect-[2/3] rounded-xl overflow-hidden ring-2 bg-base-200"
-                :class="volumeStatus === 'owned' ? 'ring-success/60' : volumeStatus === 'wished' ? 'ring-warning/60' : 'ring-base-300'">
+              <div
+                class="mx-auto w-28 aspect-[2/3] rounded-xl overflow-hidden ring-2 bg-base-200 transition-transform duration-150"
+                :class="[
+                  volumeStatus === 'owned' ? 'ring-success/60' : volumeStatus === 'wished' ? 'ring-warning/60' : 'ring-base-300',
+                  volume.coverUrl ? 'cursor-zoom-in hover:scale-105' : ''
+                ]"
+                @click="volume.coverUrl && (lightboxOpen = true)"
+              >
                 <img v-if="volume.coverUrl" :src="volume.coverUrl" :alt="`Tome ${volume.number}`" class="w-full h-full object-cover" />
                 <div v-else class="w-full h-full flex items-center justify-center text-base-content/20">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -349,6 +361,24 @@ const volumeStatus = computed(() => {
       </div>
     </Transition>
   </Teleport>
+
+  <!-- Lightbox -->
+  <Teleport to="body">
+    <Transition name="fade">
+      <div
+        v-if="lightboxOpen && volume?.coverUrl"
+        class="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-sm cursor-zoom-out"
+        @click="lightboxOpen = false"
+      >
+        <img
+          :src="volume.coverUrl"
+          :alt="`Tome ${volume.number}`"
+          class="max-h-[90dvh] max-w-[90vw] object-contain rounded-xl shadow-2xl"
+          @click.stop
+        />
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -366,5 +396,13 @@ const volumeStatus = computed(() => {
 }
 .modal-enter-from .relative {
   transform: translateY(40px) scale(0.97);
+}
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
