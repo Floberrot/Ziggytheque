@@ -1,5 +1,6 @@
 import { ref, watch } from 'vue'
 import client from '@/api/client'
+import { useUiStore } from '@/stores/useUiStore'
 
 export interface ExternalMangaResult {
   externalId: string
@@ -17,6 +18,7 @@ const EXTERNAL_API_URL = (import.meta.env.VITE_EXTERNAL_API_URL as string | unde
 const PAGE_SIZE = 8
 
 export function useExternalSearch() {
+  const ui = useUiStore()
   const query = ref('')
   const results = ref<ExternalMangaResult[]>([])
   const isLoading = ref(false)
@@ -49,8 +51,9 @@ export function useExternalSearch() {
       results.value = res.data
       hasMore.value = res.data.length >= PAGE_SIZE
     } catch {
-      error.value = 'Search unavailable'
+      error.value = 'Recherche indisponible'
       hasMore.value = false
+      ui.addToast('Erreur lors de la recherche — réessayez', 'error')
     } finally {
       isLoading.value = false
     }
@@ -72,7 +75,7 @@ export function useExternalSearch() {
         hasMore.value = false
       }
     } catch {
-      // leave hasMore as-is so the user can retry
+      ui.addToast('Erreur lors du chargement — réessayez', 'error')
     } finally {
       isLoadingMore.value = false
     }
@@ -95,5 +98,5 @@ export function useExternalSearch() {
     if (debounceTimer) clearTimeout(debounceTimer)
   }
 
-  return { query, results, isLoading, isLoadingMore, hasMore, loadMore, error, clear }
+  return { query, results, isLoading, isLoadingMore, hasMore, loadMore, error, search, clear }
 }

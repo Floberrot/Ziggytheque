@@ -17,7 +17,7 @@ const { t } = useI18n()
 const step = ref<1 | 2 | 3>(1)
 const collectionEntryId = ref('')
 
-const { query, results, isLoading: searchLoading, isLoadingMore, hasMore, loadMore, error: searchError, clear: clearSearch } = useExternalSearch()
+const { query, results, isLoading: searchLoading, isLoadingMore, hasMore, loadMore, error: searchError, search: runSearch, clear: clearSearch } = useExternalSearch()
 
 function onResultsScroll(event: Event) {
   const el = event.target as HTMLElement
@@ -166,19 +166,33 @@ function onEditionInput() {
 
     <!-- ── Step 1 : Recherche ── -->
     <div v-if="step === 1" class="space-y-3">
-      <label class="input input-bordered flex items-center gap-2 w-full">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-50 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-        <input
-          v-model="query"
-          type="text"
-          class="grow"
-          :placeholder="t('add.searchPlaceholder')"
-          autocomplete="off"
-        />
-        <span v-if="searchLoading" class="loading loading-spinner loading-xs opacity-50" />
-      </label>
+      <div class="flex gap-2 items-center">
+        <label class="input input-bordered flex items-center gap-2 flex-1">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-50 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            v-model="query"
+            type="text"
+            class="grow"
+            :placeholder="t('add.searchPlaceholder')"
+            autocomplete="off"
+          />
+          <span v-if="searchLoading" class="loading loading-spinner loading-xs opacity-50" />
+        </label>
+        <button
+          v-if="query.trim().length >= 2"
+          class="btn btn-square btn-outline btn-sm"
+          :class="{ loading: searchLoading }"
+          :disabled="searchLoading"
+          title="Relancer la recherche"
+          @click="runSearch(query)"
+        >
+          <svg v-if="!searchLoading" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+      </div>
 
       <div v-if="searchError" class="alert alert-warning text-sm py-2">{{ searchError }}</div>
 

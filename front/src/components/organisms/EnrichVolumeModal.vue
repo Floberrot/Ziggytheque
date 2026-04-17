@@ -70,6 +70,7 @@ async function runSearch(q: string) {
     searchResults.value = await searchVolumeExternal(q.trim())
   } catch {
     searchResults.value = []
+    ui.addToast('Erreur lors de la recherche — réessayez', 'error')
   } finally {
     isSearching.value = false
   }
@@ -252,18 +253,31 @@ const volumeStatus = computed(() => {
                 <p class="text-xs text-base-content/50 mb-2 font-medium uppercase tracking-wide">
                   Enrichir la couverture — Google Books
                 </p>
-                <label class="input input-bordered input-sm flex items-center gap-2 w-full">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-40 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  <input
-                    v-model="searchQuery"
-                    type="text"
-                    class="grow text-sm"
-                    placeholder="ex: GTO tome 1 pika"
-                  />
-                  <span v-if="isSearching" class="loading loading-spinner loading-xs opacity-40" />
-                </label>
+                <div class="flex gap-2 items-center">
+                  <label class="input input-bordered input-sm flex items-center gap-2 flex-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-40 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input
+                      v-model="searchQuery"
+                      type="text"
+                      class="grow text-sm"
+                      placeholder="ex: GTO tome 1 pika"
+                    />
+                    <span v-if="isSearching" class="loading loading-spinner loading-xs opacity-40" />
+                  </label>
+                  <button
+                    class="btn btn-square btn-outline btn-sm shrink-0"
+                    :class="{ loading: isSearching }"
+                    :disabled="isSearching || searchQuery.trim().length < 2"
+                    title="Relancer la recherche"
+                    @click="runSearch(searchQuery)"
+                  >
+                    <svg v-if="!isSearching" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               <!-- Results -->
