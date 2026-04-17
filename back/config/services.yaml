@@ -45,7 +45,20 @@ services:
     App\Manga\Domain\ExternalApiClientInterface:
         alias: App\Manga\Infrastructure\ExternalApi\JikanMangaApiClient
 
-    # Google Books: kept separately for per-volume cover enrichment
+    # Cover search fallback chain
+    App\Manga\Infrastructure\ExternalApi\FallbackCoverApiClient:
+        arguments:
+            $primary: '@App\Manga\Infrastructure\ExternalApi\AmazonBooksMangaApiClient'
+            $secondary: '@App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient'
+
+    App\Manga\Infrastructure\ExternalApi\AmazonBooksMangaApiClient:
+        arguments:
+            $accessKey: '%env(AMAZON_ACCESS_KEY)%'
+            $secretKey: '%env(AMAZON_SECRET_KEY)%'
+            $partnerTag: '%env(AMAZON_PARTNER_TAG)%'
+            $marketplace: '%env(AMAZON_MARKETPLACE)%'
+
+    # Google Books: kept separately for cover search fallback chain
     App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient:
         arguments:
             $apiKey: '%env(GOOGLE_BOOKS_API_KEY)%'

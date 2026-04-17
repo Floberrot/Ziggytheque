@@ -86,6 +86,7 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
             genre: $genre,
             language: $language,
             totalVolumes: $totalVolumes,
+            source: 'google',
         );
     }
 

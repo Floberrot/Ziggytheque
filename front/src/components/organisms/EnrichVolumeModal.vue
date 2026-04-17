@@ -5,6 +5,8 @@ import { searchVolumeExternal, updateVolume } from '@/api/manga'
 import { toggleVolume, purchaseVolume } from '@/api/collection'
 import { useUiStore } from '@/stores/useUiStore'
 import type { VolumeEntry } from '@/types'
+import type { CoverSource } from '@/api/manga'
+import CoverSourceBadge from '@/components/atoms/CoverSourceBadge.vue'
 
 const props = defineProps<{
   open: boolean
@@ -37,6 +39,7 @@ const searchQuery = ref('')
 const manualCoverUrl = ref('')
 const searchResults = ref<{ externalId: string; title: string; edition: string | null; coverUrl: string | null }[]>([])
 const isSearching = ref(false)
+const currentCoverSource = ref<CoverSource>(null)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 let skipNextSearch = false
 
@@ -53,6 +56,7 @@ watch(() => [props.open, props.volume] as const, ([open, vol], prev) => {
   }
   if (!open) {
     searchResults.value = []
+    currentCoverSource.value = null
     skipNextSearch = false
     manualCoverUrl.value = ''
     lightboxOpen.value = false
@@ -70,13 +74,20 @@ watch(searchQuery, (val) => {
 })
 
 async function runSearch(q: string) {
-  if (q.trim().length < 2) { searchResults.value = []; return }
+  if (q.trim().length < 2) { searchResults.value = []; currentCoverSource.value = null; return }
   isSearching.value = true
   try {
-    searchResults.value = await searchVolumeExternal(q.trim())
-  } catch {
+    const result = await searchVolumeExternal(q.trim())
+    searchResults.value = result.results
+    currentCoverSource.value = result.source
+  } catch (error) {
     searchResults.value = []
-    ui.addToast('Erreur lors de la recherche — réessayez', 'error')
+    currentCoverSource.value = null
+    if (error instanceof Error && error.message.includes('503')) {
+      ui.addToast('Les fournisseurs de couverture sont actuellement indisponibles. Réessayez plus tard.', 'error')
+    } else {
+      ui.addToast('Erreur lors de la recherche — réessayez', 'error')
+    }
   } finally {
     isSearching.value = false
   }
@@ -263,9 +274,10 @@ const volumeStatus = computed(() => {
             <div class="flex-1 min-w-0 flex flex-col overflow-hidden">
               <div class="p-4 border-b border-base-200">
                 <p class="text-xs text-base-content/50 mb-2 font-medium uppercase tracking-wide">
-                  Enrichir la couverture — Google Books
+                  Enrichir la couverture
                 </p>
                 <div class="flex gap-2 items-center">
+                  <CoverSourceBadge :source="currentCoverSource" />
                   <label class="input input-bordered input-sm flex items-center gap-2 flex-1">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-40 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
