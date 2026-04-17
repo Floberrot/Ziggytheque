@@ -25,6 +25,7 @@ const ui = useUiStore()
 // ── Escape key + lightbox ──
 const lightboxOpen = ref(false)
 const sentinelEl = ref<HTMLElement | null>(null)
+const resultsContainer = ref<HTMLElement | null>(null)
 
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
@@ -36,15 +37,19 @@ function onKeydown(e: KeyboardEvent) {
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
 
-  // Setup infinite scroll observer
-  if (sentinelEl.value) {
+  // Setup infinite scroll observer with proper scrollable container
+  if (sentinelEl.value && resultsContainer.value) {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && !isLoadingMore.value && hasMoreResults.value) {
+          console.log('[InfiniteScroll] Sentinel visible, loading more')
           loadMoreResults()
         }
       },
-      { threshold: 0.1 }
+      {
+        root: resultsContainer.value,
+        threshold: 0.1,
+      }
     )
     observer.observe(sentinelEl.value)
   }
@@ -393,7 +398,7 @@ const volumeStatus = computed(() => {
               </div>
 
               <!-- Results -->
-              <div class="flex-1 overflow-y-auto p-4">
+              <div ref="resultsContainer" class="flex-1 overflow-y-auto p-4">
                 <p v-if="!searchResults.length && !isSearching" class="text-sm text-base-content/30 text-center py-6">
                   Saisissez le titre + numéro de tome pour trouver la couverture
                 </p>
