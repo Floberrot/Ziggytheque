@@ -15,6 +15,7 @@ final readonly class GetCollectionDetailHandler
     {
     }
 
+    /** @return array<string, mixed> */
     public function __invoke(GetCollectionDetailQuery $query): array
     {
         $entry = $this->repository->findById($query->id);

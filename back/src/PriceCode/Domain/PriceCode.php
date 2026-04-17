@@ -19,7 +19,7 @@ class PriceCode
         public readonly string $code,
         #[ORM\Column(length: 100)]
         public string $label,
-        #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
+        #[ORM\Column(type: 'float')]
         public float $value,
     ) {
         $this->createdAt = new \DateTimeImmutable();
@@ -31,6 +31,7 @@ class PriceCode
         $this->value = $value;
     }
 
+    /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [

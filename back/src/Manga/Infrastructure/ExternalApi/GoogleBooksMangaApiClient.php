@@ -57,6 +57,7 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
         return $this->mapToDto($data);
     }
 
+    /** @param array<string, mixed> $item */
     private function mapToDto(array $item): ?ExternalMangaDto
     {
         $info = $item['volumeInfo'] ?? [];
@@ -87,6 +88,7 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
         );
     }
 
+    /** @param array<string, mixed> $info */
     private function extractCoverUrl(array $info): ?string
     {
         $url = $info['imageLinks']['thumbnail']
@@ -101,6 +103,7 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
         return str_replace('http://', 'https://', $url);
     }
 
+    /** @param string[] $categories */
     private function extractGenre(array $categories): ?string
     {
         if (empty($categories)) {
@@ -125,6 +128,7 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
         };
     }
 
+    /** @param array<string, mixed> $info */
     private function extractVolumeNumber(array $info): ?int
     {
         // Try seriesInfo first
