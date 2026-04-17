@@ -11,6 +11,7 @@ import {
   purchaseVolume,
   syncVolumes,
 } from '@/api/collection'
+import { updateManga } from '@/api/manga'
 import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
 import EnrichVolumeModal from '@/components/organisms/EnrichVolumeModal.vue'
@@ -50,6 +51,23 @@ function openVolumeModal(ve: VolumeEntry) {
 function closeModal() {
   modalVolumeId.value = null
 }
+
+// ── Inline title/edition edit ──
+const editingTitle = ref(false)
+const editingEdition = ref(false)
+const editTitleValue = ref('')
+const editEditionValue = ref('')
+
+function startEditTitle() {
+  editTitleValue.value = entry.value?.manga.title ?? ''
+  editingTitle.value = true
+}
+function startEditEdition() {
+  editEditionValue.value = entry.value?.manga.edition ?? ''
+  editingEdition.value = true
+}
+function cancelEditTitle() { editingTitle.value = false }
+function cancelEditEdition() { editingEdition.value = false }
 
 // ── Sync panel state ──
 const showSyncPanel = ref(false)
@@ -173,6 +191,18 @@ const syncMutation = useMutation({
   },
 })
 
+const updateMangaMutation = useMutation({
+  mutationFn: (payload: { title?: string; edition?: string }) => updateManga(entry.value!.manga.id, payload),
+  onSuccess: () => {
+    qc.invalidateQueries({ queryKey: ['collection', id] })
+    qc.invalidateQueries({ queryKey: ['collection'] })
+    editingTitle.value = false
+    editingEdition.value = false
+    ui.addToast('Informations mises à jour', 'success')
+  },
+  onError: () => ui.addToast('Erreur lors de la mise à jour', 'error'),
+})
+
 // ── Batch operations ──
 const isBatchProcessing = ref(false)
 
@@ -241,9 +271,56 @@ function volumeOpacityClass(ve: VolumeEntry): string {
 
             <div class="flex-1 min-w-0 space-y-3">
               <div>
-                <h1 class="text-2xl md:text-3xl font-extrabold leading-tight">{{ entry.manga.title }}</h1>
+                <!-- Inline title edit -->
+                <div v-if="editingTitle" class="flex items-center gap-2">
+                  <input
+                    class="input input-bordered input-sm text-2xl md:text-3xl font-extrabold leading-tight w-full"
+                    v-model="editTitleValue"
+                    @keydown.enter="updateMangaMutation.mutate({ title: editTitleValue })"
+                    @keydown.escape="cancelEditTitle"
+                    autofocus
+                  />
+                  <button class="btn btn-primary btn-sm" @click="updateMangaMutation.mutate({ title: editTitleValue })">✓</button>
+                  <button class="btn btn-ghost btn-sm" @click="cancelEditTitle">✕</button>
+                </div>
+                <div v-else class="group/title flex items-center gap-2">
+                  <h1 class="text-2xl md:text-3xl font-extrabold leading-tight">{{ entry.manga.title }}</h1>
+                  <button
+                    class="btn btn-ghost btn-xs opacity-0 group-hover/title:opacity-60 transition-opacity"
+                    @click="startEditTitle"
+                    title="Renommer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- Inline edition edit -->
                 <div class="flex flex-wrap gap-1.5 mt-2">
-                  <span class="badge badge-primary">{{ entry.manga.edition }}</span>
+                  <div v-if="editingEdition" class="flex items-center gap-1.5">
+                    <input
+                      class="input input-bordered input-xs font-medium w-40"
+                      v-model="editEditionValue"
+                      @keydown.enter="updateMangaMutation.mutate({ edition: editEditionValue })"
+                      @keydown.escape="cancelEditEdition"
+                      autofocus
+                    />
+                    <button class="btn btn-primary btn-xs" @click="updateMangaMutation.mutate({ edition: editEditionValue })">✓</button>
+                    <button class="btn btn-ghost btn-xs" @click="cancelEditEdition">✕</button>
+                  </div>
+                  <div v-else class="group/edition flex items-center gap-1">
+                    <span class="badge badge-primary cursor-pointer" @click="startEditEdition">{{ entry.manga.edition }}</span>
+                    <button
+                      class="btn btn-ghost btn-xs opacity-0 group-hover/edition:opacity-60 transition-opacity p-0 min-h-0 h-auto"
+                      @click="startEditEdition"
+                      title="Modifier l'édition"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                  </div>
                   <span class="badge badge-outline">{{ entry.manga.language.toUpperCase() }}</span>
                   <span v-if="entry.manga.genre" class="badge badge-outline capitalize">{{ entry.manga.genre }}</span>
                 </div>

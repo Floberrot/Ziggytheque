@@ -10,6 +10,7 @@ use App\Manga\Application\Import\ImportMangaCommand;
 use App\Manga\Application\Search\SearchMangaQuery;
 use App\Manga\Application\SearchExternal\SearchExternalMangaQuery;
 use App\Manga\Application\SearchVolumeExternal\SearchVolumeExternalQuery;
+use App\Manga\Application\Update\UpdateMangaCommand;
 use App\Manga\Application\UpdateVolume\UpdateVolumeCommand;
 use App\Shared\Application\Bus\CommandBusInterface;
 use App\Shared\Application\Bus\QueryBusInterface;
@@ -77,6 +78,18 @@ final readonly class MangaController
         ));
 
         return new JsonResponse(['id' => $id], Response::HTTP_CREATED);
+    }
+
+    #[Route('/{id}', methods: ['PATCH'])]
+    public function update(string $id, #[MapRequestPayload] UpdateMangaRequest $request): JsonResponse
+    {
+        $this->commandBus->dispatch(new UpdateMangaCommand(
+            mangaId: $id,
+            title: $request->title,
+            edition: $request->edition,
+        ));
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
     #[Route('/{id}/volumes', methods: ['POST'])]
