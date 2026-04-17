@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { searchVolumeExternal, updateVolume } from '@/api/manga'
 import { toggleVolume, purchaseVolume } from '@/api/collection'
@@ -20,8 +20,16 @@ const emit = defineEmits<{ close: [] }>()
 const qc = useQueryClient()
 const ui = useUiStore()
 
+// ── Escape key ──
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && props.open) emit('close')
+}
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onUnmounted(() => window.removeEventListener('keydown', onKeydown))
+
 // ── Search state ──
 const searchQuery = ref('')
+const manualCoverUrl = ref('')
 const searchResults = ref<{ externalId: string; title: string; edition: string | null; coverUrl: string | null }[]>([])
 const isSearching = ref(false)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
@@ -41,6 +49,7 @@ watch(() => [props.open, props.volume] as const, ([open, vol], prev) => {
   if (!open) {
     searchResults.value = []
     skipNextSearch = false
+    manualCoverUrl.value = ''
   }
 })
 
@@ -292,6 +301,32 @@ const volumeStatus = computed(() => {
                       <p v-if="result.edition" class="text-[9px] text-base-content/40 truncate">{{ result.edition }}</p>
                     </div>
                   </button>
+                </div>
+              </div>
+
+              <!-- Manual URL input -->
+              <div class="shrink-0 px-4 pb-4 pt-3 border-t border-base-200">
+                <p class="text-xs text-base-content/40 mb-1.5 font-medium uppercase tracking-wide">
+                  Ou coller une URL directement
+                </p>
+                <div class="flex gap-2 items-center">
+                  <input
+                    v-model="manualCoverUrl"
+                    type="url"
+                    class="input input-bordered input-xs flex-1 min-w-0"
+                    placeholder="https://…"
+                  />
+                  <button
+                    class="btn btn-primary btn-xs shrink-0"
+                    :class="{ loading: enrichMutation.isPending.value }"
+                    :disabled="!manualCoverUrl.trim() || enrichMutation.isPending.value"
+                    @click="manualCoverUrl.trim() && enrichMutation.mutate({ coverUrl: manualCoverUrl.trim() })"
+                  >
+                    Appliquer
+                  </button>
+                </div>
+                <div v-if="manualCoverUrl.trim()" class="mt-2 w-14 aspect-[2/3] rounded-md overflow-hidden bg-base-200 ring-1 ring-base-300">
+                  <img :src="manualCoverUrl.trim()" class="w-full h-full object-cover" />
                 </div>
               </div>
             </div>

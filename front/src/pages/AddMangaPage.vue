@@ -293,8 +293,11 @@ function onEditionInput() {
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div class="form-control">
-            <label class="label py-1"><span class="label-text text-xs font-medium">{{ t('manga.author') }}</span></label>
-            <input v-model="form.author" type="text" class="input input-bordered input-sm" />
+            <label class="label py-1">
+              <span class="label-text text-xs font-medium">{{ t('manga.author') }}</span>
+              <span v-if="form.externalId && !form.author" class="label-text-alt text-warning/80 text-[10px]">Non trouvé — à saisir</span>
+            </label>
+            <input v-model="form.author" type="text" class="input input-bordered input-sm" placeholder="ex: Kentaro Miura" />
           </div>
           <div class="form-control">
             <label class="label py-1"><span class="label-text text-xs font-medium">{{ t('manga.language') }}</span></label>
