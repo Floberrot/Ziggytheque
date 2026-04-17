@@ -10,6 +10,7 @@ import {
   addRemainingToWishlist,
   purchaseVolume,
   syncVolumes,
+  batchSetVolumePrice,
 } from '@/api/collection'
 import { updateManga } from '@/api/manga'
 import { useUiStore } from '@/stores/useUiStore'
@@ -68,6 +69,19 @@ function startEditEdition() {
 }
 function cancelEditTitle() { editingTitle.value = false }
 function cancelEditEdition() { editingEdition.value = false }
+
+// ── Batch price ──
+const batchPrice = ref<number | null>(null)
+
+const batchPriceMutation = useMutation({
+  mutationFn: (price: number) => batchSetVolumePrice(id, price),
+  onSuccess: () => {
+    qc.invalidateQueries({ queryKey: ['collection', id] })
+    qc.invalidateQueries({ queryKey: ['stats'] })
+    batchPrice.value = null
+    ui.addToast('Prix appliqué à tous les tomes', 'success')
+  },
+})
 
 // ── Sync panel state ──
 const showSyncPanel = ref(false)
@@ -274,11 +288,11 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                 <!-- Inline title edit -->
                 <div v-if="editingTitle" class="flex items-center gap-2">
                   <input
-                    v-model="editTitleValue"
                     class="input input-bordered input-sm text-2xl md:text-3xl font-extrabold leading-tight w-full"
-                    autofocus
+                    v-model="editTitleValue"
                     @keydown.enter="updateMangaMutation.mutate({ title: editTitleValue })"
                     @keydown.escape="cancelEditTitle"
+                    autofocus
                   />
                   <button class="btn btn-primary btn-sm" @click="updateMangaMutation.mutate({ title: editTitleValue })">✓</button>
                   <button class="btn btn-ghost btn-sm" @click="cancelEditTitle">✕</button>
@@ -287,8 +301,8 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                   <h1 class="text-2xl md:text-3xl font-extrabold leading-tight">{{ entry.manga.title }}</h1>
                   <button
                     class="btn btn-ghost btn-xs opacity-0 group-hover/title:opacity-60 transition-opacity"
-                    title="Renommer"
                     @click="startEditTitle"
+                    title="Renommer"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -300,11 +314,11 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                 <div class="flex flex-wrap gap-1.5 mt-2">
                   <div v-if="editingEdition" class="flex items-center gap-1.5">
                     <input
-                      v-model="editEditionValue"
                       class="input input-bordered input-xs font-medium w-40"
-                      autofocus
+                      v-model="editEditionValue"
                       @keydown.enter="updateMangaMutation.mutate({ edition: editEditionValue })"
                       @keydown.escape="cancelEditEdition"
+                      autofocus
                     />
                     <button class="btn btn-primary btn-xs" @click="updateMangaMutation.mutate({ edition: editEditionValue })">✓</button>
                     <button class="btn btn-ghost btn-xs" @click="cancelEditEdition">✕</button>
@@ -313,8 +327,8 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                     <span class="badge badge-primary cursor-pointer" @click="startEditEdition">{{ entry.manga.edition }}</span>
                     <button
                       class="btn btn-ghost btn-xs opacity-0 group-hover/edition:opacity-60 transition-opacity p-0 min-h-0 h-auto"
-                      title="Modifier l'édition"
                       @click="startEditEdition"
+                      title="Modifier l'édition"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -388,6 +402,30 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                   @click.stop="showDeleteConfirm = true"
                 >
                   {{ t('common.remove') }}
+                </button>
+              </div>
+
+              <!-- Batch price panel (inline) -->
+              <div class="flex items-center gap-2 p-3 rounded-xl bg-base-200 text-sm">
+                <span class="text-base-content/60 shrink-0">Prix par tome</span>
+                <label class="input input-xs input-bordered flex items-center gap-1">
+                  <span class="text-base-content/50">€</span>
+                  <input
+                    v-model.number="batchPrice"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="w-20"
+                    placeholder="0.00"
+                  />
+                </label>
+                <button
+                  class="btn btn-secondary btn-xs"
+                  :class="{ loading: batchPriceMutation.isPending.value }"
+                  :disabled="batchPrice === null || batchPriceMutation.isPending.value"
+                  @click="batchPrice !== null && batchPriceMutation.mutate(batchPrice)"
+                >
+                  {{ t('collection.batchSetPrice') }}
                 </button>
               </div>
 

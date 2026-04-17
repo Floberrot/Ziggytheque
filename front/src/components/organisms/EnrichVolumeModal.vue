@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { searchVolumeExternal, updateVolume } from '@/api/manga'
 import { toggleVolume, purchaseVolume } from '@/api/collection'
 import { useUiStore } from '@/stores/useUiStore'
+import { useI18n } from 'vue-i18n'
 import type { VolumeEntry } from '@/types'
 import type { CoverSource } from '@/api/manga'
 import CoverSourceBadge from '@/components/atoms/CoverSourceBadge.vue'
@@ -21,6 +22,7 @@ const emit = defineEmits<{ close: [] }>()
 
 const qc = useQueryClient()
 const ui = useUiStore()
+const { t } = useI18n()
 
 // ── Escape key + lightbox ──
 const lightboxOpen = ref(false)
@@ -183,6 +185,26 @@ async function loadMoreResults() {
     })
   } finally {
     isLoadingMore.value = false
+  }
+}
+
+// ── Price ──
+const localPrice = ref<number | null>(null)
+
+watch(() => props.volume?.price, (v) => { localPrice.value = v ?? null }, { immediate: true })
+
+const priceMutation = useMutation({
+  mutationFn: ({ price }: { price: number | null }) =>
+    updateVolume(props.mangaId, props.volume!.volumeId, { price }),
+  onSuccess: () => {
+    qc.invalidateQueries({ queryKey: ['collection', props.collectionEntryId] })
+    qc.invalidateQueries({ queryKey: ['stats'] })
+  },
+})
+
+function onPriceBlur() {
+  if (props.volume && localPrice.value !== (props.volume.price ?? null)) {
+    priceMutation.mutate({ price: localPrice.value })
   }
 }
 
@@ -357,9 +379,23 @@ const volumeStatus = computed(() => {
                 </button>
               </div>
 
-              <!-- Price info -->
-              <div v-if="volume.priceCode" class="text-center text-sm text-base-content/50">
-                {{ volume.priceCode.value.toFixed(2) }}€
+              <!-- Price input -->
+              <div class="form-control">
+                <label class="label py-0.5">
+                  <span class="label-text text-xs text-base-content/50">{{ t('volume.price') }}</span>
+                </label>
+                <label class="input input-bordered input-xs flex items-center gap-1">
+                  <span class="text-base-content/50">€</span>
+                  <input
+                    v-model.number="localPrice"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="grow"
+                    placeholder="0.00"
+                    @blur="onPriceBlur"
+                  />
+                </label>
               </div>
             </div>
 

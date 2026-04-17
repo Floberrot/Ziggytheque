@@ -57,7 +57,7 @@ export async function updateManga(
 export async function updateVolume(
   mangaId: string,
   volumeId: string,
-  payload: { coverUrl?: string; releaseDate?: string; priceCode?: string },
+  payload: { coverUrl?: string; releaseDate?: string; price?: number | null },
 ): Promise<void> {
   await client.patch(`/manga/${mangaId}/volumes/${volumeId}`, payload)
 }
@@ -67,7 +67,6 @@ export async function addVolume(
   payload: {
     number: number
     coverUrl?: string
-    priceCode?: string
     releaseDate?: string
   },
 ): Promise<{ id: string }> {

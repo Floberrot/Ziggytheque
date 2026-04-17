@@ -24,11 +24,11 @@ const wishedRatio = computed(() =>
     : 0,
 )
 
-const completionClass = computed(() => {
-  if (ownedRatio.value === 100) return 'ring-success'
-  if (ownedRatio.value > 50) return 'ring-primary/60'
-  if (props.entry.wishedCount > 0) return 'ring-warning/50'
-  return 'ring-base-300/40'
+const ringClass = computed(() => {
+  if (ownedRatio.value === 100) return 'ring-success/70'
+  if (ownedRatio.value > 50) return 'ring-primary/50'
+  if (props.entry.wishedCount > 0) return 'ring-warning/40'
+  return 'ring-base-300/30'
 })
 
 function open() {
@@ -41,14 +41,13 @@ function open() {
     class="manga-card group relative cursor-pointer select-none"
     @click="open"
   >
-    <!-- Card container with glassmorphism on hover -->
     <div
-      class="relative rounded-2xl overflow-hidden bg-base-100 shadow-md ring-2 transition-all duration-300 ease-out
-             group-hover:shadow-2xl group-hover:scale-[1.04] group-hover:-translate-y-1"
-      :class="completionClass"
+      class="relative rounded-2xl overflow-hidden bg-base-200 shadow-md ring-2 transition-all duration-300 ease-out
+             group-hover:shadow-2xl group-hover:scale-[1.03] group-hover:-translate-y-1"
+      :class="ringClass"
     >
-      <!-- Cover image -->
-      <div class="aspect-[2/3] overflow-hidden bg-base-200">
+      <!-- Cover -->
+      <div class="aspect-[2/3] overflow-hidden">
         <img
           v-if="entry.manga.coverUrl"
           :src="entry.manga.coverUrl"
@@ -101,22 +100,78 @@ function open() {
         </div>
       </div>
 
-      <!-- Hover overlay: genre badge + completion pill -->
-      <div
-        class="absolute inset-x-0 top-0 flex items-start justify-between p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-      >
+      <!-- Deep gradient overlay -->
+      <div class="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none" />
+
+      <!-- Top row: genre badge always, edition on hover -->
+      <div class="absolute inset-x-0 top-0 flex items-start justify-between p-2.5">
         <span
           v-if="entry.manga.genre"
-          class="badge badge-xs bg-black/60 text-white border-none capitalize backdrop-blur-sm"
+          class="badge badge-xs bg-black/55 text-white/75 border-none capitalize backdrop-blur-sm"
         >
           {{ entry.manga.genre }}
         </span>
+        <span v-else class="flex-1" />
         <span
           v-if="ownedRatio === 100"
-          class="badge badge-xs badge-success border-none"
+          class="badge badge-xs badge-success border-none opacity-0 group-hover:opacity-100 transition-opacity duration-200"
         >
           Complet
         </span>
+      </div>
+
+      <!-- Bottom info -->
+      <div class="absolute inset-x-0 bottom-0 px-3 pb-3 pt-1 flex flex-col gap-2">
+        <!-- Title -->
+        <div>
+          <p class="text-white text-sm font-bold line-clamp-2 leading-snug drop-shadow-md">
+            {{ entry.manga.title }}
+          </p>
+          <p class="text-white/45 text-[10px] truncate mt-0.5 leading-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            {{ entry.manga.edition }}
+          </p>
+        </div>
+
+        <!-- Stats row -->
+        <div class="flex items-center justify-between gap-1">
+          <div class="flex items-center gap-2.5 text-xs">
+            <!-- Owned -->
+            <span class="flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
+              <span class="text-white font-semibold tabular-nums">{{ entry.ownedCount }}</span>
+              <span class="text-white/40 tabular-nums">/{{ entry.totalVolumes }}</span>
+            </span>
+            <!-- Read -->
+            <span v-if="entry.readCount > 0" class="flex items-center gap-1 text-info/80">
+              <span class="w-1.5 h-1.5 rounded-full bg-info shrink-0" />
+              <span class="tabular-nums">{{ entry.readCount }}</span>
+            </span>
+            <!-- Wished -->
+            <span v-if="entry.wishedCount > 0" class="flex items-center gap-1 text-warning/80">
+              <span class="w-1.5 h-1.5 rounded-full bg-warning shrink-0" />
+              <span class="tabular-nums font-medium">{{ entry.wishedCount }}</span>
+            </span>
+          </div>
+          <span v-if="entry.ownedValue > 0" class="text-[10px] text-white/45 shrink-0 tabular-nums">
+            {{ entry.ownedValue.toFixed(2) }} €
+          </span>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="relative w-full h-1.5 rounded-full bg-white/15 overflow-hidden">
+          <div
+            class="absolute left-0 top-0 h-full bg-info transition-all duration-500"
+            :style="{ width: `${readRatio}%` }"
+          />
+          <div
+            class="absolute top-0 h-full bg-success transition-all duration-500"
+            :style="{ left: `${readRatio}%`, width: `${ownedRatio - readRatio}%` }"
+          />
+          <div
+            class="absolute top-0 h-full bg-warning/80 transition-all duration-500"
+            :style="{ left: `${ownedRatio}%`, width: `${Math.min(wishedRatio, 100 - ownedRatio)}%` }"
+          />
+        </div>
       </div>
     </div>
   </div>
