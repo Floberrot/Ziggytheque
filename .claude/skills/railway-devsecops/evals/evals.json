@@ -1,0 +1,23 @@
+{
+  "skill_name": "railway-devsecops",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I have a Laravel 11 API project (no frontend, just REST endpoints). It uses PostgreSQL and Redis for queues. I want to deploy it on Railway but I have no Dockerfile or railway.toml yet. My .env file has APP_KEY and DATABASE_URL hardcoded. Can you set everything up for me?",
+      "expected_output": "A secure Dockerfile using php:8.3-fpm-alpine with multi-stage Composer install, Nginx + Supervisor config, .dockerignore that excludes .env and vendor/, railway.toml pointing to the Dockerfile, and a security report flagging the hardcoded .env secrets with remediation instructions.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "hey so i have a Vue 3 + Vite SPA (just the frontend, deployed separately from the backend). i want to dockerize it and push to Railway. no Dockerfile exists. the app uses vue-router in history mode so i need the nginx fallback to index.html",
+      "expected_output": "Multi-stage Dockerfile: node:20-alpine builder running npm run build, then nginx:1.27-alpine serving dist/, with an nginx.conf that includes try_files $uri $uri/ /index.html for SPA routing. .dockerignore excluding node_modules and dist. railway.toml. Next steps for railway up.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I have a Symfony 7 project with Webpack Encore for assets. There's already a Dockerfile but it runs php-fpm as root and uses php:latest as base image. I want to fix the security issues and make it work on Railway. Here's the existing Dockerfile:\n\nFROM php:latest\nWORKDIR /app\nRUN apt-get update && apt-get install -y nginx\nCOPY . .\nRUN composer install\nCOPY .env /app/.env\nEXPOSE 80\nCMD [\"php-fpm\"]",
+      "expected_output": "Updated Dockerfile that: pins php:8.3-fpm-alpine (not latest), adds non-root user, uses multi-stage for composer deps, removes the COPY .env line (flagged as CRITICAL), adds Nginx config, adds Supervisor to run both fpm and nginx. .dockerignore excluding .env. railway.toml. Security report listing at minimum: [CRITICAL] COPY .env bakes secrets into image, [WARNING] running as root, [WARNING] php:latest unpinned tag.",
+      "files": []
+    }
+  ]
+}

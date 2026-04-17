@@ -1,5 +1,11 @@
 # Ziggytheque — Project Instructions
 
+## Git Discipline
+
+- **One commit per PR** — a PR must land as a single commit. Prefer `git commit --amend` to add changes to the current commit; use `git rebase -i` to squash only if amend is not possible.
+- **Never create a new commit when one already exists on the branch** — always amend instead.
+- **Commits must be authored solely by the repo owner** — never set Claude or any AI assistant as the author. Always preserve the user's git identity (`user.name` / `user.email`). Never pass `--author` or alter git config.
+
 ## Stack
 - Backend: Symfony 8 + PHP 8.4 + FrankenPHP + PostgreSQL 17 (`back/`)
 - Frontend: Vue 3 + TypeScript + Vite + DaisyUI (`front/`)
