@@ -48,15 +48,8 @@ services:
     # Cover search fallback chain
     App\Manga\Infrastructure\ExternalApi\FallbackCoverApiClient:
         arguments:
-            $primary: '@App\Manga\Infrastructure\ExternalApi\AmazonBooksMangaApiClient'
+            $primary: '@App\Manga\Infrastructure\ExternalApi\OpenLibraryMangaApiClient'
             $secondary: '@App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient'
-
-    App\Manga\Infrastructure\ExternalApi\AmazonBooksMangaApiClient:
-        arguments:
-            $accessKey: '%env(AMAZON_ACCESS_KEY)%'
-            $secretKey: '%env(AMAZON_SECRET_KEY)%'
-            $partnerTag: '%env(AMAZON_PARTNER_TAG)%'
-            $marketplace: '%env(AMAZON_MARKETPLACE)%'
 
     # Google Books: kept separately for cover search fallback chain
     App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient:

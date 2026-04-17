@@ -1,7 +1,7 @@
 import client from './client'
 import type { Manga, MangaDetail } from '@/types'
 
-export type CoverSource = 'amazon' | 'google' | 'none' | null
+export type CoverSource = 'openlibrary' | 'google' | 'none' | null
 
 export interface ExternalMangaResult {
   externalId: string

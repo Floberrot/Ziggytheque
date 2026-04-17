@@ -18,12 +18,12 @@ describe('CoverSourceBadge', () => {
     expect(wrapper.html()).toBe('')
   })
 
-  it('renders Amazon logo with tooltip when source is amazon', () => {
+  it('renders Open Library logo with tooltip when source is openlibrary', () => {
     const wrapper = mount(CoverSourceBadge, {
-      props: { source: 'amazon' },
+      props: { source: 'openlibrary' },
     })
-    expect(wrapper.html()).toContain('Amazon')
-    expect(wrapper.html()).toContain('data-tip="Couvertures via Amazon"')
+    expect(wrapper.html()).toContain('Open Library')
+    expect(wrapper.html()).toContain('data-tip="Couvertures via Open Library"')
     expect(wrapper.find('svg').exists()).toBe(true)
   })
 

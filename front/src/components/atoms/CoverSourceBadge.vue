@@ -8,13 +8,13 @@ defineProps<{
 
 <template>
   <div
-    v-if="source === 'amazon'"
+    v-if="source === 'openlibrary'"
     class="tooltip"
-    data-tip="Couvertures via Amazon"
+    data-tip="Couvertures via Open Library"
   >
-    <!-- Amazon smile logo -->
+    <!-- Open Library book logo -->
     <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 0C5.37 0 0 5.37 0 12c0 6.63 5.37 12 12 12s12-5.37 12-12S18.63 0 12 0zm4.5 10.5c-1.5 1.5-3 2.25-3 3s.75.75 1.5.75c1.05 0 2.25-.75 3-1.5v2.25c-.75.75-2.25 1.5-3.75 1.5-2.25 0-3.75-1.5-3.75-3.75 0-1.5.75-3 2.25-4.5 1.5-1.5 2.25-2.25 2.25-3s-.75-.75-1.5-.75c-1.05 0-2.25.75-3 1.5V7.5c.75-.75 2.25-1.5 3.75-1.5 2.25 0 3.75 1.5 3.75 3.75 0 1.5-.75 3-2.25 4.5z" />
+      <path d="M6 2C4.9 2 4 2.9 4 4v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2H6zm0 2h12v16H6V4zm2 2v2h8V6H8zm0 4v2h8v-2H8zm0 4v2h8v-2H8z" />
     </svg>
   </div>
 

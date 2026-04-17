@@ -15,15 +15,15 @@ class FallbackCoverApiClientTest extends TestCase
     public function testPrimarySuccessReturnsPrimaryResults(): void
     {
         $dto = new ExternalMangaDto(
-            externalId: 'amazon-123',
+            externalId: '/books/OL123M',
             title: 'Test Manga',
             edition: null,
             author: null,
             summary: null,
-            coverUrl: 'https://example.com/cover.jpg',
+            coverUrl: 'https://covers.openlibrary.org/b/id/9876543-M.jpg',
             genre: null,
             language: 'fr',
-            source: 'amazon',
+            source: 'openlibrary',
         );
 
         $primary = $this->createMock(ExternalApiClientInterface::class);
@@ -34,7 +34,7 @@ class FallbackCoverApiClientTest extends TestCase
         $client = new FallbackCoverApiClient($primary, $secondary);
         $result = $client->search('test manga');
 
-        $this->assertSame('amazon', $result['source']);
+        $this->assertSame('openlibrary', $result['source']);
         $this->assertCount(1, $result['results']);
         $this->assertSame('Test Manga', $result['results'][0]->title);
     }
