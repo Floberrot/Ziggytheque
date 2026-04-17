@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Manga\Application\SearchVolumeExternal;
+namespace App\Tests\Unit\Manga\Application\SearchVolumeExternal;
 
 use App\Manga\Application\SearchVolumeExternal\SearchVolumeExternalHandler;
 use App\Manga\Application\SearchVolumeExternal\SearchVolumeExternalQuery;

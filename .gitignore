@@ -5,7 +5,8 @@ front/node_modules/
 # Environment
 back/.env.local
 back/.env.*.local
-back/config/jwt/
+back/config/jwt/*.pem
+!back/config/jwt/*.test.pem
 
 # Build
 back/var/
