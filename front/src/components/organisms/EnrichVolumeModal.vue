@@ -5,6 +5,8 @@ import { searchVolumeExternal, updateVolume } from '@/api/manga'
 import { toggleVolume, purchaseVolume } from '@/api/collection'
 import { useUiStore } from '@/stores/useUiStore'
 import type { VolumeEntry } from '@/types'
+import type { CoverSource } from '@/api/manga'
+import CoverSourceBadge from '@/components/atoms/CoverSourceBadge.vue'
 
 const props = defineProps<{
   open: boolean
@@ -22,6 +24,8 @@ const ui = useUiStore()
 
 // ── Escape key + lightbox ──
 const lightboxOpen = ref(false)
+const sentinelEl = ref<HTMLElement | null>(null)
+const resultsContainer = ref<HTMLElement | null>(null)
 
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
@@ -29,7 +33,28 @@ function onKeydown(e: KeyboardEvent) {
     else if (props.open) { emit('close') }
   }
 }
-onMounted(() => window.addEventListener('keydown', onKeydown))
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+
+  // Setup infinite scroll observer with proper scrollable container
+  if (sentinelEl.value && resultsContainer.value) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isLoadingMore.value && hasMoreResults.value) {
+          console.log('[InfiniteScroll] Sentinel visible, loading more')
+          loadMoreResults()
+        }
+      },
+      {
+        root: resultsContainer.value,
+        threshold: 0.1,
+      }
+    )
+    observer.observe(sentinelEl.value)
+  }
+})
+
 onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 // ── Search state ──
@@ -37,6 +62,10 @@ const searchQuery = ref('')
 const manualCoverUrl = ref('')
 const searchResults = ref<{ externalId: string; title: string; edition: string | null; coverUrl: string | null }[]>([])
 const isSearching = ref(false)
+const currentCoverSource = ref<CoverSource>(null)
+const currentPage = ref(1)
+const hasMoreResults = ref(true)
+const isLoadingMore = ref(false)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 let skipNextSearch = false
 
@@ -53,6 +82,7 @@ watch(() => [props.open, props.volume] as const, ([open, vol], prev) => {
   }
   if (!open) {
     searchResults.value = []
+    currentCoverSource.value = null
     skipNextSearch = false
     manualCoverUrl.value = ''
     lightboxOpen.value = false
@@ -70,15 +100,89 @@ watch(searchQuery, (val) => {
 })
 
 async function runSearch(q: string) {
-  if (q.trim().length < 2) { searchResults.value = []; return }
-  isSearching.value = true
-  try {
-    searchResults.value = await searchVolumeExternal(q.trim())
-  } catch {
+  if (q.trim().length < 2) {
     searchResults.value = []
-    ui.addToast('Erreur lors de la recherche — réessayez', 'error')
+    currentCoverSource.value = null
+    return
+  }
+
+  isSearching.value = true
+  currentPage.value = 1
+  hasMoreResults.value = true
+  const trimmedQuery = q.trim()
+
+  console.log('[CoverSearch] Searching:', { query: trimmedQuery, page: 1 })
+
+  try {
+    const result = await searchVolumeExternal(trimmedQuery, 1)
+
+    console.log('[CoverSearch] Success:', {
+      query: trimmedQuery,
+      source: result.source,
+      count: result.results.length,
+    })
+
+    searchResults.value = result.results
+    currentCoverSource.value = result.source
+    hasMoreResults.value = result.results.length >= 20
+
+    if (result.results.length === 0) {
+      ui.addToast('Aucune couverture trouvée pour cette recherche', 'warning')
+    }
+  } catch (error) {
+    searchResults.value = []
+    currentCoverSource.value = null
+    hasMoreResults.value = false
+
+    const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue'
+    console.error('[CoverSearch] Failed:', {
+      query: trimmedQuery,
+      error: errorMsg,
+    })
+
+    ui.addToast('Erreur lors de la recherche de couverture — Google Books indisponible', 'error')
   } finally {
     isSearching.value = false
+  }
+}
+
+async function loadMoreResults() {
+  if (isLoadingMore.value || !hasMoreResults.value) return
+
+  isLoadingMore.value = true
+  const nextPage = currentPage.value + 1
+  const trimmedQuery = searchQuery.value.trim()
+
+  console.log('[CoverSearch] Loading more:', { query: trimmedQuery, page: nextPage })
+
+  try {
+    const result = await searchVolumeExternal(trimmedQuery, nextPage)
+
+    if (result.results.length === 0) {
+      hasMoreResults.value = false
+      console.log('[CoverSearch] No more results')
+      return
+    }
+
+    console.log('[CoverSearch] Loaded:', {
+      query: trimmedQuery,
+      page: nextPage,
+      count: result.results.length,
+    })
+
+    searchResults.value = [...searchResults.value, ...result.results]
+    currentPage.value = nextPage
+    hasMoreResults.value = result.results.length >= 20
+  } catch (error) {
+    hasMoreResults.value = false
+    const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue'
+    console.error('[CoverSearch] Load more failed:', {
+      query: trimmedQuery,
+      page: nextPage,
+      error: errorMsg,
+    })
+  } finally {
+    isLoadingMore.value = false
   }
 }
 
@@ -263,9 +367,10 @@ const volumeStatus = computed(() => {
             <div class="flex-1 min-w-0 flex flex-col overflow-hidden">
               <div class="p-4 border-b border-base-200">
                 <p class="text-xs text-base-content/50 mb-2 font-medium uppercase tracking-wide">
-                  Enrichir la couverture — Google Books
+                  Enrichir la couverture
                 </p>
                 <div class="flex gap-2 items-center">
+                  <CoverSourceBadge :source="currentCoverSource" :search-query="searchQuery" />
                   <label class="input input-bordered input-sm flex items-center gap-2 flex-1">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-40 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -293,7 +398,7 @@ const volumeStatus = computed(() => {
               </div>
 
               <!-- Results -->
-              <div class="flex-1 overflow-y-auto p-4">
+              <div ref="resultsContainer" class="flex-1 overflow-y-auto p-4">
                 <p v-if="!searchResults.length && !isSearching" class="text-sm text-base-content/30 text-center py-6">
                   Saisissez le titre + numéro de tome pour trouver la couverture
                 </p>
@@ -306,7 +411,8 @@ const volumeStatus = computed(() => {
                     :disabled="!result.coverUrl"
                     @click="result.coverUrl && enrichMutation.mutate({ coverUrl: result.coverUrl })"
                   >
-                    <div class="w-full aspect-[2/3] rounded-lg overflow-hidden bg-base-200 ring-2 ring-transparent transition-all duration-150"
+                    <div
+class="w-full aspect-[2/3] rounded-lg overflow-hidden bg-base-200 ring-2 ring-transparent transition-all duration-150"
                       :class="result.coverUrl
                         ? 'group-hover:ring-primary group-hover:scale-105 group-hover:shadow-lg cursor-pointer'
                         : 'opacity-40'">
@@ -327,6 +433,19 @@ const volumeStatus = computed(() => {
                       <p v-if="result.edition" class="text-[9px] text-base-content/40 truncate">{{ result.edition }}</p>
                     </div>
                   </button>
+                </div>
+
+                <!-- Infinite scroll sentinel -->
+                <div v-if="hasMoreResults && searchResults.length > 0" ref="sentinelEl" class="h-4" />
+
+                <!-- Loading indicator -->
+                <div v-if="isLoadingMore" class="flex justify-center py-4">
+                  <span class="loading loading-spinner loading-sm" />
+                </div>
+
+                <!-- No more results message -->
+                <div v-if="!hasMoreResults && searchResults.length > 0" class="text-center py-4 text-xs text-base-content/30">
+                  Plus de résultats
                 </div>
               </div>
 
