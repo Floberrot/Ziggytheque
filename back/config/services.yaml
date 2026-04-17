@@ -45,13 +45,7 @@ services:
     App\Manga\Domain\ExternalApiClientInterface:
         alias: App\Manga\Infrastructure\ExternalApi\JikanMangaApiClient
 
-    # Cover search fallback chain
-    App\Manga\Infrastructure\ExternalApi\FallbackCoverApiClient:
-        arguments:
-            $primary: '@App\Manga\Infrastructure\ExternalApi\MangaDexMangaApiClient'
-            $secondary: '@App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient'
-
-    # Google Books: kept separately for cover search fallback chain
+    # Google Books for volume cover search
     App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient:
         arguments:
             $apiKey: '%env(GOOGLE_BOOKS_API_KEY)%'

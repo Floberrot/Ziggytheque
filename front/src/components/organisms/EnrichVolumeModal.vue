@@ -74,20 +74,43 @@ watch(searchQuery, (val) => {
 })
 
 async function runSearch(q: string) {
-  if (q.trim().length < 2) { searchResults.value = []; currentCoverSource.value = null; return }
+  if (q.trim().length < 2) {
+    searchResults.value = []
+    currentCoverSource.value = null
+    return
+  }
+
   isSearching.value = true
+  const trimmedQuery = q.trim()
+
+  console.log('[CoverSearch] Searching:', { query: trimmedQuery })
+
   try {
-    const result = await searchVolumeExternal(q.trim())
+    const result = await searchVolumeExternal(trimmedQuery)
+
+    console.log('[CoverSearch] Success:', {
+      query: trimmedQuery,
+      source: result.source,
+      count: result.results.length,
+    })
+
     searchResults.value = result.results
     currentCoverSource.value = result.source
+
+    if (result.results.length === 0) {
+      ui.addToast('Aucune couverture trouvée pour cette recherche', 'warning')
+    }
   } catch (error) {
     searchResults.value = []
     currentCoverSource.value = null
-    if (error instanceof Error && error.message.includes('503')) {
-      ui.addToast('Les fournisseurs de couverture sont actuellement indisponibles. Réessayez plus tard.', 'error')
-    } else {
-      ui.addToast('Erreur lors de la recherche — réessayez', 'error')
-    }
+
+    const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue'
+    console.error('[CoverSearch] Failed:', {
+      query: trimmedQuery,
+      error: errorMsg,
+    })
+
+    ui.addToast('Erreur lors de la recherche de couverture — Google Books indisponible', 'error')
   } finally {
     isSearching.value = false
   }
@@ -277,7 +300,7 @@ const volumeStatus = computed(() => {
                   Enrichir la couverture
                 </p>
                 <div class="flex gap-2 items-center">
-                  <CoverSourceBadge :source="currentCoverSource" />
+                  <CoverSourceBadge :source="currentCoverSource" :search-query="searchQuery" />
                   <label class="input input-bordered input-sm flex items-center gap-2 flex-1">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-40 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />

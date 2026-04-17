@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Manga\Application\SearchVolumeExternal;
 
-use App\Manga\Infrastructure\ExternalApi\FallbackCoverApiClient;
+use App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -12,7 +12,7 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 final readonly class SearchVolumeExternalHandler
 {
     public function __construct(
-        private FallbackCoverApiClient $coverClient,
+        private GoogleBooksMangaApiClient $googleBooks,
         private LoggerInterface $logger,
     ) {
     }
@@ -22,20 +22,28 @@ final readonly class SearchVolumeExternalHandler
     {
         $this->logger->info('SearchVolumeExternalHandler: processing query', ['search' => $query->search]);
 
-        $result = $this->coverClient->search($query->search);
+        try {
+            $results = $this->googleBooks->searchByTitle($query->search);
 
-        $this->logger->info('SearchVolumeExternalHandler: completed', [
-            'source' => $result['source'],
-            'count' => count($result['results']),
-        ]);
+            $this->logger->info('SearchVolumeExternalHandler: success', [
+                'count' => count($results),
+                'search' => $query->search,
+            ]);
 
-        return [
-            'source' => $result['source'],
-            'results' => array_map(static fn ($dto) => [
-                'externalId' => $dto->externalId,
-                'coverUrl'   => $dto->coverUrl,
-                'title'      => $dto->title,
-            ], $result['results']),
-        ];
+            return [
+                'source' => 'google',
+                'results' => array_map(static fn ($dto) => [
+                    'externalId' => $dto->externalId,
+                    'coverUrl'   => $dto->coverUrl,
+                    'title'      => $dto->title,
+                ], $results),
+            ];
+        } catch (\Throwable $e) {
+            $this->logger->error('SearchVolumeExternalHandler: failed', [
+                'error' => $e->getMessage(),
+                'search' => $query->search,
+            ]);
+            throw $e;
+        }
     }
 }
