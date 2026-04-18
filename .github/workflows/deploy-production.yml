@@ -1,0 +1,307 @@
+name: Deploy — Production
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+jobs:
+  # --- Backend: code style ---------------------------------------------------
+
+  phpcs:
+    name: "Gate: PHP_CodeSniffer"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: back
+    env:
+      APP_SECRET: ci-secret-not-used
+      JWT_PASSPHRASE: ${{ secrets.JWT_PASSPHRASE || 'ci-jwt-passphrase' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer
+          coverage: none
+      - uses: actions/cache@v4
+        with:
+          path: back/vendor
+          key: composer-${{ hashFiles('back/composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: vendor/bin/phpcs
+
+  # --- Backend: architecture -------------------------------------------------
+
+  deptrac:
+    name: "Gate: Deptrac"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: back
+    env:
+      APP_SECRET: ci-secret-not-used
+      JWT_PASSPHRASE: ${{ secrets.JWT_PASSPHRASE || 'ci-jwt-passphrase' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer
+          coverage: none
+      - uses: actions/cache@v4
+        with:
+          path: back/vendor
+          key: composer-${{ hashFiles('back/composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: vendor/bin/deptrac analyse --no-progress
+
+  # --- Backend: static analysis ----------------------------------------------
+
+  phpstan:
+    name: "Gate: PHPStan"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: back
+    env:
+      DATABASE_URL: postgresql://ziggy:ziggy@127.0.0.1:5432/ziggytheque?serverVersion=17&charset=utf8
+      APP_SECRET: ci-secret-not-used
+      JWT_PASSPHRASE: ${{ secrets.JWT_PASSPHRASE || 'ci-jwt-passphrase' }}
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ziggy
+          POSTGRES_PASSWORD: ziggy
+          POSTGRES_DB: ziggytheque
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql, intl
+          tools: composer
+          coverage: none
+      - uses: actions/cache@v4
+        with:
+          path: back/vendor
+          key: composer-${{ hashFiles('back/composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Generate JWT keys
+        run: |
+          mkdir -p config/jwt
+          openssl genrsa -passout pass:${JWT_PASSPHRASE} -out config/jwt/private.pem 4096
+          openssl rsa -pubout -passin pass:${JWT_PASSPHRASE} -in config/jwt/private.pem -out config/jwt/public.pem
+      - run: php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+      - run: php bin/console cache:warmup --env=dev
+      - run: vendor/bin/phpstan analyse --no-progress
+
+  # --- Backend: database migrations ------------------------------------------
+
+  db-migrations:
+    name: "Gate: DB Migrations"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: back
+    env:
+      DATABASE_URL: postgresql://ziggy:ziggy@127.0.0.1:5432/ziggytheque?serverVersion=17&charset=utf8
+      APP_SECRET: ci-secret-not-used
+      JWT_PASSPHRASE: ${{ secrets.JWT_PASSPHRASE || 'ci-jwt-passphrase' }}
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ziggy
+          POSTGRES_PASSWORD: ziggy
+          POSTGRES_DB: ziggytheque
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql, intl
+          tools: composer
+          coverage: none
+      - uses: actions/cache@v4
+        with:
+          path: back/vendor
+          key: composer-${{ hashFiles('back/composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Generate JWT keys
+        run: |
+          mkdir -p config/jwt
+          openssl genrsa -passout pass:${JWT_PASSPHRASE} -out config/jwt/private.pem 4096
+          openssl rsa -pubout -passin pass:${JWT_PASSPHRASE} -in config/jwt/private.pem -out config/jwt/public.pem
+      - run: php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+      - run: php bin/console doctrine:schema:validate
+
+  # --- Backend: test suite ---------------------------------------------------
+
+  tests:
+    name: "Gate: PHPUnit"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: back
+    env:
+      DATABASE_URL: postgresql://ziggy:ziggy@127.0.0.1:5432/ziggytheque?serverVersion=17&charset=utf8
+      APP_SECRET: ci-secret-not-used
+      JWT_PASSPHRASE: ${{ secrets.JWT_PASSPHRASE || 'ci-jwt-passphrase' }}
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ziggy
+          POSTGRES_PASSWORD: ziggy
+          POSTGRES_DB: ziggytheque
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql, intl
+          tools: composer
+          coverage: none
+      - uses: actions/cache@v4
+        with:
+          path: back/vendor
+          key: composer-${{ hashFiles('back/composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Generate JWT keys
+        run: |
+          mkdir -p config/jwt
+          openssl genrsa -passout pass:${JWT_PASSPHRASE} -out config/jwt/private.pem 4096
+          openssl rsa -pubout -passin pass:${JWT_PASSPHRASE} -in config/jwt/private.pem -out config/jwt/public.pem
+      - run: php bin/console doctrine:database:create --env=test --if-not-exists
+      - run: php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration --env=test
+      - run: php bin/phpunit --no-progress
+
+  # --- Frontend: TypeScript + ESLint -----------------------------------------
+
+  frontend:
+    name: "Gate: Frontend (vue-tsc + ESLint)"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: front
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: front/package-lock.json
+      - run: npm ci
+      - run: npm run type-check
+      - run: npm run lint
+
+  # ---------------------------------------------------------------------------
+  # Approval gate — QA must pass; a required reviewer then approves in GitHub
+  # before any production service is touched
+  # ---------------------------------------------------------------------------
+
+  approve:
+    name: "Approval Gate: Production"
+    runs-on: ubuntu-latest
+    environment: production
+    needs: [phpcs, deptrac, phpstan, db-migrations, tests, frontend]
+    steps:
+      - run: echo "Production deployment approved — proceeding"
+
+  # ---------------------------------------------------------------------------
+  # Deploy to production — only runs after manual approval above
+  # ---------------------------------------------------------------------------
+
+  deploy-db:
+    name: "Production: Deploy Database"
+    runs-on: ubuntu-latest
+    needs: [approve]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      - name: Deploy database service
+        working-directory: db
+        run: |
+          railway up \
+            --service db \
+            --ci \
+            -m "Deploy ${{ github.sha }} — ${{ github.event.head_commit.message }}"
+
+  deploy-back:
+    name: "Production: Deploy Backend"
+    runs-on: ubuntu-latest
+    needs: [deploy-db]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      - name: Deploy backend service
+        run: |
+          railway up \
+            --service backend \
+            --ci \
+            -m "Deploy ${{ github.sha }} — ${{ github.event.head_commit.message }}"
+
+  deploy-worker:
+    name: "Production: Deploy Worker"
+    runs-on: ubuntu-latest
+    needs: [deploy-back]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      - name: Deploy worker service
+        working-directory: worker
+        run: |
+          railway up \
+            --service worker \
+            --ci \
+            -m "Deploy ${{ github.sha }} — ${{ github.event.head_commit.message }}"
+
+  deploy-front:
+    name: "Production: Deploy Frontend"
+    runs-on: ubuntu-latest
+    needs: [approve]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      - name: Deploy frontend service
+        working-directory: front
+        run: |
+          railway up \
+            --service frontend \
+            --ci \
+            -m "Deploy ${{ github.sha }} — ${{ github.event.head_commit.message }}"
