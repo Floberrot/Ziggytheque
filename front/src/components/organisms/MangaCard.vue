@@ -89,6 +89,9 @@ function open() {
           <p class="text-white text-sm font-bold line-clamp-2 leading-snug drop-shadow-md">
             {{ entry.manga.title }}
           </p>
+          <p v-if="entry.manga.author" class="text-white/60 text-[10px] truncate mt-0.5 leading-none">
+            {{ entry.manga.author }}
+          </p>
           <p class="text-white/45 text-[10px] truncate mt-0.5 leading-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             {{ entry.manga.edition }}
           </p>

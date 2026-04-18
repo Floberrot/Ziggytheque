@@ -107,15 +107,15 @@ final readonly class JikanMangaApiClient implements ExternalApiClientInterface
             coverUrl: $coverUrl,
             genre: $this->extractGenre($item),
             language: 'fr',
-            totalVolumes: isset($item['volumes']) && $item['volumes'] !== null
+            source: 'jikan',
+            totalVolumes: isset($item['volumes'])
                 ? (int) $item['volumes']
                 : null,
-            source: 'jikan',
         );
     }
 
     /** @param array<string, mixed> $item */
-    private function extractGenre(array $item): ?string
+    private function extractGenre(array $item): string
     {
         // Demographics take priority (Shonen, Shojo, Seinen, Josei)
         foreach ($item['demographics'] ?? [] as $demo) {
@@ -127,6 +127,7 @@ final readonly class JikanMangaApiClient implements ExternalApiClientInterface
                 str_contains($name, 'josei') => 'josei',
                 default => null,
             };
+
             if ($mapped !== null) {
                 return $mapped;
             }

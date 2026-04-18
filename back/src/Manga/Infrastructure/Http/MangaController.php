@@ -52,8 +52,9 @@ final readonly class MangaController
     public function searchVolumeExternal(Request $request): JsonResponse
     {
         $query = $request->query->get('q', '');
+        $page  = max(1, (int) $request->query->get('page', 1));
 
-        return new JsonResponse($this->queryBus->ask(new SearchVolumeExternalQuery($query)));
+        return new JsonResponse($this->queryBus->ask(new SearchVolumeExternalQuery($query, $page)));
     }
 
     #[Route('/{id}', methods: ['GET'])]

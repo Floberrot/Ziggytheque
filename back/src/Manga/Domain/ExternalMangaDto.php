@@ -18,9 +18,9 @@ final readonly class ExternalMangaDto
         public ?string $coverUrl,
         public ?string $genre,
         public string $language,
+        public string $source,
         public ?int $totalVolumes = null,
         public array $volumes = [],
-        public string $source = 'unknown',
     ) {
     }
 }
