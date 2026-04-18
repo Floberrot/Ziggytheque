@@ -1,22 +1,6 @@
 import client from './client'
 import type { Manga, MangaDetail } from '@/types'
 
-export type CoverSource = 'mangadex' | 'google' | 'none' | null
-
-export interface ExternalMangaResult {
-  externalId: string
-  title: string
-  edition: string | null
-  coverUrl: string | null
-  language: string
-  totalVolumes: number | null
-}
-
-export interface CoverSearchResponse {
-  source: CoverSource
-  results: ExternalMangaResult[]
-}
-
 export async function searchManga(q: string): Promise<Manga[]> {
   const res = await client.get('/manga', { params: { q } })
   return res.data
@@ -42,8 +26,16 @@ export async function importManga(payload: {
   return res.data
 }
 
-export async function searchVolumeExternal(q: string, page: number = 1): Promise<CoverSearchResponse> {
-  const res = await client.get('/manga/volume-search', { params: { q, page } })
+/** Google Books search for individual volume covers/metadata */
+export async function searchVolumeExternal(q: string): Promise<{
+  externalId: string
+  title: string
+  edition: string | null
+  coverUrl: string | null
+  language: string
+  totalVolumes: number | null
+}[]> {
+  const res = await client.get('/manga/volume-search', { params: { q } })
   return res.data
 }
 

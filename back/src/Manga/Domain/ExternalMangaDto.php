@@ -20,7 +20,6 @@ final readonly class ExternalMangaDto
         public string $language,
         public ?int $totalVolumes = null,
         public array $volumes = [],
-        public string $source = 'unknown',
     ) {
     }
 }

@@ -43,7 +43,7 @@ services:
     App\Manga\Domain\ExternalApiClientInterface:
         alias: App\Manga\Infrastructure\ExternalApi\JikanMangaApiClient
 
-    # Google Books for volume cover search
+    # Google Books: kept separately for per-volume cover enrichment
     App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient:
         arguments:
             $apiKey: '%env(GOOGLE_BOOKS_API_KEY)%'
@@ -51,7 +51,7 @@ services:
     # Cover search handler explicitly receives the Google Books client
     App\Manga\Application\SearchVolumeExternal\SearchVolumeExternalHandler:
         arguments:
-            $externalApi: '@App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient'
+            $googleBooks: '@App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient'
 
     App\Collection\Domain\CollectionRepositoryInterface:
         alias: App\Collection\Infrastructure\Doctrine\DoctrineCollectionRepository

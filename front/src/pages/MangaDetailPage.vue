@@ -270,6 +270,15 @@ function volumeOpacityClass(ve: VolumeEntry): string {
         <div class="absolute inset-0 bg-gradient-to-b from-base-100/60 to-base-100 pointer-events-none" />
 
         <div class="relative max-w-5xl mx-auto px-6 pt-8 pb-6">
+          <RouterLink
+            :to="{ name: 'collection' }"
+            class="lg:hidden inline-flex items-center gap-1.5 text-sm text-base-content/50 hover:text-base-content mb-4 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Collection
+          </RouterLink>
           <div class="flex gap-6">
             <!-- Cover -->
             <div class="shrink-0">
@@ -405,27 +414,32 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                 </button>
               </div>
 
-              <!-- Batch price panel (inline) -->
-              <div class="flex items-center gap-2 p-3 rounded-xl bg-base-200 text-sm">
-                <span class="text-base-content/60 shrink-0">Prix par tome</span>
-                <label class="input input-xs input-bordered flex items-center gap-1">
-                  <span class="text-base-content/50">€</span>
-                  <input
-                    v-model.number="batchPrice"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    class="w-20"
-                    placeholder="0.00"
-                  />
-                </label>
+              <!-- Batch price pill -->
+              <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-base-200/60 border border-dashed border-base-content/15 text-xs self-start">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-base-content/35 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+                <span class="text-base-content/40 font-medium tracking-wide">€ / tome</span>
+                <input
+                  v-model.number="batchPrice"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="w-14 bg-transparent outline-none text-center tabular-nums font-mono text-base-content/70 placeholder-base-content/20 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                  placeholder="0.00"
+                />
                 <button
-                  class="btn btn-secondary btn-xs"
-                  :class="{ loading: batchPriceMutation.isPending.value }"
+                  class="w-5 h-5 rounded-full flex items-center justify-center transition-all"
+                  :class="batchPrice !== null && !batchPriceMutation.isPending.value
+                    ? 'bg-secondary/20 text-secondary hover:bg-secondary/30 cursor-pointer'
+                    : 'text-base-content/20 cursor-default'"
                   :disabled="batchPrice === null || batchPriceMutation.isPending.value"
                   @click="batchPrice !== null && batchPriceMutation.mutate(batchPrice)"
                 >
-                  {{ t('collection.batchSetPrice') }}
+                  <svg v-if="!batchPriceMutation.isPending.value" xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span v-else class="loading loading-spinner loading-[8px]" />
                 </button>
               </div>
 
