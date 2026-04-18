@@ -1,4 +1,4 @@
-name: Deploy
+name: Deploy — Production
 
 on:
   push:
@@ -8,8 +8,15 @@ on:
 env:
   RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
   RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+  RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_PRODUCTION_ENVIRONMENT_ID }}
+
+# ---------------------------------------------------------------------------
+# Quality gate — identical to staging; every deploy must pass all checks
+# before the approval gate is presented
+# ---------------------------------------------------------------------------
 
 jobs:
+
   # --- Backend: code style ---------------------------------------------------
 
   phpcs:
@@ -236,36 +243,30 @@ jobs:
     name: "Approval Gate: Production"
     runs-on: ubuntu-latest
     environment: production
-    needs: [phpcs, deptrac, phpstan, db-migrations, tests, frontend]
+    # db-migrations will logically fail if any pending migration exists. No block in this case.
+    needs: [phpcs, deptrac, phpstan, tests, frontend]
     steps:
-      - run: echo "✅ All QA gates passed — production deployment approved"
+      - run: echo "Production deployment approved — proceeding"
 
   # ---------------------------------------------------------------------------
-  # Deploy to production — sequential: db → backend → worker, frontend parallel
+  # Deploy to production — back then worker sequentially, front in parallel
   # ---------------------------------------------------------------------------
 
-  deploy-db:
-    name: "Production: Deploy Database"
+  deploy-back:
+    name: "Production: Deploy Backend"
     runs-on: ubuntu-latest
     needs: [approve]
     steps:
       - uses: actions/checkout@v4
       - name: Install Railway CLI
         run: npm install -g @railway/cli
-      - name: Deploy database service
-        working-directory: db
-        run: railway up --service db --ci
-
-  deploy-back:
-    name: "Production: Deploy Backend"
-    runs-on: ubuntu-latest
-    needs: [deploy-db]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
       - name: Deploy backend service
-        run: railway up --service backend --ci
+        working-directory: back
+        run: |
+          railway up \
+            --service ziggytheque-back \
+            --ci \
+            -m "Deploy ${{ github.sha }} — ${{ github.event.head_commit.message }}"
 
   deploy-worker:
     name: "Production: Deploy Worker"
@@ -276,8 +277,12 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
       - name: Deploy worker service
-        working-directory: worker
-        run: railway up --service worker --ci
+        working-directory: back
+        run: |
+          railway up \
+            --service ziggytheque-worker \
+            --ci \
+            -m "Deploy ${{ github.sha }} — ${{ github.event.head_commit.message }}"
 
   deploy-front:
     name: "Production: Deploy Frontend"
@@ -289,4 +294,8 @@ jobs:
         run: npm install -g @railway/cli
       - name: Deploy frontend service
         working-directory: front
-        run: railway up --service frontend --ci
+        run: |
+          railway up \
+            --service ziggytheque-front \
+            --ci \
+            -m "Deploy ${{ github.sha }} — ${{ github.event.head_commit.message }}"

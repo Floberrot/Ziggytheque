@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(docker compose *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Read(//Users/floberrot/PhpStormProjects/Ziggy/**)",
+      "Read(//Users/floberrot/PhpStormProjects/**)"
     ]
   }
 }
