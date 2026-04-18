@@ -6,8 +6,12 @@ set -e
 export SERVER_NAME="http://:${PORT:-80}"
 echo "[entrypoint] Listening on port ${PORT:-80}"
 
-echo "[entrypoint] Generating JWT keypair..."
-php bin/console lexik:jwt:generate-keypair --overwrite --no-interaction
+if [ ! -f config/jwt/private.pem ]; then
+    echo "[entrypoint] Generating JWT keypair (first run)..."
+    php bin/console lexik:jwt:generate-keypair --no-interaction
+else
+    echo "[entrypoint] JWT keypair already present, skipping generation."
+fi
 
 echo "[entrypoint] Warming up Symfony cache..."
 php bin/console cache:warmup --env=prod

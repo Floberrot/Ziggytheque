@@ -6,7 +6,6 @@ node_modules/
 # Environment
 back/.env.local
 back/.env.*.local
-back/config/jwt/
 
 # Build
 back/var/
@@ -21,3 +20,5 @@ front/dist/
 # OS
 .DS_Store
 Thumbs.db
+/back/config/jwt/private.pem
+/back/config/jwt/public.pem
