@@ -29,7 +29,7 @@ FROM base AS prod
 
 ENV APP_ENV=prod
 ENV APP_DEBUG=0
-ENV SERVER_NAME="http://:80"
+# SERVER_NAME is set at runtime in docker-entrypoint.sh using Railway's PORT env var
 
 COPY back/ .
 
@@ -47,7 +47,7 @@ COPY back/Caddyfile /etc/caddy/Caddyfile
 COPY back/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-EXPOSE 80
+EXPOSE ${PORT:-80}
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

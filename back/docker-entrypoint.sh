@@ -1,6 +1,11 @@
 #!/bin/sh
 set -e
 
+# FrankenPHP reads SERVER_NAME to determine the port. Railway assigns PORT
+# dynamically, so override the Dockerfile default at runtime.
+export SERVER_NAME="http://:${PORT:-80}"
+echo "[entrypoint] Listening on port ${PORT:-80}"
+
 echo "[entrypoint] Generating JWT keypair..."
 php bin/console lexik:jwt:generate-keypair --overwrite --no-interaction
 
