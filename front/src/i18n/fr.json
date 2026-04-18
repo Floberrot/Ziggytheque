@@ -77,6 +77,11 @@
     "on_hold": "En pause",
     "dropped": "Abandonné"
   },
+  "rating": {
+    "notRated": "À noter",
+    "saved": "Note enregistrée",
+    "error": "Erreur lors de l'enregistrement de la note"
+  },
   "common": {
     "search": "Rechercher...",
     "save": "Enregistrer",

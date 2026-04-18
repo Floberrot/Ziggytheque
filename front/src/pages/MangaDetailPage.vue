@@ -11,11 +11,13 @@ import {
   purchaseVolume,
   syncVolumes,
   batchSetVolumePrice,
+  updateCollectionRating,
 } from '@/api/collection'
 import { updateManga } from '@/api/manga'
 import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
 import EnrichVolumeModal from '@/components/organisms/EnrichVolumeModal.vue'
+import BaseHeartRating from '@/components/atoms/BaseHeartRating.vue'
 import type { ReadingStatus, VolumeEntry } from '@/types'
 import { coverUrl } from '@/utils/coverUrl'
 
@@ -218,6 +220,15 @@ const updateMangaMutation = useMutation({
   onError: () => ui.addToast('Erreur lors de la mise à jour', 'error'),
 })
 
+const ratingMutation = useMutation({
+  mutationFn: (rating: number) => updateCollectionRating(id, rating),
+  onSuccess: () => {
+    qc.invalidateQueries({ queryKey: ['collection', id] })
+    ui.addToast(t('rating.saved'), 'success')
+  },
+  onError: () => ui.addToast(t('rating.error'), 'error'),
+})
+
 // ── Batch operations ──
 const isBatchProcessing = ref(false)
 
@@ -347,6 +358,13 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                   </div>
                   <span class="badge badge-outline">{{ entry.manga.language.toUpperCase() }}</span>
                   <span v-if="entry.manga.genre" class="badge badge-outline capitalize">{{ entry.manga.genre }}</span>
+
+                  <!-- Rating : à droite du genre -->
+                  <BaseHeartRating
+                    :model-value="entry.rating"
+                    class="ml-1"
+                    @update:model-value="ratingMutation.mutate($event)"
+                  />
                 </div>
                 <p v-if="entry.manga.author" class="text-sm text-base-content/60 mt-1.5 font-medium">{{ entry.manga.author }}</p>
               </div>
