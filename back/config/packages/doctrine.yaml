@@ -1,11 +1,6 @@
 doctrine:
     dbal:
-        driver: pdo_pgsql
-        host: '%env(PGHOST)%'
-        port: '%env(int:PGPORT)%'
-        dbname: '%env(PGDATABASE)%'
-        user: '%env(PGUSER)%'
-        password: '%env(PGPASSWORD)%'
+but        url: '%env(resolve:DATABASE_URL)%'
         server_version: '17'
         profiling_collect_backtrace: '%kernel.debug%'
     orm:
