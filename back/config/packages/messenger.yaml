@@ -13,6 +13,8 @@ framework:
                     multiplier: 2
             failed: 'doctrine://default?queue_name=failed'
             sync: 'sync://'
+            scheduler_default:
+                dsn: 'doctrine://default?queue_name=scheduler_default&auto_setup=0'
 
         default_bus: command.bus
         buses:
@@ -33,6 +35,9 @@ framework:
             App\Wishlist\Application\Add\AddWishlistItemCommand: sync
             App\Wishlist\Application\Remove\RemoveWishlistItemCommand: sync
             App\Wishlist\Application\Purchase\PurchaseWishlistItemCommand: sync
+            App\Notification\Application\Fetch\FetchRssFeedMessage: async
+            App\Notification\Application\Fetch\FetchJikanNewsMessage: async
+            App\Notification\Application\Email\SendFollowingNotificationMessage: async
 
 when@test:
     framework:

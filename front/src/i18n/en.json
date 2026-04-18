@@ -79,8 +79,14 @@
     "untracked": "Untracked"
   },
   "notifications": {
-    "title": "Notifications",
-    "empty": "No notifications",
+    "title": "News Feed",
+    "subtitle": "Articles and news found for your followed works",
+    "empty": "No articles found yet",
+    "filterBy": "Filter by",
+    "allMangas": "All",
+    "noFollowed": "Enable notifications on a series to see its news",
+    "follow": "Follow",
+    "following": "Following ✓",
     "markRead": "Mark as read"
   },
   "status": {

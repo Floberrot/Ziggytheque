@@ -45,6 +45,16 @@ final readonly class DoctrineCollectionRepository implements CollectionRepositor
             ->getResult();
     }
 
+    public function findFollowed(): array
+    {
+        return $this->em->createQueryBuilder()
+            ->select('e')
+            ->from(CollectionEntry::class, 'e')
+            ->where('e.notificationsEnabled = true')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function save(CollectionEntry $entry): void
     {
         $this->em->persist($entry);

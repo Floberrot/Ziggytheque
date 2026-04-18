@@ -12,6 +12,7 @@ use App\Collection\Application\Get\GetCollectionQuery;
 use App\Collection\Application\GetDetail\GetCollectionDetailQuery;
 use App\Collection\Application\PurchaseVolume\PurchaseVolumeCommand;
 use App\Collection\Application\Remove\RemoveFromCollectionCommand;
+use App\Collection\Application\ToggleFollow\ToggleFollowCommand;
 use App\Collection\Application\ToggleVolume\ToggleVolumeCommand;
 use App\Collection\Application\UpdateStatus\UpdateReadingStatusCommand;
 use App\Collection\Application\UpdateRating\UpdateRatingCommand;
@@ -115,6 +116,14 @@ final readonly class CollectionController
      * Sync volume placeholders for ongoing manga.
      * Body: { upToVolume: 30 } — creates missing Volume and VolumeEntry records up to that number.
      */
+    #[Route('/{id}/follow', methods: ['PATCH'])]
+    public function toggleFollow(string $id): JsonResponse
+    {
+        $enabled = $this->commandBus->dispatch(new ToggleFollowCommand($id));
+
+        return new JsonResponse(['notificationsEnabled' => $enabled]);
+    }
+
     #[Route('/{id}/sync-volumes', methods: ['POST'])]
     public function syncVolumes(string $id, Request $request): JsonResponse
     {
