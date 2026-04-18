@@ -1,4 +1,4 @@
-name: Deploy — Production
+name: Deploy
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
 
 env:
   RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+  RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
 
 jobs:
   # --- Backend: code style ---------------------------------------------------
@@ -228,7 +229,7 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # Approval gate — QA must pass; a required reviewer then approves in GitHub
-  # before code is merged to main and auto-deployed by Railway
+  # before any production service is touched
   # ---------------------------------------------------------------------------
 
   approve:
@@ -237,5 +238,67 @@ jobs:
     environment: production
     needs: [phpcs, deptrac, phpstan, db-migrations, tests, frontend]
     steps:
-      - run: echo "✅ All QA gates passed and production deployment approved"
-      - run: echo "🚀 Railway will auto-deploy on the next push to main"
+      - run: echo "✅ All QA gates passed — production deployment approved"
+
+  # ---------------------------------------------------------------------------
+  # Deploy to production — sequential: db → backend → worker, frontend parallel
+  # ---------------------------------------------------------------------------
+
+  deploy-db:
+    name: "Production: Deploy Database"
+    runs-on: ubuntu-latest
+    needs: [approve]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      - name: Deploy database service
+        working-directory: db
+        run: |
+          railway up \
+            --service db \
+            --ci
+
+  deploy-back:
+    name: "Production: Deploy Backend"
+    runs-on: ubuntu-latest
+    needs: [deploy-db]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      - name: Deploy backend service
+        run: |
+          railway up \
+            --service backend \
+            --ci
+
+  deploy-worker:
+    name: "Production: Deploy Worker"
+    runs-on: ubuntu-latest
+    needs: [deploy-back]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      - name: Deploy worker service
+        working-directory: worker
+        run: |
+          railway up \
+            --service worker \
+            --ci
+
+  deploy-front:
+    name: "Production: Deploy Frontend"
+    runs-on: ubuntu-latest
+    needs: [approve]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      - name: Deploy frontend service
+        working-directory: front
+        run: |
+          railway up \
+            --service frontend \
+            --ci
