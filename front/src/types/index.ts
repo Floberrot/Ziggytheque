@@ -53,6 +53,49 @@ export interface CollectionEntry {
   totalVolumes: number
   addedAt: string
   ownedValue: number
+  notificationsEnabled: boolean
+}
+
+export interface ArticleCollectionEntry {
+  id: string
+  manga: {
+    id: string
+    title: string
+    coverUrl: string | null
+  }
+}
+
+export interface Article {
+  id: string
+  collectionEntry: ArticleCollectionEntry
+  title: string
+  url: string
+  sourceName: string
+  author: string | null
+  imageUrl: string | null
+  publishedAt: string | null
+  createdAt: string
+}
+
+export interface ArticlePage {
+  items: Article[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
+export interface ActivityLog {
+  id: string
+  collectionEntryId: string
+  mangaTitle: string
+  sourceType: 'rss' | 'jikan'
+  sourceName: string
+  status: 'running' | 'success' | 'error'
+  errorMessage: string | null
+  newArticlesCount: number | null
+  startedAt: string
+  finishedAt: string | null
 }
 
 export interface CollectionEntryDetail extends CollectionEntry {

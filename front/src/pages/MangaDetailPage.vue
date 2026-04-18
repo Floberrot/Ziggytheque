@@ -14,6 +14,7 @@ import {
   syncVolumes,
   batchSetVolumePrice,
   updateCollectionRating,
+  toggleFollow,
 } from '@/api/collection'
 import { updateManga } from '@/api/manga'
 import { useUiStore } from '@/stores/useUiStore'
@@ -257,6 +258,14 @@ const updateMangaMutation = useMutation({
   onError: () => ui.addToast('Erreur lors de la mise à jour', 'error'),
 })
 
+const followMutation = useMutation({
+  mutationFn: () => toggleFollow(id),
+  onSuccess: () => {
+    qc.invalidateQueries({ queryKey: ['collection'] })
+    qc.invalidateQueries({ queryKey: ['collection', id] })
+  },
+})
+
 const ratingMutation = useMutation({
   mutationFn: (rating: number) => updateCollectionRating(id, rating),
   onSuccess: () => {
@@ -487,6 +496,18 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                 >
                   <RefreshCw class="h-4 w-4" />
                   Ajouter tomes
+                </button>
+
+                <button
+                  class="btn btn-sm gap-2"
+                  :class="entry.notificationsEnabled ? 'btn-secondary' : 'btn-ghost border border-base-300'"
+                  :disabled="followMutation.isPending.value"
+                  @click="followMutation.mutate()"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  {{ entry.notificationsEnabled ? t('notifications.following') : t('notifications.follow') }}
                 </button>
 
                 <button

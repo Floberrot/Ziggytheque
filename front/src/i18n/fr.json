@@ -79,8 +79,14 @@
     "untracked": "Non suivi"
   },
   "notifications": {
-    "title": "Notifications",
-    "empty": "Aucune notification",
+    "title": "Actualités",
+    "subtitle": "Articles et actualités trouvés pour vos œuvres suivies",
+    "empty": "Aucun article trouvé pour le moment",
+    "filterBy": "Filtrer par",
+    "allMangas": "Tous",
+    "noFollowed": "Activez le suivi sur une série pour voir ses actualités",
+    "follow": "Suivre",
+    "following": "Suivi ✓",
     "markRead": "Marquer comme lu"
   },
   "status": {

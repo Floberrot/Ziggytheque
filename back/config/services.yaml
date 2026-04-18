@@ -1,6 +1,12 @@
 parameters:
     gate_password: '%env(GATE_PASSWORD)%'
     jwt_ttl: '%env(int:JWT_TTL)%'
+    notification_email: '%env(NOTIFICATION_EMAIL)%'
+    following.rss_feeds:
+        - { name: 'manga-news', url: 'https://www.manga-news.com/index.php/feed/' }
+        - { name: 'nautiljon', url: 'https://www.nautiljon.com/rss.xml' }
+        - { name: 'anime-kun', url: 'https://www.anime-kun.net/feed/' }
+        - { name: 'animotaku', url: 'https://animotaku.fr/feed/' }
 
 services:
     _defaults:
@@ -61,3 +67,17 @@ services:
 
     App\Notification\Domain\NotificationRepositoryInterface:
         alias: App\Notification\Infrastructure\Doctrine\DoctrineNotificationRepository
+
+    App\Notification\Domain\ArticleRepositoryInterface:
+        alias: App\Notification\Infrastructure\Doctrine\DoctrineArticleRepository
+
+    App\Notification\Domain\ActivityLogRepositoryInterface:
+        alias: App\Notification\Infrastructure\Doctrine\DoctrineActivityLogRepository
+
+    App\Notification\Application\Schedule\DispatchFollowingCrawlTask:
+        arguments:
+            $rssFeeds: '%following.rss_feeds%'
+
+    App\Notification\Application\Email\SendFollowingNotificationHandler:
+        arguments:
+            $notificationEmail: '%notification_email%'

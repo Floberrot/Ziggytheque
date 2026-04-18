@@ -39,6 +39,10 @@ class CollectionEntry
         public ?string $review = null,
         #[ORM\Column(nullable: true)]
         public ?int $rating = null,
+        #[ORM\Column]
+        public bool $notificationsEnabled = false,
+        #[ORM\Column(nullable: true)]
+        public ?\DateTimeImmutable $lastNotifiedAt = null,
     ) {
         $this->volumeEntries = new ArrayCollection();
         $this->addedAt = new \DateTimeImmutable();
@@ -59,6 +63,7 @@ class CollectionEntry
                 ->filter(fn (VolumeEntry $ve) => $ve->isWished && !$ve->isOwned)
                 ->count(),
             'totalVolumes' => $this->manga->volumes->count(),
+            'notificationsEnabled' => $this->notificationsEnabled,
             'addedAt' => $this->addedAt->format(\DateTimeInterface::ATOM),
             'ownedValue' => array_sum(array_map(
                 fn (VolumeEntry $ve) => $ve->isOwned ? ($ve->volume->price ?? 0.0) : 0.0,

@@ -16,6 +16,9 @@ interface CollectionRepositoryInterface
     /** @return CollectionEntry[] Only entries that have at least one wished (non-owned) volume */
     public function findWithWishedVolumes(): array;
 
+    /** @return CollectionEntry[] Only entries with notificationsEnabled = true */
+    public function findFollowed(): array;
+
     public function save(CollectionEntry $entry): void;
 
     public function delete(CollectionEntry $entry): void;

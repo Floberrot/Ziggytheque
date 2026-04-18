@@ -51,3 +51,8 @@ export async function batchSetVolumePrice(collectionId: string, price: number): 
 export async function updateCollectionRating(id: string, rating: number): Promise<void> {
   await client.patch(`/collection/${id}/rating`, { rating })
 }
+
+export async function toggleFollow(id: string): Promise<{ notificationsEnabled: boolean }> {
+  const res = await client.patch(`/collection/${id}/follow`)
+  return res.data
+}

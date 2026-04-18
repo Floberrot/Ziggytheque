@@ -14,6 +14,8 @@ services:
       DATABASE_URL: postgresql://ziggy:ziggy@db:5432/ziggytheque?serverVersion=17&charset=utf8
       MESSENGER_TRANSPORT_DSN: doctrine://default?auto_setup=0
       CORS_ALLOW_ORIGIN: "^https?://(localhost|127\\.0\\.0\\.1)(:[0-9]+)?$"
+      MAILER_DSN: smtp://mailer:1025
+      NOTIFICATION_EMAIL: you@example.com
     depends_on:
       db:
         condition: service_healthy
@@ -57,7 +59,7 @@ services:
     build:
       context: ./back
       dockerfile: Dockerfile.dev
-    command: php bin/console messenger:consume async --time-limit=3600 -vv
+    command: php bin/console messenger:consume async scheduler_default --time-limit=3600 -vv
     volumes:
       - ./back:/app
       - back_vendor:/app/vendor
@@ -65,6 +67,8 @@ services:
       APP_ENV: dev
       DATABASE_URL: postgresql://ziggy:ziggy@db:5432/ziggytheque?serverVersion=17&charset=utf8
       MESSENGER_TRANSPORT_DSN: doctrine://default?auto_setup=0
+      MAILER_DSN: smtp://mailer:1025
+      NOTIFICATION_EMAIL: you@example.com
     depends_on:
       db:
         condition: service_healthy
