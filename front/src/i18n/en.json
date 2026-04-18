@@ -77,6 +77,11 @@
     "on_hold": "On hold",
     "dropped": "Dropped"
   },
+  "rating": {
+    "notRated": "Rate it",
+    "saved": "Rating saved",
+    "error": "Failed to save rating"
+  },
   "common": {
     "search": "Search...",
     "save": "Save",

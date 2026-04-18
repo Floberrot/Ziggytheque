@@ -47,3 +47,7 @@ export async function syncVolumes(collectionId: string, upToVolume?: number): Pr
 export async function batchSetVolumePrice(collectionId: string, price: number): Promise<void> {
   await client.patch(`/collection/${collectionId}/batch-price`, { price })
 }
+
+export async function updateCollectionRating(id: string, rating: number): Promise<void> {
+  await client.patch(`/collection/${id}/rating`, { rating })
+}

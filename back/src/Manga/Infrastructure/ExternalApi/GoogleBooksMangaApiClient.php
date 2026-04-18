@@ -17,10 +17,9 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
 
     public function __construct(
         private HttpClientInterface $httpClient,
-        private string              $apiKey,
-        private LoggerInterface     $logger
-    )
-    {
+        private string $apiKey,
+        private LoggerInterface $logger
+    ) {
     }
 
     /**
