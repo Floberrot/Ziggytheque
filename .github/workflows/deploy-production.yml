@@ -261,7 +261,8 @@ jobs:
       - name: Install Railway CLI
         run: curl -fsSL https://railway.com/install.sh | sh
       - name: Deploy backend service
-        working-directory: back
+        # Run from repo root so Railway finds railway.json → uses root Dockerfile.
+        # back/ has no Dockerfile, so railway up from back/ triggers Nixpacks (wrong).
         run: |
           railway up \
             --service ziggytheque-back \
@@ -277,7 +278,7 @@ jobs:
       - name: Install Railway CLI
         run: curl -fsSL https://railway.com/install.sh | sh
       - name: Deploy worker service
-        working-directory: back
+        # Same as back: run from root to pick up railway.json + root Dockerfile.
         run: |
           railway up \
             --service ziggytheque-worker \
