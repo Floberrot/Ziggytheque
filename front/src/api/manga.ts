@@ -27,7 +27,7 @@ export async function importManga(payload: {
 }
 
 /** Google Books search for individual volume covers/metadata */
-export async function searchVolumeExternal(q: string): Promise<{
+export async function searchVolumeExternal(q: string, page = 1): Promise<{
   externalId: string
   title: string
   edition: string | null
@@ -35,7 +35,7 @@ export async function searchVolumeExternal(q: string): Promise<{
   language: string
   totalVolumes: number | null
 }[]> {
-  const res = await client.get('/manga/volume-search', { params: { q } })
+  const res = await client.get('/manga/volume-search', { params: { q, page } })
   return res.data
 }
 

@@ -123,12 +123,14 @@ const navItems = [
   </div>
 
   <!-- Toast container -->
-  <div class="toast toast-end toast-bottom z-50">
-    <BaseToast
-      v-for="toast in ui.toasts"
-      :key="toast.id"
-      :message="toast.message"
-      :type="toast.type"
-    />
-  </div>
+  <Teleport to="body">
+    <div class="toast toast-end toast-bottom z-[9999] fixed">
+      <BaseToast
+        v-for="toast in ui.toasts"
+        :key="toast.id"
+        :message="toast.message"
+        :type="toast.type"
+      />
+    </div>
+  </Teleport>
 </template>

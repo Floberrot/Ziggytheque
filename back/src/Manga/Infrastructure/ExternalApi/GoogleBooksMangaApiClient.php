@@ -25,7 +25,7 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
     {
         $response = $this->httpClient->request('GET', self::BASE_URL . '/volumes', [
             'query' => [
-                'q' => $query,
+                'q' => $query . '+manga',
                 'printType' => 'books',
                 'maxResults' => 20,
                 'startIndex' => ($page - 1) * 20,
@@ -34,7 +34,11 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
             ],
         ]);
 
-        $data = $response->toArray();
+        try {
+            $data = $response->toArray();
+        } catch (\Throwable) {
+            return [];
+        }
 
         if (empty($data['items'])) {
             return [];
@@ -57,6 +61,29 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
         return $this->mapToDto($data);
     }
 
+    /**
+     * @param array<string, mixed> $info
+     */
+    private function isManga(array $info): bool
+    {
+        $mangaKeywords = [
+            'manga', 'comic', 'bande dessinée', 'bd',
+            'shonen', 'shojo', 'seinen', 'josei', 'manhwa', 'manhua',
+        ];
+
+        foreach ($info['categories'] ?? [] as $category) {
+            $cat = strtolower($category);
+            foreach ($mangaKeywords as $kw) {
+                if (str_contains($cat, $kw)) {
+                    return true;
+                }
+            }
+        }
+
+        // Accept if no categories — trust the query filter did its job
+        return empty($info['categories']);
+    }
+
     /** @param array<string, mixed> $item */
     private function mapToDto(array $item): ?ExternalMangaDto
     {
@@ -67,7 +94,15 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
             return null;
         }
 
+        if (!$this->isManga($info)) {
+            return null;
+        }
+
         $coverUrl = $this->extractCoverUrl($info);
+        if ($coverUrl === null) {
+            return null;
+        }
+
         $author = !empty($info['authors']) ? implode(', ', $info['authors']) : null;
         $edition = $info['publisher'] ?? null;
         $language = $info['language'] ?? 'fr';
@@ -84,6 +119,7 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
             coverUrl: $coverUrl,
             genre: $genre,
             language: $language,
+            source: 'google',
             totalVolumes: $totalVolumes,
         );
     }
@@ -91,16 +127,21 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
     /** @param array<string, mixed> $info */
     private function extractCoverUrl(array $info): ?string
     {
-        $url = $info['imageLinks']['thumbnail']
-            ?? $info['imageLinks']['smallThumbnail']
+        $links = $info['imageLinks'] ?? [];
+
+        $url = $links['extraLarge']
+            ?? $links['large']
+            ?? $links['medium']
+            ?? $links['thumbnail']
+            ?? $links['smallThumbnail']
             ?? null;
 
         if ($url === null) {
             return null;
         }
 
-        // Google Books returns HTTP — force HTTPS
-        return str_replace('http://', 'https://', $url);
+        $url = str_replace('http://', 'https://', $url);
+        return implode('', explode('&edge=curl', $url));
     }
 
     /** @param string[] $categories */
@@ -131,7 +172,6 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
     /** @param array<string, mixed> $info */
     private function extractVolumeNumber(array $info): ?int
     {
-        // Try seriesInfo first
         if (!empty($info['seriesInfo']['bookDisplayNumber'])) {
             $num = filter_var($info['seriesInfo']['bookDisplayNumber'], FILTER_VALIDATE_INT);
             if ($num !== false) {

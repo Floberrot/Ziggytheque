@@ -22,7 +22,7 @@ final readonly class SearchVolumeExternalHandler
     /** @return array<int, array<string, mixed>> */
     public function __invoke(SearchVolumeExternalQuery $query): array
     {
-        $results = $this->googleBooks->searchByTitle($query->search);
+        $results = $this->googleBooks->searchByTitle($query->search, page: $query->page);
 
         return array_map(static fn (ExternalMangaDto $dto) => [
             'externalId' => $dto->externalId,

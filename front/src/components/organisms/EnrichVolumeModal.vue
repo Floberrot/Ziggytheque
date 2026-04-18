@@ -5,6 +5,7 @@ import { searchVolumeExternal, updateVolume } from '@/api/manga'
 import { toggleVolume, purchaseVolume } from '@/api/collection'
 import { useUiStore } from '@/stores/useUiStore'
 import type { VolumeEntry } from '@/types'
+import { coverUrl } from '@/utils/coverUrl'
 
 const props = defineProps<{
   open: boolean
@@ -37,6 +38,11 @@ const searchQuery = ref('')
 const manualCoverUrl = ref('')
 const searchResults = ref<{ externalId: string; title: string; edition: string | null; coverUrl: string | null }[]>([])
 const isSearching = ref(false)
+const isLoadingMore = ref(false)
+const hasMore = ref(false)
+const PAGE_SIZE = 20
+let currentPage = 1
+let lastQuery = ''
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 let skipNextSearch = false
 
@@ -45,17 +51,18 @@ watch(() => [props.open, props.volume] as const, ([open, vol], prev) => {
   const justOpened = open && !wasOpen
 
   if (justOpened && vol) {
-    if (vol.coverUrl) skipNextSearch = true
+    skipNextSearch = true
     searchQuery.value = `${props.mangaTitle} tome ${vol.number} ${props.mangaEdition}`.trim()
-    if (!vol.coverUrl) {
-      runSearch(searchQuery.value)
-    }
+    runSearch(searchQuery.value)
   }
   if (!open) {
     searchResults.value = []
     skipNextSearch = false
     manualCoverUrl.value = ''
     lightboxOpen.value = false
+    hasMore.value = false
+    currentPage = 1
+    lastQuery = ''
   }
 })
 
@@ -70,15 +77,46 @@ watch(searchQuery, (val) => {
 })
 
 async function runSearch(q: string) {
-  if (q.trim().length < 2) { searchResults.value = []; return }
+  if (q.trim().length < 2) { searchResults.value = []; hasMore.value = false; return }
+  lastQuery = q.trim()
+  currentPage = 1
   isSearching.value = true
   try {
-    searchResults.value = await searchVolumeExternal(q.trim())
+    const data = await searchVolumeExternal(lastQuery, 1)
+    searchResults.value = data
+    hasMore.value = data.length >= PAGE_SIZE
   } catch {
     searchResults.value = []
+    hasMore.value = false
     ui.addToast('Erreur lors de la recherche — réessayez', 'error')
   } finally {
     isSearching.value = false
+  }
+}
+
+async function loadMore() {
+  if (!hasMore.value || isLoadingMore.value || !lastQuery) return
+  isLoadingMore.value = true
+  try {
+    const data = await searchVolumeExternal(lastQuery, currentPage + 1)
+    if (data.length > 0) {
+      currentPage++
+      searchResults.value = [...searchResults.value, ...data]
+      hasMore.value = data.length >= PAGE_SIZE
+    } else {
+      hasMore.value = false
+    }
+  } catch {
+    // silent
+  } finally {
+    isLoadingMore.value = false
+  }
+}
+
+function onResultsScroll(e: Event) {
+  const el = e.target as HTMLElement
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
+    loadMore()
   }
 }
 
@@ -293,7 +331,7 @@ const volumeStatus = computed(() => {
               </div>
 
               <!-- Results -->
-              <div class="flex-1 overflow-y-auto p-4">
+              <div class="flex-1 overflow-y-auto p-4" @scroll="onResultsScroll">
                 <p v-if="!searchResults.length && !isSearching" class="text-sm text-base-content/30 text-center py-6">
                   Saisissez le titre + numéro de tome pour trouver la couverture
                 </p>
@@ -312,7 +350,7 @@ const volumeStatus = computed(() => {
                         : 'opacity-40'">
                       <img
                         v-if="result.coverUrl"
-                        :src="result.coverUrl"
+                        :src="coverUrl(result.coverUrl)!"
                         :alt="result.title"
                         class="w-full h-full object-cover"
                       />
@@ -327,6 +365,12 @@ const volumeStatus = computed(() => {
                       <p v-if="result.edition" class="text-[9px] text-base-content/40 truncate">{{ result.edition }}</p>
                     </div>
                   </button>
+                </div>
+
+                <!-- Load more indicator -->
+                <div v-if="isLoadingMore || hasMore" class="py-3 flex items-center justify-center gap-2 text-xs text-base-content/40">
+                  <span v-if="isLoadingMore" class="loading loading-spinner loading-xs" />
+                  <span v-else>Faites défiler pour en voir plus</span>
                 </div>
               </div>
 

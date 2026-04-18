@@ -6,7 +6,7 @@ namespace App\Manga\Application\SearchVolumeExternal;
 
 final readonly class SearchVolumeExternalQuery
 {
-    public function __construct(public string $search)
+    public function __construct(public string $search, public int $page = 1)
     {
     }
 }

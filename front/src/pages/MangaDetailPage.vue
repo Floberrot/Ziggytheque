@@ -17,6 +17,7 @@ import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
 import EnrichVolumeModal from '@/components/organisms/EnrichVolumeModal.vue'
 import type { ReadingStatus, VolumeEntry } from '@/types'
+import { coverUrl } from '@/utils/coverUrl'
 
 const route = useRoute()
 const router = useRouter()
@@ -265,7 +266,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
         <div
           v-if="entry.manga.coverUrl"
           class="absolute inset-0 bg-cover bg-center blur-3xl scale-110 opacity-20 pointer-events-none"
-          :style="{ backgroundImage: `url(${entry.manga.coverUrl})` }"
+          :style="{ backgroundImage: `url(${coverUrl(entry.manga.coverUrl)})` }"
         />
         <div class="absolute inset-0 bg-gradient-to-b from-base-100/60 to-base-100 pointer-events-none" />
 
@@ -283,7 +284,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
             <!-- Cover -->
             <div class="shrink-0">
               <div class="w-28 md:w-36 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl ring-2 ring-base-content/10">
-                <img v-if="entry.manga.coverUrl" :src="entry.manga.coverUrl" :alt="entry.manga.title" class="w-full h-full object-cover" />
+                <img v-if="entry.manga.coverUrl" :src="coverUrl(entry.manga.coverUrl)!" :alt="entry.manga.title" class="w-full h-full object-cover" />
                 <div v-else class="w-full h-full flex items-center justify-center bg-base-200 text-base-content/20">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -548,7 +549,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
             >
               <img
                 v-if="ve.coverUrl"
-                :src="ve.coverUrl"
+                :src="coverUrl(ve.coverUrl)!"
                 :alt="`Tome ${ve.number}`"
                 class="w-full h-full object-cover"
                 loading="lazy"
