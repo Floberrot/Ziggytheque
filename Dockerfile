@@ -37,7 +37,8 @@ RUN composer install \
     --no-dev \
     --no-interaction \
     --optimize-autoloader \
-    --classmap-authoritative
+    --classmap-authoritative \
+    --no-scripts
 
 # Copy built Vue SPA into Symfony public directory (served by FrankenPHP as static files)
 COPY --from=frontend /app/dist /app/public/spa
