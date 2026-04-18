@@ -5,8 +5,8 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
-    # Railway's internal DNS resolver — required for dynamic proxy_pass with a variable
-    resolver 127.0.0.11 valid=10s ipv6=off;
+    # Public DNS resolver — 127.0.0.11 is Docker Compose only, not available on Railway
+    resolver 8.8.8.8 8.8.4.4 valid=30s ipv6=off;
 
     # Proxy API calls to the backend service.
     # Using a variable forces nginx to re-resolve via the resolver above
