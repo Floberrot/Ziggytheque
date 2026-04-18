@@ -53,7 +53,9 @@ watch(() => [props.open, props.volume] as const, ([open, vol], prev) => {
   if (justOpened && vol) {
     skipNextSearch = true
     searchQuery.value = `${props.mangaTitle} tome ${vol.number} ${props.mangaEdition}`.trim()
-    runSearch(searchQuery.value)
+    if (!vol.coverUrl) {
+      runSearch(searchQuery.value)
+    }
   }
   if (!open) {
     searchResults.value = []
@@ -402,6 +404,24 @@ const volumeStatus = computed(() => {
             </div>
           </div>
         </div>
+      </div>
+    </Transition>
+  </Teleport>
+
+  <!-- Lightbox -->
+  <Teleport to="body">
+    <Transition name="fade">
+      <div
+        v-if="lightboxOpen && volume?.coverUrl"
+        class="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-sm cursor-zoom-out"
+        @click="lightboxOpen = false"
+      >
+        <img
+          :src="volume.coverUrl"
+          :alt="`Tome ${volume.number}`"
+          class="max-h-[90dvh] max-w-[90vw] object-contain rounded-xl shadow-2xl"
+          @click.stop
+        />
       </div>
     </Transition>
   </Teleport>

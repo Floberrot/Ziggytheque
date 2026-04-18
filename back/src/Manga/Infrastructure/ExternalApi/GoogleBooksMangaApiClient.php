@@ -6,16 +6,21 @@ namespace App\Manga\Infrastructure\ExternalApi;
 
 use App\Manga\Domain\ExternalApiClientInterface;
 use App\Manga\Domain\ExternalMangaDto;
+use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Throwable;
 
 final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInterface
 {
-    private const BASE_URL = 'https://www.googleapis.com/books/v1';
+    private const string BASE_URL = 'https://www.googleapis.com/books/v1';
+    private const string PREFIX_LOGGER = 'GOOGLE_BOOKS : ';
 
     public function __construct(
         private HttpClientInterface $httpClient,
-        private string $apiKey,
-    ) {
+        private string              $apiKey,
+        private LoggerInterface     $logger
+    )
+    {
     }
 
     /**
@@ -23,6 +28,12 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
      */
     public function searchByTitle(string $query, string $type = 'manga', int $page = 1): array
     {
+        $this->logger->info(self::PREFIX_LOGGER . 'search by title; BEGIN.', [
+            'query' => $query,
+            'type' => $type,
+            'page' => $page
+        ]);
+
         $response = $this->httpClient->request('GET', self::BASE_URL . '/volumes', [
             'query' => [
                 'q' => $query . '+manga',
@@ -34,28 +45,54 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
             ],
         ]);
 
+        $this->logger->info(self::PREFIX_LOGGER . 'search by title; REQUESTED.', [
+            'query' => $query,
+            'type' => $type,
+            'page' => $page,
+            'response' => $response
+        ]);
+
         try {
             $data = $response->toArray();
-        } catch (\Throwable) {
+        } catch (Throwable) {
+            $this->logger->info(self::PREFIX_LOGGER . 'search by title; EMPTY.', [
+                'query' => $query,
+                'type' => $type,
+                'page' => $page,
+                'response' => $response
+            ]);
             return [];
         }
 
         if (empty($data['items'])) {
+            $this->logger->info(self::PREFIX_LOGGER . 'search by title; EMPTY.', [
+                'query' => $query,
+                'type' => $type,
+                'page' => $page,
+                'response' => $response
+            ]);
             return [];
         }
 
         return array_values(array_filter(array_map(
-            fn (array $item) => $this->mapToDto($item),
+            fn(array $item) => $this->mapToDto($item),
             $data['items'],
         )));
     }
 
     public function getMangaById(string $externalId): ?ExternalMangaDto
     {
+        $this->logger->info(self::PREFIX_LOGGER . 'manga by id; BEGIN.', [
+            'externalId' => $externalId
+        ]);
         $response = $this->httpClient->request('GET', self::BASE_URL . '/volumes/' . $externalId, [
             'query' => ['key' => $this->apiKey],
         ]);
 
+        $this->logger->info(self::PREFIX_LOGGER . 'manga by id; DONE.', [
+            'externalId' => $externalId,
+            'response' => $response
+        ]);
         $data = $response->toArray();
 
         return $this->mapToDto($data);
