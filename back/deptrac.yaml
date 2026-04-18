@@ -1,0 +1,193 @@
+deptrac:
+  paths:
+    - ./src
+
+  exclude_files:
+    - '#.*Kernel\.php#'
+
+  layers:
+    # ── Auth ──────────────────────────────────────────────────────────────────
+    - name: Auth_Domain
+      collectors:
+        - type: class
+          value: 'App\\Auth\\Domain.*'
+
+    - name: Auth_Application
+      collectors:
+        - type: class
+          value: 'App\\Auth\\Application.*'
+
+    - name: Auth_Infrastructure
+      collectors:
+        - type: class
+          value: 'App\\Auth\\Infrastructure.*'
+
+    # ── Collection ────────────────────────────────────────────────────────────
+    - name: Collection_Domain
+      collectors:
+        - type: class
+          value: 'App\\Collection\\Domain.*'
+
+    - name: Collection_Application
+      collectors:
+        - type: class
+          value: 'App\\Collection\\Application.*'
+
+    - name: Collection_Infrastructure
+      collectors:
+        - type: class
+          value: 'App\\Collection\\Infrastructure.*'
+
+    # ── Manga ─────────────────────────────────────────────────────────────────
+    - name: Manga_Domain
+      collectors:
+        - type: class
+          value: 'App\\Manga\\Domain.*'
+
+    - name: Manga_Application
+      collectors:
+        - type: class
+          value: 'App\\Manga\\Application.*'
+
+    - name: Manga_Infrastructure
+      collectors:
+        - type: class
+          value: 'App\\Manga\\Infrastructure.*'
+
+    # ── Notification ──────────────────────────────────────────────────────────
+    - name: Notification_Domain
+      collectors:
+        - type: class
+          value: 'App\\Notification\\Domain.*'
+
+    - name: Notification_Application
+      collectors:
+        - type: class
+          value: 'App\\Notification\\Application.*'
+
+    - name: Notification_Infrastructure
+      collectors:
+        - type: class
+          value: 'App\\Notification\\Infrastructure.*'
+
+    # ── Stats ─────────────────────────────────────────────────────────────────
+    - name: Stats_Domain
+      collectors:
+        - type: class
+          value: 'App\\Stats\\Domain.*'
+
+    - name: Stats_Application
+      collectors:
+        - type: class
+          value: 'App\\Stats\\Application.*'
+
+    - name: Stats_Infrastructure
+      collectors:
+        - type: class
+          value: 'App\\Stats\\Infrastructure.*'
+
+    # ── Wishlist ──────────────────────────────────────────────────────────────
+    - name: Wishlist_Domain
+      collectors:
+        - type: class
+          value: 'App\\Wishlist\\Domain.*'
+
+    - name: Wishlist_Application
+      collectors:
+        - type: class
+          value: 'App\\Wishlist\\Application.*'
+
+    - name: Wishlist_Infrastructure
+      collectors:
+        - type: class
+          value: 'App\\Wishlist\\Infrastructure.*'
+
+    # ── Shared (allowed everywhere) ───────────────────────────────────────────
+    - name: Shared
+      collectors:
+        - type: class
+          value: 'App\\Shared.*'
+
+  ruleset:
+    # Domain layers: can depend on Shared + other Domain layers
+    Auth_Domain:
+      - Shared
+    Collection_Domain:
+      - Shared
+      - Manga_Domain
+    Manga_Domain:
+      - Shared
+    Notification_Domain:
+      - Shared
+    Stats_Domain:
+      - Shared
+      - Manga_Domain
+      - Collection_Domain
+    Wishlist_Domain:
+      - Shared
+      - Manga_Domain
+      - Collection_Domain
+
+    # Application layers: can depend on their own Domain + Shared + other Application/Domain layers
+    Auth_Application:
+      - Auth_Domain
+      - Shared
+    Collection_Application:
+      - Collection_Domain
+      - Manga_Domain
+      - Shared
+    Manga_Application:
+      - Manga_Domain
+      - Shared
+    Notification_Application:
+      - Notification_Domain
+      - Shared
+    Stats_Application:
+      - Stats_Domain
+      - Manga_Domain
+      - Collection_Domain
+      - Shared
+    Wishlist_Application:
+      - Wishlist_Domain
+      - Manga_Domain
+      - Collection_Domain
+      - Collection_Application
+      - Shared
+
+    # Infrastructure layers: can depend on Domain + Application + Shared (their own and others)
+    Auth_Infrastructure:
+      - Auth_Domain
+      - Auth_Application
+      - Shared
+    Collection_Infrastructure:
+      - Collection_Domain
+      - Collection_Application
+      - Manga_Domain
+      - Manga_Application
+      - Shared
+    Manga_Infrastructure:
+      - Manga_Domain
+      - Manga_Application
+      - Shared
+    Notification_Infrastructure:
+      - Notification_Domain
+      - Notification_Application
+      - Shared
+    Stats_Infrastructure:
+      - Stats_Domain
+      - Stats_Application
+      - Manga_Domain
+      - Manga_Application
+      - Collection_Domain
+      - Shared
+    Wishlist_Infrastructure:
+      - Wishlist_Domain
+      - Wishlist_Application
+      - Manga_Domain
+      - Manga_Application
+      - Collection_Domain
+      - Collection_Application
+      - Shared
+
+    # Shared can depend on nothing (it is the base layer)
+    Shared: ~

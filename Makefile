@@ -83,6 +83,10 @@ phpcbf: ## Auto-fix PHP code style
 test-php: ## Run PHP tests
 	$(BACK) composer test
 
+.PHONY: logs-worker
+logs-worker: ## Tail Messenger worker logs
+	$(DC) logs -f worker
+
 .PHONY: shell-back
 shell-back: ## Open shell in back container
 	$(BACK) sh
@@ -110,6 +114,15 @@ shell-front: ## Open shell in app container
 	$(FRONT) sh
 
 ##@ Quality
+
+.PHONY: deptrac
+deptrac: ## Run Deptrac architecture boundary check
+	$(BACK) vendor/bin/deptrac analyse
+
+.PHONY: php-qa
+php-qa: ## Run all PHP quality gates (style + stan + deptrac + tests)
+	$(BACK) composer qa
+	$(MAKE) deptrac
 
 .PHONY: qa
 qa: php-qa vue-qa ## Run all quality gates (PHP + Vue)

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Manga\Application\SearchVolumeExternal;
 
+use App\Manga\Domain\ExternalApiClientInterface;
 use App\Manga\Domain\ExternalMangaDto;
-use App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 /**
@@ -15,7 +15,7 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 #[AsMessageHandler(bus: 'query.bus')]
 final readonly class SearchVolumeExternalHandler
 {
-    public function __construct(private GoogleBooksMangaApiClient $googleBooks)
+    public function __construct(private ExternalApiClientInterface $googleBooks)
     {
     }
 

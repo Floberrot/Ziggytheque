@@ -1,0 +1,7 @@
+FROM postgres:17-alpine
+
+ENV POSTGRES_USER=ziggy
+ENV POSTGRES_PASSWORD=ziggy
+ENV POSTGRES_DB=ziggytheque
+
+EXPOSE 5432

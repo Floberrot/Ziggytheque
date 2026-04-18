@@ -174,6 +174,12 @@
     form.value.edition = editionInput.value
     showEditionDropdown.value = true
   }
+
+  function onEditionBlur() {
+    setTimeout(() => {
+      showEditionDropdown.value = false
+    }, 150)
+  }
 </script>
 
 <template>
@@ -408,7 +414,7 @@
               autocomplete="off"
               @input="onEditionInput"
               @focus="showEditionDropdown = true"
-              @blur="() => setTimeout(() => (showEditionDropdown = false), 150)"
+              @blur="onEditionBlur"
             />
             <!-- Dropdown suggestions -->
             <ul

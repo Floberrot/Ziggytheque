@@ -1,0 +1,55 @@
+# ── Stage 1: Frontend build ───────────────────────────────────────────────────
+FROM node:22-alpine AS frontend
+
+WORKDIR /app
+
+COPY front/package.json front/package-lock.json ./
+RUN npm ci
+
+COPY front/ .
+RUN npm run build
+# Output: /app/dist/
+
+# ── Stage 2: PHP base ─────────────────────────────────────────────────────────
+FROM dunglas/frankenphp:1-php8.4 AS base
+
+WORKDIR /app
+
+RUN install-php-extensions \
+    pdo_pgsql \
+    intl \
+    zip \
+    opcache \
+    apcu
+
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# ── Stage 3: Production ───────────────────────────────────────────────────────
+FROM base AS prod
+
+ARG JWT_PASSPHRASE
+ENV APP_ENV=prod
+ENV APP_DEBUG=0
+ENV SERVER_NAME="http://:80"
+
+COPY back/ .
+
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --optimize-autoloader \
+    --classmap-authoritative
+
+# Generate JWT keypair baked into the image
+RUN JWT_PASSPHRASE=${JWT_PASSPHRASE} php bin/console lexik:jwt:generate-keypair --overwrite
+
+# Copy built Vue SPA into Symfony public directory (served by FrankenPHP as static files)
+COPY --from=frontend /app/dist /app/public/spa
+
+COPY back/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+EXPOSE 80
+
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
