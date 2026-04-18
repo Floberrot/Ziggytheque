@@ -121,18 +121,19 @@ install: ## Install all dependencies (local)
 	cd back && composer install
 	cd front && npm install
 
-.PHONY: import-price-codes
-import-price-codes: ## Import SLF price codes (grille des prix janvier 2023)
-	$(BACK) php bin/console app:import-price-codes --force
-
 .PHONY: setup
 setup: ## First-time setup: start containers, wait for back, generate JWT keys, migrate, seed price codes
 	$(DC) up -d
-	@echo "Waiting for back container to be healthy..."
-	@until docker compose exec back php bin/console about > /dev/null 2>&1; do sleep 2; done
+	@echo "Waiting for back container to start..."
+	@until docker compose exec back php -r "echo 'ok';" > /dev/null 2>&1; do sleep 2; done
+	@echo "Running composer install..."
+	docker compose exec back composer install --no-interaction --prefer-dist
 	$(MAKE) jwt-keys
+	@echo "Waiting for back container to be ready..."
+	@until docker compose exec back php bin/console about > /dev/null 2>&1; do sleep 2; done
+	@echo "Dropping existing schema..."
+	docker compose exec back php bin/console doctrine:schema:drop --force --full-database
 	$(MAKE) migrate
-	$(MAKE) import-price-codes
 
 ##@ Help
 

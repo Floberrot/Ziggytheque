@@ -47,15 +47,26 @@ final readonly class GetStatsHandler
             ->getQuery()
             ->getSingleScalarResult();
 
-        // Collection value: sum of price codes for owned volumes
-        $collectionValue = (float) ($this->em->createQueryBuilder()
-            ->select('SUM(pc.value)')
+        $ownedValue = (float) ($this->em->createQueryBuilder()
+            ->select('SUM(v.price)')
             ->from(VolumeEntry::class, 've')
             ->join('ve.volume', 'v')
-            ->join('v.priceCode', 'pc')
             ->where('ve.isOwned = true')
+            ->andWhere('v.price IS NOT NULL')
             ->getQuery()
             ->getSingleScalarResult() ?? 0);
+
+        $wishlistValue = (float) ($this->em->createQueryBuilder()
+            ->select('SUM(v.price)')
+            ->from(VolumeEntry::class, 've')
+            ->join('ve.volume', 'v')
+            ->where('ve.isWished = true')
+            ->andWhere('ve.isOwned = false')
+            ->andWhere('v.price IS NOT NULL')
+            ->getQuery()
+            ->getSingleScalarResult() ?? 0);
+
+        $totalValue = $ownedValue + $wishlistValue;
 
         // Genre breakdown
         $genreRows = $this->em->createQueryBuilder()
@@ -87,7 +98,9 @@ final readonly class GetStatsHandler
             'totalOwned' => $totalOwned,
             'totalRead' => $totalRead,
             'totalWishlist' => $totalWishlist,
-            'collectionValue' => round($collectionValue, 2),
+            'ownedValue' => round($ownedValue, 2),
+            'wishlistValue' => round($wishlistValue, 2),
+            'totalValue' => round($totalValue, 2),
             'genreBreakdown' => $genreBreakdown,
             'recentAdditions' => array_map(
                 static fn (CollectionEntry $e) => $e->toArray(),

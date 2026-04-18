@@ -11,7 +11,7 @@ final readonly class UpdateVolumeCommand
         public string $volumeId,
         public ?string $coverUrl = null,
         public ?string $releaseDate = null,
-        public ?string $priceCode = null,
+        public ?float $price = null,
     ) {
     }
 }

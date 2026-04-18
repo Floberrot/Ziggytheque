@@ -4,7 +4,6 @@
     "collection": "Collection",
     "wishlist": "Wishlist",
     "add": "Add",
-    "priceCodes": "Price Codes",
     "notifications": "Notifications",
     "logout": "Logout"
   },
@@ -13,7 +12,9 @@
     "ownedVolumes": "Owned Volumes",
     "readVolumes": "Read Volumes",
     "wishlist": "Wished Volumes",
-    "collectionValue": "Total Value",
+    "ownedValue": "Owned Value",
+    "wishlistValue": "Wishlist Value",
+    "totalValue": "Total Value",
     "genreBreakdown": "Genre Breakdown",
     "recentAdditions": "Recent Additions"
   },
@@ -25,7 +26,8 @@
     "removed": "Removed from collection",
     "empty": "Your collection is empty",
     "volumes": "Volumes",
-    "owned": "owned"
+    "owned": "owned",
+    "batchSetPrice": "Apply to all"
   },
   "wishlist": {
     "title": "Wishlist",
@@ -60,15 +62,8 @@
     "summary": "Summary",
     "totalVolumes": "Total volumes"
   },
-  "priceCodes": {
-    "title": "Price Codes",
-    "add": "New Code",
-    "new": "New Price Code",
-    "edit": "Edit Code",
-    "code": "Code",
-    "label": "Label",
-    "value": "Value",
-    "saved": "Price code saved"
+  "volume": {
+    "price": "Price (€)"
   },
   "notifications": {
     "title": "Notifications",

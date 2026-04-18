@@ -60,6 +60,10 @@ class CollectionEntry
                 ->count(),
             'totalVolumes' => $this->manga->volumes->count(),
             'addedAt' => $this->addedAt->format(\DateTimeInterface::ATOM),
+            'ownedValue' => array_sum(array_map(
+                fn (VolumeEntry $ve) => $ve->isOwned ? ($ve->volume->price ?? 0.0) : 0.0,
+                $this->volumeEntries->toArray(),
+            )),
         ];
     }
 

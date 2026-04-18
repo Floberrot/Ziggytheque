@@ -6,7 +6,6 @@ namespace App\Manga\Application\UpdateVolume;
 
 use App\Manga\Domain\MangaRepositoryInterface;
 use App\Manga\Domain\Volume;
-use App\PriceCode\Domain\PriceCodeRepositoryInterface;
 use App\Shared\Domain\Exception\NotFoundException;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -15,7 +14,6 @@ final readonly class UpdateVolumeHandler
 {
     public function __construct(
         private MangaRepositoryInterface $mangaRepository,
-        private PriceCodeRepositoryInterface $priceCodeRepository,
     ) {
     }
 
@@ -43,9 +41,8 @@ final readonly class UpdateVolumeHandler
             $volume->releaseDate = new \DateTimeImmutable($command->releaseDate);
         }
 
-        if ($command->priceCode !== null) {
-            $priceCode = $this->priceCodeRepository->findByCode($command->priceCode);
-            $volume->priceCode = $priceCode;
+        if ($command->price !== null) {
+            $volume->price = $command->price;
         }
 
         $this->mangaRepository->save($manga);
