@@ -1,0 +1,14 @@
+{
+	frankenphp
+	order php_server before file_server
+}
+
+{$SERVER_NAME:http://:80} {
+	root * /app/public
+
+	encode zstd br gzip
+
+	# FrankenPHP serves PHP via the front controller (Symfony's public/index.php).
+	# php_server automatically routes unknown paths to index.php.
+	php_server
+}

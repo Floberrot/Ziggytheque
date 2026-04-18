@@ -42,6 +42,7 @@ RUN composer install \
 # Copy built Vue SPA into Symfony public directory (served by FrankenPHP as static files)
 COPY --from=frontend /app/dist /app/public/spa
 
+COPY back/Caddyfile /etc/caddy/Caddyfile
 COPY back/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
