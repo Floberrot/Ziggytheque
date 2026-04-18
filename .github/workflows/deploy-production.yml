@@ -259,7 +259,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Railway CLI
-        run: npm install -g @railway/cli
+        run: curl -fsSL https://railway.com/install.sh | sh
       - name: Deploy backend service
         working-directory: back
         run: |
@@ -275,7 +275,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Railway CLI
-        run: npm install -g @railway/cli
+        run: curl -fsSL https://railway.com/install.sh | sh
       - name: Deploy worker service
         working-directory: back
         run: |
@@ -291,7 +291,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Railway CLI
-        run: npm install -g @railway/cli
+        run: curl -fsSL https://railway.com/install.sh | sh
       - name: Deploy frontend service
         working-directory: front
         run: |
