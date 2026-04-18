@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e
 
+echo "[entrypoint] Generating JWT keypair..."
+php bin/console lexik:jwt:generate-keypair --overwrite --no-interaction
+
 echo "[entrypoint] Warming up Symfony cache..."
 php bin/console cache:warmup --env=prod
 

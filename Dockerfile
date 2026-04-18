@@ -27,7 +27,6 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # ── Stage 3: Production ───────────────────────────────────────────────────────
 FROM base AS prod
 
-ARG JWT_PASSPHRASE
 ENV APP_ENV=prod
 ENV APP_DEBUG=0
 ENV SERVER_NAME="http://:80"
@@ -39,9 +38,6 @@ RUN composer install \
     --no-interaction \
     --optimize-autoloader \
     --classmap-authoritative
-
-# Generate JWT keypair baked into the image
-RUN JWT_PASSPHRASE=${JWT_PASSPHRASE} php bin/console lexik:jwt:generate-keypair --overwrite
 
 # Copy built Vue SPA into Symfony public directory (served by FrankenPHP as static files)
 COPY --from=frontend /app/dist /app/public/spa
