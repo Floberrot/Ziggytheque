@@ -18,6 +18,7 @@
     "recentAdditions": "Recent Additions"
   },
   "collection": {
+    "backToCollection": "Back to collection",
     "title": "My Collection",
     "add": "Add a Series",
     "addToCollection": "Manage Collection",

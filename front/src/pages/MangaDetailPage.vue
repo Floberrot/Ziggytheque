@@ -256,6 +256,15 @@ function volumeOpacityClass(ve: VolumeEntry): string {
         <div class="absolute inset-0 bg-gradient-to-b from-base-100/60 to-base-100 pointer-events-none" />
 
         <div class="relative max-w-5xl mx-auto px-6 pt-8 pb-6">
+          <button
+            class="btn btn-ghost btn-sm mb-4 gap-2 text-base-content/70 hover:text-base-content"
+            @click="router.push({ name: 'collection' })"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            {{ t('collection.backToCollection') }}
+          </button>
           <div class="flex gap-6">
             <!-- Cover -->
             <div class="shrink-0">
