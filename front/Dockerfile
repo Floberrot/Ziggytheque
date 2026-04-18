@@ -22,6 +22,10 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
+# Must be overridden in Railway with the backend service URL.
+# If unset, envsubst leaves ${BACKEND_URL} as a literal and nginx fails to start.
+ENV BACKEND_URL=http://BACKEND_URL_NOT_SET
+
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
