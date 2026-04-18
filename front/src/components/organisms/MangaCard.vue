@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { CollectionEntry } from '@/types'
 import BaseHeartRating from '@/components/atoms/BaseHeartRating.vue'
+import { coverUrl } from '@/utils/coverUrl'
 
 const props = defineProps<{ entry: CollectionEntry }>()
 const router = useRouter()
@@ -51,7 +52,7 @@ function open() {
       <div class="aspect-[2/3] overflow-hidden">
         <img
           v-if="entry.manga.coverUrl"
-          :src="entry.manga.coverUrl"
+          :src="coverUrl(entry.manga.coverUrl)!"
           :alt="entry.manga.title"
           class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           loading="lazy"
