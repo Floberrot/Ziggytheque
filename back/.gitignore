@@ -10,7 +10,8 @@
 ###< symfony/framework-bundle ###
 
 ###> lexik/jwt-authentication-bundle ###
-/config/jwt/*.pem
+# JWT keys are committed — they're stable secrets baked into the Docker image.
+# Rotating them invalidates all active sessions, which is acceptable for this single-user gate app.
 ###< lexik/jwt-authentication-bundle ###
 
 ###> phpunit/phpunit ###
