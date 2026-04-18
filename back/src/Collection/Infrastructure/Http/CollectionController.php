@@ -14,6 +14,7 @@ use App\Collection\Application\PurchaseVolume\PurchaseVolumeCommand;
 use App\Collection\Application\Remove\RemoveFromCollectionCommand;
 use App\Collection\Application\ToggleVolume\ToggleVolumeCommand;
 use App\Collection\Application\UpdateStatus\UpdateReadingStatusCommand;
+use App\Collection\Application\UpdateRating\UpdateRatingCommand;
 use App\Shared\Application\Bus\CommandBusInterface;
 use App\Shared\Application\Bus\QueryBusInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -63,6 +64,14 @@ final readonly class CollectionController
     public function updateStatus(string $id, #[MapRequestPayload] UpdateStatusRequest $request): JsonResponse
     {
         $this->commandBus->dispatch(new UpdateReadingStatusCommand($id, $request->status));
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    #[Route('/{id}/rating', methods: ['PATCH'])]
+    public function updateRating(string $id, #[MapRequestPayload] UpdateRatingRequest $request): JsonResponse
+    {
+        $this->commandBus->dispatch(new UpdateRatingCommand($id, $request->rating));
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
