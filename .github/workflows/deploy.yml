@@ -254,10 +254,7 @@ jobs:
         run: npm install -g @railway/cli
       - name: Deploy database service
         working-directory: db
-        run: |
-          railway up \
-            --service db \
-            --ci
+        run: railway up --service db --ci
 
   deploy-back:
     name: "Production: Deploy Backend"
@@ -268,10 +265,7 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
       - name: Deploy backend service
-        run: |
-          railway up \
-            --service backend \
-            --ci
+        run: railway up --service backend --ci
 
   deploy-worker:
     name: "Production: Deploy Worker"
@@ -283,10 +277,7 @@ jobs:
         run: npm install -g @railway/cli
       - name: Deploy worker service
         working-directory: worker
-        run: |
-          railway up \
-            --service worker \
-            --ci
+        run: railway up --service worker --ci
 
   deploy-front:
     name: "Production: Deploy Frontend"
@@ -298,7 +289,4 @@ jobs:
         run: npm install -g @railway/cli
       - name: Deploy frontend service
         working-directory: front
-        run: |
-          railway up \
-            --service frontend \
-            --ci
+        run: railway up --service frontend --ci
