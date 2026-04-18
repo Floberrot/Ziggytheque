@@ -8,6 +8,7 @@
   import { useI18n } from 'vue-i18n'
   import { useExternalSearch } from '@/composables/useExternalSearch'
   import type { ExternalMangaResult } from '@/composables/useExternalSearch'
+  import { coverUrl } from '@/utils/coverUrl'
 
   const router = useRouter()
   const qc = useQueryClient()
@@ -288,7 +289,7 @@
             >
               <img
                 v-if="result.coverUrl"
-                :src="result.coverUrl"
+                :src="coverUrl(result.coverUrl)!"
                 :alt="result.title"
                 class="w-full h-full object-cover"
               />

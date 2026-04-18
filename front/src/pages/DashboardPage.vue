@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/vue-query'
 import { getStats } from '@/api/stats'
 import { useI18n } from 'vue-i18n'
 import GenrePieChart from '@/components/molecules/GenrePieChart.vue'
+import { coverUrl } from '@/utils/coverUrl'
 
 const { t } = useI18n()
 const { data: stats, isPending } = useQuery({ queryKey: ['stats'], queryFn: getStats })
@@ -76,7 +77,7 @@ const { data: stats, isPending } = useQuery({ queryKey: ['stats'], queryFn: getS
             >
               <img
                 v-if="entry.manga.coverUrl"
-                :src="entry.manga.coverUrl"
+                :src="coverUrl(entry.manga.coverUrl)!"
                 :alt="entry.manga.title"
                 class="w-10 h-14 object-cover rounded"
               />

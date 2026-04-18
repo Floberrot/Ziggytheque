@@ -6,6 +6,7 @@ import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import type { WishlistEntry, VolumeEntry } from '@/types'
+import { coverUrl } from '@/utils/coverUrl'
 
 const qc = useQueryClient()
 const ui = useUiStore()
@@ -185,7 +186,7 @@ function goToDetail(id: string) {
           >
             <img
               v-if="entry.manga.coverUrl"
-              :src="entry.manga.coverUrl"
+              :src="coverUrl(entry.manga.coverUrl)!"
               :alt="entry.manga.title"
               class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 hover:scale-105"
             />
@@ -277,7 +278,7 @@ function goToDetail(id: string) {
                   >
                     <img
                       v-if="ve.coverUrl"
-                      :src="ve.coverUrl"
+                      :src="coverUrl(ve.coverUrl)!"
                       :alt="`Tome ${ve.number}`"
                       class="w-full h-full object-cover"
                     />
