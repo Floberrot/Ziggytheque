@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { CollectionEntry } from '@/types'
+import BaseHeartRating from '@/components/atoms/BaseHeartRating.vue'
 
 const props = defineProps<{ entry: CollectionEntry }>()
 const router = useRouter()
@@ -65,15 +66,23 @@ function open() {
       <!-- Deep gradient overlay -->
       <div class="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none" />
 
-      <!-- Top row: genre badge always, edition on hover -->
+      <!-- Top row: genre badge -->
       <div class="absolute inset-x-0 top-0 flex items-start justify-between p-2.5">
-        <span
-          v-if="entry.manga.genre"
-          class="badge badge-xs bg-black/55 text-white/75 border-none capitalize backdrop-blur-sm"
-        >
-          {{ entry.manga.genre }}
-        </span>
-        <span v-else class="flex-1" />
+        <div class="flex flex-col gap-1.5">
+          <span
+            v-if="entry.manga.genre"
+            class="badge badge-xs bg-black/55 text-white/75 border-none capitalize backdrop-blur-sm"
+          >
+            {{ entry.manga.genre }}
+          </span>
+          <!-- Rating chip below genre (appears on hover) -->
+          <BaseHeartRating
+            :model-value="entry.rating"
+            readonly
+            compact
+            class="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          />
+        </div>
         <span
           v-if="ownedRatio === 100"
           class="badge badge-xs badge-success border-none opacity-0 group-hover:opacity-100 transition-opacity duration-200"
