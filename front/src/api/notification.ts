@@ -1,5 +1,10 @@
 import client from './client'
-import type { ArticlePage, ActivityLog } from '@/types'
+import type { ArticlePage, ActivityLog, Notification } from '@/types'
+
+export async function getNotifications(): Promise<Notification[]> {
+  const res = await client.get('/notifications')
+  return res.data
+}
 
 export interface ArticlesParams {
   page?: number

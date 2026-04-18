@@ -15,7 +15,7 @@ use Symfony\Component\Scheduler\Attribute\AsCronTask;
  * Runs at 07:00 and 19:00 every day.
  * Dispatches async crawl jobs (one per source per followed manga).
  */
-#[AsCronTask('0 7,19 * * *')]
+#[AsCronTask('* * * * *')]
 final readonly class DispatchFollowingCrawlTask
 {
     public function __construct(

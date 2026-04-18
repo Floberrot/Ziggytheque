@@ -13,8 +13,6 @@ framework:
                     multiplier: 2
             failed: 'doctrine://default?queue_name=failed'
             sync: 'sync://'
-            scheduler_default:
-                dsn: 'doctrine://default?queue_name=scheduler_default&auto_setup=0'
 
         default_bus: command.bus
         buses:
