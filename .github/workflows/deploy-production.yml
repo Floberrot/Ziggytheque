@@ -319,3 +319,5 @@ jobs:
     needs: [approve-release]
     uses: Floberrot/Ziggytheque/.github/workflows/release.yml@main
     secrets: inherit
+    permissions:
+      contents: write
