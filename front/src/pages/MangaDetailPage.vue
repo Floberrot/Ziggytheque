@@ -255,7 +255,7 @@ const syncMutation = useMutation({
 })
 
 const updateMangaMutation = useMutation({
-  mutationFn: (payload: { title?: string; edition?: string }) => updateManga(entry.value!.manga.id, payload),
+  mutationFn: (payload: { title?: string; edition?: string; coverUrl?: string }) => updateManga(entry.value!.manga.id, payload),
   onSuccess: () => {
     qc.invalidateQueries({ queryKey: ['collection', id] })
     qc.invalidateQueries({ queryKey: ['collection'] })
