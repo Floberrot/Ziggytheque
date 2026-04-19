@@ -69,6 +69,17 @@ const navItems = [
     <input id="drawer" v-model="drawerOpen" type="checkbox" class="drawer-toggle" />
 
     <div class="drawer-content flex flex-col">
+      <!-- Mobile top bar -->
+      <header class="lg:hidden sticky top-0 z-20 flex items-center justify-between h-12 px-4 bg-base-100 border-b border-base-300 shadow-sm">
+        <label for="drawer" class="btn btn-ghost btn-sm btn-square">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+          </svg>
+        </label>
+        <span class="font-bold tracking-tight text-sm">Ziggytheque</span>
+        <div class="w-8" />
+      </header>
+
       <!-- Page content -->
       <main class="flex-1 bg-base-200 min-h-screen pb-20 lg:pb-0">
         <RouterView />
@@ -125,8 +136,8 @@ const navItems = [
           </RouterLink>
         </nav>
 
-        <!-- Footer: desktop only (hidden on mobile, navigation is via bottom bar) -->
-        <div class="hidden lg:block p-3 border-t border-base-200 space-y-2">
+        <!-- Footer: theme, language, logout -->
+        <div class="p-3 border-t border-base-200 space-y-2">
           <div class="flex items-center justify-between px-2">
             <LanguageSwitcher />
             <BaseThemeSwitch />
