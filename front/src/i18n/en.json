@@ -5,7 +5,12 @@
     "wishlist": "Wishlist",
     "add": "Add",
     "notifications": "Notifications",
-    "logout": "Logout"
+    "logout": "Logout",
+    "settings": "Settings"
+  },
+  "settings": {
+    "language": "Language",
+    "theme": "Theme"
   },
   "dashboard": {
     "title": "Dashboard",
