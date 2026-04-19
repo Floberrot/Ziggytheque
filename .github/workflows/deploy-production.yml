@@ -259,7 +259,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Railway CLI
-        run: curl -fsSL https://railway.com/install.sh | sh
+        run: npm install -g @railway/cli
       - name: Deploy backend service
         # Run from repo root so Railway finds railway.json → uses root Dockerfile.
         # back/ has no Dockerfile, so railway up from back/ triggers Nixpacks (wrong).
@@ -276,7 +276,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Railway CLI
-        run: curl -fsSL https://railway.com/install.sh | sh
+        run: npm install -g @railway/cli
       - name: Deploy worker service
         # Same as back: run from root to pick up railway.json + root Dockerfile.
         run: |
@@ -292,7 +292,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Railway CLI
-        run: curl -fsSL https://railway.com/install.sh | sh
+        run: npm install -g @railway/cli
       - name: Deploy frontend service
         working-directory: front
         run: |

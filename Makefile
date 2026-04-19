@@ -129,13 +129,18 @@ qa: php-qa vue-qa ## Run all quality gates (PHP + Vue)
 
 ##@ Setup
 
+.PHONY: hooks
+hooks: ## Install git hooks from .githooks/
+	git config core.hooksPath .githooks
+	@echo "Git hooks installed from .githooks/"
+
 .PHONY: install
 install: ## Install all dependencies (local)
 	cd back && composer install
 	cd front && npm install
 
 .PHONY: setup
-setup: ## First-time setup: start containers, wait for back, generate JWT keys, migrate, seed price codes
+setup: hooks ## First-time setup: start containers, wait for back, generate JWT keys, migrate, seed price codes
 	$(DC) up -d
 	@echo "Waiting for back container to start..."
 	@until docker compose exec back php -r "echo 'ok';" > /dev/null 2>&1; do sleep 2; done
