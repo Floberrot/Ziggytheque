@@ -110,8 +110,8 @@ function goToDetail(id: string) {
 <template>
   <div class="min-h-screen">
     <!-- Header -->
-    <div class="bg-gradient-to-br from-warning/10 via-base-100 to-base-100 border-b border-base-200 px-6 py-8">
-      <div class="max-w-5xl mx-auto flex items-center justify-between gap-4 flex-wrap">
+    <div class="bg-gradient-to-br from-warning/10 via-base-100 to-base-100 border-b border-base-200 px-4 sm:px-6 py-6 sm:py-8">
+      <div class="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 class="text-3xl font-extrabold tracking-tight">{{ t('wishlist.title') }}</h1>
           <p class="text-base-content/50 text-sm mt-1">
@@ -151,7 +151,7 @@ function goToDetail(id: string) {
       </div>
     </div>
 
-    <div class="max-w-5xl mx-auto px-6 py-8 space-y-5">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-5">
       <!-- Loading -->
       <div v-if="isPending" class="space-y-4">
         <div v-for="i in 3" :key="i" class="h-44 rounded-2xl bg-base-200 animate-pulse" />
@@ -329,7 +329,7 @@ function goToDetail(id: string) {
 
             <!-- Hint text -->
             <p class="text-[10px] text-base-content/25 italic leading-tight">
-              {{ batchMode ? 'Cliquez sur les tomes pour les sélectionner' : 'Survolez un tome pour le marquer comme acheté' }}
+              {{ batchMode ? 'Appuyez sur les tomes pour les sélectionner' : 'Appuyez sur un tome pour le marquer comme acheté' }}
             </p>
           </div>
         </div>
@@ -342,7 +342,7 @@ function goToDetail(id: string) {
     <Transition name="slide-up">
       <div
         v-if="batchMode && selectedVeIds.size > 0"
-        class="fixed bottom-0 left-0 right-0 z-50 bg-base-100/95 backdrop-blur-sm border-t-2 border-warning/40 shadow-2xl"
+        class="fixed bottom-16 lg:bottom-0 left-0 right-0 z-50 bg-base-100/95 backdrop-blur-sm border-t-2 border-warning/40 shadow-2xl"
       >
         <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3 flex-wrap">
           <span class="badge badge-warning badge-lg shrink-0">

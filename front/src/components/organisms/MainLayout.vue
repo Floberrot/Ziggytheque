@@ -27,7 +27,13 @@ function logout() {
   router.push({ name: 'gate' })
 }
 
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+
+const drawerOpen = ref(false)
+
+function closeDrawer() {
+  drawerOpen.value = false
+}
 
 const navItems = [
   {
@@ -60,23 +66,35 @@ const navItems = [
 
 <template>
   <div class="drawer lg:drawer-open min-h-screen">
-    <input id="drawer" type="checkbox" class="drawer-toggle" />
+    <input id="drawer" v-model="drawerOpen" type="checkbox" class="drawer-toggle" />
 
     <div class="drawer-content flex flex-col">
-      <!-- Topbar -->
-      <header class="navbar bg-base-100 border-b border-base-200 lg:hidden">
-        <label for="drawer" class="btn btn-ghost drawer-button">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-5 h-5 stroke-current">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </label>
-        <span class="font-bold text-lg flex-1">Ziggytheque</span>
-      </header>
-
       <!-- Page content -->
-      <main class="flex-1 bg-base-200 min-h-screen">
+      <main class="flex-1 bg-base-200 min-h-screen pb-20 lg:pb-0">
         <RouterView />
       </main>
+
+      <!-- Mobile bottom navigation (custom — DaisyUI v5 has no btm-nav) -->
+      <nav class="fixed bottom-0 left-0 right-0 z-30 lg:hidden flex h-16 bg-base-100 border-t border-base-300 shadow-[0_-1px_8px_rgba(0,0,0,.08)]">
+        <RouterLink
+          v-for="item in navItems"
+          :key="item.name"
+          :to="{ name: item.name }"
+          class="flex-1 flex flex-col items-center justify-center gap-0.5 text-base-content/40 transition-colors hover:text-base-content"
+          active-class="text-primary"
+        >
+          <div class="relative">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+              <path stroke-linecap="round" stroke-linejoin="round" :d="item.svg" />
+            </svg>
+            <span
+              v-if="item.name === 'notifications' && unreadCount > 0"
+              class="absolute -top-1.5 -right-1.5 bg-primary text-primary-content text-[8px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center leading-none"
+            >{{ unreadCount }}</span>
+          </div>
+          <span class="text-[10px] font-medium leading-none">{{ t(item.labelKey) }}</span>
+        </RouterLink>
+      </nav>
     </div>
 
     <!-- Sidebar -->
@@ -94,6 +112,7 @@ const navItems = [
             :to="{ name: item.name }"
             class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-base-200"
             active-class="bg-primary/10 text-primary"
+            @click="closeDrawer"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 shrink-0">
               <path stroke-linecap="round" stroke-linejoin="round" :d="item.svg" />
@@ -106,7 +125,8 @@ const navItems = [
           </RouterLink>
         </nav>
 
-        <div class="p-3 border-t border-base-200 space-y-2">
+        <!-- Footer: desktop only (hidden on mobile, navigation is via bottom bar) -->
+        <div class="hidden lg:block p-3 border-t border-base-200 space-y-2">
           <div class="flex items-center justify-between px-2">
             <LanguageSwitcher />
             <BaseThemeSwitch />

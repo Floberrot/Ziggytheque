@@ -327,21 +327,21 @@ function volumeOpacityClass(ve: VolumeEntry): string {
         />
         <div class="absolute inset-0 bg-gradient-to-b from-base-100/60 to-base-100 pointer-events-none" />
 
-        <div class="relative max-w-5xl mx-auto px-6 pt-8 pb-6">
+        <div class="relative max-w-5xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-6">
           <RouterLink
             :to="{ name: 'collection' }"
-            class="lg:hidden inline-flex items-center gap-1.5 text-sm text-base-content/50 hover:text-base-content mb-4 transition-colors"
+            class="md:hidden inline-flex items-center gap-1.5 text-sm text-base-content/50 hover:text-base-content mb-4 transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
             Collection
           </RouterLink>
-          <div class="flex gap-6">
+          <div class="flex flex-col sm:flex-row gap-5 sm:gap-6">
             <!-- Cover -->
-            <div class="shrink-0 group/cover relative">
+            <div class="shrink-0 group/cover relative flex justify-center sm:block">
               <div
-                class="w-28 md:w-36 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl ring-2 ring-base-content/10 cursor-pointer"
+                class="w-40 sm:w-28 md:w-36 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl ring-2 ring-base-content/10 cursor-pointer"
                 @click.stop="startEditCover"
               >
                 <img v-if="entry.manga.coverUrl" :src="coverUrl(entry.manga.coverUrl)!" :alt="entry.manga.title" class="w-full h-full object-cover" />
@@ -360,7 +360,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
               <!-- Cover URL edit popover -->
               <div
                 v-if="editingCover"
-                class="absolute top-full left-0 mt-2 z-30 bg-base-100 border border-base-300 rounded-xl shadow-2xl p-3 w-64"
+                class="absolute top-full left-0 mt-2 z-30 bg-base-100 border border-base-300 rounded-xl shadow-2xl p-3 w-[min(16rem,calc(100vw-2rem))]"
                 @click.stop
               >
                 <p class="text-xs text-base-content/50 mb-1.5 font-medium">URL de la couverture</p>
@@ -466,7 +466,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
               </div>
 
               <!-- Status pill selector -->
-              <div class="flex flex-wrap gap-1.5">
+              <div class="flex gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1 sm:flex-wrap sm:overflow-visible">
                 <button
                   v-for="s in STATUS_OPTIONS"
                   :key="s.value"
@@ -578,7 +578,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
       </div>
 
       <!-- Volume grid -->
-      <div class="max-w-5xl mx-auto px-6 py-6">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
         <!-- Grid header -->
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-xs font-semibold uppercase tracking-widest text-base-content/40">
@@ -618,7 +618,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
           <button class="btn btn-xs btn-ghost text-base-content/30" @click="selectedIds = new Set()">Vider</button>
         </div>
 
-        <div v-if="sortedVolumes.length" class="grid grid-cols-5 sm:grid-cols-7 md:grid-cols-9 lg:grid-cols-11 xl:grid-cols-13 gap-2.5">
+        <div v-if="sortedVolumes.length" class="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 xl:grid-cols-11 gap-3">
           <div
             v-for="ve in sortedVolumes"
             :key="ve.id"
@@ -703,7 +703,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
 
             <!-- Number label -->
             <div
-              class="text-center text-[9px] mt-0.5 tabular-nums font-semibold leading-tight"
+              class="text-center text-[10px] sm:text-[9px] mt-0.5 tabular-nums font-semibold leading-tight"
               :class="ve.isOwned ? 'text-base-content/60' : ve.isWished ? 'text-warning/60' : 'text-base-content/20'"
             >
               T{{ ve.number }}
@@ -715,8 +715,11 @@ function volumeOpacityClass(ve: VolumeEntry): string {
           Aucun tome enregistré. Utilisez "Ajouter tomes" pour en créer.
         </p>
 
-        <p v-if="!batchMode" class="mt-5 text-xs text-base-content/30">
+        <p v-if="!batchMode" class="mt-5 text-xs text-base-content/30 hidden sm:block">
           Clic gauche pour gérer · Clic droit pour actions rapides · Sélectionner pour modifications en lot
+        </p>
+        <p v-if="!batchMode" class="mt-5 text-xs text-base-content/30 sm:hidden">
+          Appuyez sur un tome pour le gérer
         </p>
       </div>
 
@@ -815,7 +818,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
     <Transition name="slide-up">
       <div
         v-if="batchMode && selectedIds.size > 0"
-        class="fixed bottom-0 left-0 right-0 z-50 bg-base-100/95 backdrop-blur-sm border-t-2 border-primary/40 shadow-2xl"
+        class="fixed bottom-16 lg:bottom-0 left-0 right-0 z-50 bg-base-100/95 backdrop-blur-sm border-t-2 border-primary/40 shadow-2xl"
       >
         <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3 flex-wrap">
           <span class="badge badge-primary badge-lg shrink-0">

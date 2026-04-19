@@ -18,7 +18,7 @@ const markReadMutation = useMutation({
 </script>
 
 <template>
-  <div class="p-6 space-y-6">
+  <div class="p-4 sm:p-6 space-y-6">
     <h1 class="text-2xl font-bold">{{ t('notifications.title') }}</h1>
 
     <div v-if="isPending" class="flex justify-center py-16">

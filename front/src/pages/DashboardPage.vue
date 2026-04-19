@@ -10,7 +10,7 @@ const { data: stats, isPending } = useQuery({ queryKey: ['stats'], queryFn: getS
 </script>
 
 <template>
-  <div class="p-6 space-y-8">
+  <div class="p-4 sm:p-6 space-y-6 sm:space-y-8">
     <h1 class="text-2xl font-bold">{{ t('dashboard.title') }}</h1>
 
     <div v-if="isPending" class="flex justify-center py-16">
