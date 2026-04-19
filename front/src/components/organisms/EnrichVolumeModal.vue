@@ -206,7 +206,7 @@ const volumeStatus = computed(() => {
                 ]"
                 @click="volume.coverUrl && (lightboxOpen = true)"
               >
-                <img v-if="volume.coverUrl" :src="volume.coverUrl" :alt="`Tome ${volume.number}`" class="w-full h-full object-cover" />
+                <img v-if="volume.coverUrl" :src="coverUrl(volume.coverUrl)!" :alt="`Tome ${volume.number}`" class="w-full h-full object-cover" />
                 <div v-else class="w-full h-full flex items-center justify-center text-base-content/20">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -418,25 +418,7 @@ const volumeStatus = computed(() => {
         @click="lightboxOpen = false"
       >
         <img
-          :src="volume.coverUrl"
-          :alt="`Tome ${volume.number}`"
-          class="max-h-[90dvh] max-w-[90vw] object-contain rounded-xl shadow-2xl"
-          @click.stop
-        />
-      </div>
-    </Transition>
-  </Teleport>
-
-  <!-- Lightbox -->
-  <Teleport to="body">
-    <Transition name="fade">
-      <div
-        v-if="lightboxOpen && volume?.coverUrl"
-        class="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-sm cursor-zoom-out"
-        @click="lightboxOpen = false"
-      >
-        <img
-          :src="volume.coverUrl"
+          :src="coverUrl(volume.coverUrl)!"
           :alt="`Tome ${volume.number}`"
           class="max-h-[90dvh] max-w-[90vw] object-contain rounded-xl shadow-2xl"
           @click.stop
