@@ -27,11 +27,33 @@ const wishedRatio = computed(() =>
 )
 
 const ringClass = computed(() => {
+  if (props.entry.readingStatus === 'dropped') return 'ring-error/50'
   if (ownedRatio.value === 100) return 'ring-success/70'
   if (ownedRatio.value > 50) return 'ring-primary/50'
   if (props.entry.wishedCount > 0) return 'ring-warning/40'
   return 'ring-base-300/30'
 })
+
+const statusChip = computed(() => {
+  switch (props.entry.readingStatus) {
+    case 'dropped':
+      return { label: 'Abandonné', classes: 'bg-error/20 text-error border border-error/30 backdrop-blur-sm' }
+    case 'on_hold':
+      return { label: 'En pause', classes: 'bg-warning/20 text-warning border border-warning/30 backdrop-blur-sm' }
+    case 'not_started':
+      return { label: 'À lire', classes: 'bg-base-content/8 text-base-content/40 border border-base-content/12 backdrop-blur-sm' }
+    case 'completed':
+      return { label: 'Complet', classes: 'bg-success/20 text-success border border-success/30 backdrop-blur-sm' }
+    default:
+      return null
+  }
+})
+
+const coverStyle = computed(() =>
+  props.entry.readingStatus === 'dropped'
+    ? 'filter: grayscale(30%) brightness(0.8)'
+    : '',
+)
 
 function open() {
   router.push({ name: 'collection-detail', params: { id: props.entry.id } })
@@ -55,6 +77,7 @@ function open() {
           :src="coverUrl(entry.manga.coverUrl)!"
           :alt="entry.manga.title"
           class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          :style="coverStyle"
           loading="lazy"
         />
         <div v-else class="w-full h-full flex items-center justify-center bg-base-200 text-base-content/15">
@@ -67,7 +90,7 @@ function open() {
       <!-- Deep gradient overlay -->
       <div class="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none" />
 
-      <!-- Top row: genre badge -->
+      <!-- Top row: genre badge + status chip -->
       <div class="absolute inset-x-0 top-0 flex items-start justify-between p-2.5">
         <div class="flex flex-col gap-1.5">
           <span
@@ -84,11 +107,13 @@ function open() {
             class="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
           />
         </div>
+        <!-- Status chip — always visible for notable statuses -->
         <span
-          v-if="ownedRatio === 100"
-          class="badge badge-xs badge-success border-none opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          v-if="statusChip"
+          class="badge badge-xs font-semibold leading-none"
+          :class="statusChip.classes"
         >
-          Complet
+          {{ statusChip.label }}
         </span>
       </div>
 
