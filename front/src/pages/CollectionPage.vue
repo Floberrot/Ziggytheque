@@ -39,9 +39,9 @@ const totalVolumes = computed(() => collection.value?.reduce((s, e) => s + e.tot
 <template>
   <div class="min-h-screen">
     <!-- Hero header -->
-    <div class="bg-gradient-to-br from-primary/10 via-base-100 to-base-100 border-b border-base-200 px-6 py-8">
+    <div class="bg-gradient-to-br from-primary/10 via-base-100 to-base-100 border-b border-base-200 px-4 sm:px-6 py-6 sm:py-8">
       <div class="max-w-7xl mx-auto">
-        <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
             <h1 class="text-3xl font-extrabold tracking-tight">{{ t('collection.title') }}</h1>
             <p class="text-base-content/50 text-sm mt-1">
@@ -90,7 +90,7 @@ const totalVolumes = computed(() => collection.value?.reduce((s, e) => s + e.tot
       </div>
     </div>
 
-    <div class="max-w-7xl mx-auto px-6 py-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <!-- Loading -->
       <div v-if="isPending" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         <div

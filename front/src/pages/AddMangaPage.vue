@@ -352,9 +352,10 @@
 
     <!-- ── Step 2 : Formulaire ── -->
     <div v-if="step === 2" class="flex gap-5">
-      <div class="hidden md:flex flex-col items-center gap-2 shrink-0">
+      <!-- Cover preview (always visible: horizontal on mobile, sidebar on desktop) -->
+      <div class="shrink-0 flex flex-col items-center gap-2">
         <div
-          class="w-32 aspect-[2/3] rounded-xl overflow-hidden bg-base-200 shadow-md ring-1 ring-base-300"
+          class="w-20 md:w-32 aspect-[2/3] rounded-xl overflow-hidden bg-base-200 shadow-md ring-1 ring-base-300 transition-all duration-300"
         >
           <img
             v-if="coverPreview"
@@ -368,7 +369,7 @@
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              class="w-8 h-8"
+              class="w-6 h-6 md:w-8 md:h-8"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -380,82 +381,73 @@
                 d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
               />
             </svg>
-            <span class="text-xs">Couverture</span>
+            <span class="text-[10px] md:text-xs">Cover</span>
           </div>
         </div>
-        <p class="text-xs text-base-content/30 text-center leading-tight">
+        <p class="text-[10px] md:text-xs text-base-content/30 text-center leading-tight hidden md:block">
           Aperçu<br />automatique
         </p>
       </div>
 
-      <form class="flex-1 space-y-3" @submit.prevent="importMutation.mutate()">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div class="form-control">
-            <label class="label py-1"
-              ><span class="label-text text-xs font-medium">{{ t('manga.title') }} *</span></label
-            >
-            <input
-              v-model="form.title"
-              type="text"
-              class="input input-bordered input-sm"
-              required
-            />
-          </div>
-          <!-- Edition combobox -->
-          <div class="form-control relative">
-            <label class="label py-1"
-              ><span class="label-text text-xs font-medium">{{ t('manga.edition') }} *</span></label
-            >
-            <input
-              v-model="editionInput"
-              type="text"
-              class="input input-bordered input-sm"
-              placeholder="Pika, Glénat, Kana…"
-              required
-              autocomplete="off"
-              @input="onEditionInput"
-              @focus="showEditionDropdown = true"
-              @blur="onEditionBlur"
-            />
-            <!-- Dropdown suggestions -->
-            <ul
-              v-if="showEditionDropdown && editionFiltered.length"
-              class="absolute top-full left-0 right-0 z-30 mt-0.5 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-40 overflow-y-auto text-sm"
-            >
-              <li
-                v-for="ed in editionFiltered"
-                :key="ed"
-                class="px-3 py-1.5 cursor-pointer hover:bg-primary hover:text-primary-content transition-colors"
-                @mousedown.prevent="selectEdition(ed)"
-              >
-                {{ ed }}
-              </li>
-            </ul>
-          </div>
+      <form class="flex-1 min-w-0 space-y-4" @submit.prevent="importMutation.mutate()">
+        <!-- Titre -->
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{ t('manga.title') }} *</label>
+          <input
+            v-model="form.title"
+            type="text"
+            class="input input-bordered w-full"
+            required
+          />
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div class="form-control">
-            <label class="label py-1">
-              <span class="label-text text-xs font-medium">{{ t('manga.author') }}</span>
-              <span
-                v-if="form.externalId && !form.author"
-                class="label-text-alt text-warning/80 text-[10px]"
-                >Non trouvé — à saisir</span
-              >
+        <!-- Edition -->
+        <div class="space-y-1 relative">
+          <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{ t('manga.edition') }} *</label>
+          <input
+            v-model="editionInput"
+            type="text"
+            class="input input-bordered w-full"
+            placeholder="Pika, Glénat, Kana…"
+            required
+            autocomplete="off"
+            @input="onEditionInput"
+            @focus="showEditionDropdown = true"
+            @blur="onEditionBlur"
+          />
+          <ul
+            v-if="showEditionDropdown && editionFiltered.length"
+            class="absolute top-full left-0 right-0 z-30 mt-0.5 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-44 overflow-y-auto text-sm"
+          >
+            <li
+              v-for="ed in editionFiltered"
+              :key="ed"
+              class="px-3 py-2.5 cursor-pointer hover:bg-primary hover:text-primary-content transition-colors"
+              @mousedown.prevent="selectEdition(ed)"
+            >
+              {{ ed }}
+            </li>
+          </ul>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <!-- Auteur -->
+          <div class="space-y-1">
+            <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide flex items-center justify-between">
+              <span>{{ t('manga.author') }}</span>
+              <span v-if="form.externalId && !form.author" class="text-warning/80 text-[10px] font-normal normal-case">à saisir</span>
             </label>
             <input
               v-model="form.author"
               type="text"
-              class="input input-bordered input-sm"
-              placeholder="ex: Kentaro Miura"
+              class="input input-bordered input-sm w-full"
+              placeholder="ex: Miura"
             />
           </div>
-          <div class="form-control">
-            <label class="label py-1"
-              ><span class="label-text text-xs font-medium">{{ t('manga.language') }}</span></label
-            >
-            <select v-model="form.language" class="select select-bordered select-sm">
+          <!-- Langue -->
+          <div class="space-y-1">
+            <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{ t('manga.language') }}</label>
+            <select v-model="form.language" class="select select-bordered select-sm w-full">
               <option value="fr">Français</option>
               <option value="en">English</option>
               <option value="jp">日本語</option>
@@ -463,60 +455,51 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div class="form-control">
-            <label class="label py-1"
-              ><span class="label-text text-xs font-medium">{{ t('manga.genre') }}</span></label
-            >
-            <select v-model="form.genre" class="select select-bordered select-sm">
+        <div class="grid grid-cols-2 gap-3">
+          <!-- Genre -->
+          <div class="space-y-1">
+            <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{ t('manga.genre') }}</label>
+            <select v-model="form.genre" class="select select-bordered select-sm w-full">
               <option value="">—</option>
               <option v-for="g in genres" :key="g" :value="g" class="capitalize">{{ g }}</option>
             </select>
           </div>
-          <div class="form-control">
-            <label class="label py-1"
-              ><span class="label-text text-xs font-medium">{{ t('manga.coverUrl') }}</span></label
-            >
-            <input
-              v-model="form.coverUrl"
-              type="url"
-              class="input input-bordered input-sm"
-              placeholder="https://…"
-            />
-          </div>
-        </div>
-
-        <!-- Total volumes + summary row -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div class="form-control sm:col-span-2">
-            <label class="label py-1"
-              ><span class="label-text text-xs font-medium">{{ t('manga.summary') }}</span></label
-            >
-            <textarea
-              v-model="form.summary"
-              class="textarea textarea-bordered textarea-sm resize-none"
-              rows="3"
-            />
-          </div>
-          <div class="form-control">
-            <label class="label py-1">
-              <span class="label-text text-xs font-medium">{{ t('manga.totalVolumes') }}</span>
-              <span class="label-text-alt text-base-content/30">optionnel</span>
+          <!-- Nb tomes -->
+          <div class="space-y-1">
+            <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide flex items-center justify-between">
+              <span>{{ t('manga.totalVolumes') }}</span>
+              <span class="text-base-content/30 text-[10px] font-normal normal-case">optionnel</span>
             </label>
             <input
               v-model="form.totalVolumes"
               type="number"
               min="0"
               max="9999"
-              class="input input-bordered input-sm"
+              class="input input-bordered input-sm w-full"
               placeholder="ex: 25"
             />
-            <label class="label py-0.5">
-              <span class="label-text-alt text-base-content/30"
-                >Pré-remplit les {{ form.totalVolumes || '?' }} tomes</span
-              >
-            </label>
           </div>
+        </div>
+
+        <!-- URL couverture -->
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{ t('manga.coverUrl') }}</label>
+          <input
+            v-model="form.coverUrl"
+            type="url"
+            class="input input-bordered input-sm w-full"
+            placeholder="https://…"
+          />
+        </div>
+
+        <!-- Résumé -->
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{ t('manga.summary') }}</label>
+          <textarea
+            v-model="form.summary"
+            class="textarea textarea-bordered textarea-sm resize-none w-full"
+            rows="3"
+          />
         </div>
 
         <button
