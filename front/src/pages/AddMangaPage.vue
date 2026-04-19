@@ -49,7 +49,7 @@
     externalId: '',
   })
 
-  const coverPreview = computed(() => form.value.coverUrl || null)
+  const coverPreview = computed(() => coverUrl(form.value.coverUrl))
 
   function applyResult(result: ExternalMangaResult): void {
     form.value = {
