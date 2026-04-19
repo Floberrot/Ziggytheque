@@ -1,9 +1,15 @@
 name: Release
 
+# Called automatically by deploy-production.yml after all services deploy successfully.
+# Can also be triggered manually as a fallback.
 on:
-  push:
-    branches:
-      - main
+  workflow_call: {}
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual release'
+        required: false
+        default: 'Manual release'
 
 permissions:
   contents: write
@@ -31,12 +37,8 @@ jobs:
             IFS='.' read -r MAJOR MINOR PATCH <<< "${LAST#v}"
             BASE="$LAST"
 
-            # Collect subjects of every commit since last tag
             COMMITS_RAW=$(git log "${BASE}..HEAD" --pretty=format:"%s")
 
-            # feat / fix → minor
-            # docs / chore / ci / test / refactor / anything else → patch
-            # Major is intentional and must be tagged manually by the developer
             BUMP="patch"
             if echo "$COMMITS_RAW" | grep -qE '^(feat|fix)(\(|!|:)'; then
               BUMP="minor"
@@ -56,102 +58,97 @@ jobs:
         id: notes
         run: |
           BASE="${{ steps.tag.outputs.base }}"
+          RANGE="${BASE:+${BASE}..}HEAD"
 
-          if [ -z "$BASE" ]; then
-            RANGE="HEAD"
-          else
-            RANGE="${BASE}..HEAD"
-          fi
-
-          # All commits as "subject (hash)" lines
           ALL_COMMITS=$(git log $RANGE --pretty=format:"%s (%h)" 2>/dev/null || true)
 
-          # ── Categorise by conventional commit type ──────────────────────────
-          FEAT_COMMITS=$(echo "$ALL_COMMITS"     | grep -E '^feat(\(|!|:)'     | sed 's/^/- /' || true)
-          FIX_COMMITS=$(echo "$ALL_COMMITS"      | grep -E '^fix(\(|:)'        | sed 's/^/- /' || true)
-          REFACTOR_COMMITS=$(echo "$ALL_COMMITS" | grep -E '^refactor(\(|:)'   | sed 's/^/- /' || true)
-          CHORE_COMMITS=$(echo "$ALL_COMMITS"    | grep -E '^chore(\(|:)'      | sed 's/^/- /' || true)
-          CI_COMMITS=$(echo "$ALL_COMMITS"       | grep -E '^ci(\(|:)'         | sed 's/^/- /' || true)
-          DOCS_COMMITS=$(echo "$ALL_COMMITS"     | grep -E '^docs(\(|:)'       | sed 's/^/- /' || true)
-          TEST_COMMITS=$(echo "$ALL_COMMITS"     | grep -E '^test(\(|:)'       | sed 's/^/- /' || true)
-          OTHER_COMMITS=$(echo "$ALL_COMMITS"    | grep -vE '^(feat|fix|refactor|chore|ci|docs|test)(\(|!|:)' | sed 's/^/- /' || true)
+          # ── Commit formatter: type(scope): msg → emoji scope → msg ──────────
+          format_commit() {
+            local raw="$1" hash line type scope msg emoji
+            hash=$(printf '%s' "$raw" | grep -oE ' \([a-f0-9]{7}\)$' || true)
+            line=$(printf '%s' "$raw" | sed -E 's/ \([a-f0-9]{7}\)$//')
 
-          # ── Build # Commits section ──────────────────────────────────────────
-          COMMITS_SECTION="# Commits:"$'\n'
-
-          if [ -n "$FEAT_COMMITS" ]; then
-            COMMITS_SECTION+=$'\n'"## Feats:"$'\n'"$FEAT_COMMITS"$'\n'
-          fi
-          if [ -n "$FIX_COMMITS" ]; then
-            COMMITS_SECTION+=$'\n'"## Fix:"$'\n'"$FIX_COMMITS"$'\n'
-          fi
-          if [ -n "$REFACTOR_COMMITS" ]; then
-            COMMITS_SECTION+=$'\n'"## Refactor:"$'\n'"$REFACTOR_COMMITS"$'\n'
-          fi
-          if [ -n "$CHORE_COMMITS" ]; then
-            COMMITS_SECTION+=$'\n'"## Chore:"$'\n'"$CHORE_COMMITS"$'\n'
-          fi
-          if [ -n "$CI_COMMITS" ]; then
-            COMMITS_SECTION+=$'\n'"## CI:"$'\n'"$CI_COMMITS"$'\n'
-          fi
-          if [ -n "$DOCS_COMMITS" ]; then
-            COMMITS_SECTION+=$'\n'"## Docs:"$'\n'"$DOCS_COMMITS"$'\n'
-          fi
-          if [ -n "$TEST_COMMITS" ]; then
-            COMMITS_SECTION+=$'\n'"## Tests:"$'\n'"$TEST_COMMITS"$'\n'
-          fi
-          if [ -n "$OTHER_COMMITS" ]; then
-            COMMITS_SECTION+=$'\n'"## Others:"$'\n'"$OTHER_COMMITS"$'\n'
-          fi
-
-          # ── Build # Sum-Up section ───────────────────────────────────────────
-          strip_prefix() {
-            echo "$1" \
-              | sed -E 's/^[a-z]+(\([^)]+\))?[!]?: //' \
-              | sed 's/ ([a-f0-9]\{7\})$//'
+            if printf '%s' "$line" | grep -qE '^[a-z]+(\([^)]+\))?!?: '; then
+              type=$(printf '%s' "$line" | sed -E 's/^([a-z]+).*/\1/')
+              if printf '%s' "$line" | grep -qE '^[a-z]+\('; then
+                scope=$(printf '%s' "$line" | sed -E 's/^[a-z]+\(([^)]+)\).*/\1/')
+                msg=$(printf '%s' "$line" | sed -E 's/^[a-z]+\([^)]+\)!?: //')
+              else
+                scope=""
+                msg=$(printf '%s' "$line" | sed -E 's/^[a-z]+!?: //')
+              fi
+              # Types from .githooks/commit-msg: feat | fix | refactor | chore | tests | ci
+              case "$type" in
+                feat)     emoji="⭐" ;;
+                fix)      emoji="🐛" ;;
+                refactor) emoji="♻️" ;;
+                chore)    emoji="🔧" ;;
+                tests)    emoji="🧪" ;;
+                ci)       emoji="⚙️" ;;
+                *)        emoji="🔹" ;;
+              esac
+              if [ -n "$scope" ]; then
+                printf '- %s %s → %s%s\n' "$emoji" "$scope" "$msg" "$hash"
+              else
+                printf '- %s %s%s\n' "$emoji" "$msg" "$hash"
+              fi
+            else
+              printf '- 🔹 %s\n' "$raw"
+            fi
           }
 
-          FEAT_DESCS=$(echo "$ALL_COMMITS" | grep -E '^feat(\(|!|:)' \
-            | while IFS= read -r line; do strip_prefix "$line"; done \
+          # ── Build Changes list (ordered to match commit-msg hook types) ────────
+          CHANGES=""
+          for TYPE_FILTER in feat fix refactor chore tests ci; do
+            while IFS= read -r commit; do
+              [ -z "$commit" ] && continue
+              CHANGES+="$(format_commit "$commit")"$'\n'
+            done < <(printf '%s\n' "$ALL_COMMITS" | grep -E "^${TYPE_FILTER}(\(|!|:)" || true)
+          done
+          # Commits with no conventional prefix (should not happen if hook is enforced)
+          while IFS= read -r commit; do
+            [ -z "$commit" ] && continue
+            CHANGES+="$(format_commit "$commit")"$'\n'
+          done < <(printf '%s\n' "$ALL_COMMITS" | grep -vE '^(feat|fix|refactor|chore|tests|ci)(\(|!|:)' || true)
+
+          [ -z "$CHANGES" ] && CHANGES="- 🔹 No commits"$'\n'
+
+          # ── Build Summary paragraph ──────────────────────────────────────────
+          strip_prefix() {
+            printf '%s' "$1" \
+              | sed -E 's/^[a-z]+(\([^)]+\))?[!]?: //' \
+              | sed -E 's/ \([a-f0-9]{7}\)$//'
+          }
+
+          FEAT_DESCS=$(printf '%s\n' "$ALL_COMMITS" | grep -E '^feat(\(|!|:)' \
+            | while IFS= read -r l; do strip_prefix "$l"; done \
             | head -5 | paste -sd ', ' || true)
-          FIX_DESCS=$(echo "$ALL_COMMITS" | grep -E '^fix(\(|:)' \
-            | while IFS= read -r line; do strip_prefix "$line"; done \
+          FIX_DESCS=$(printf '%s\n' "$ALL_COMMITS" | grep -E '^fix(\(|:)' \
+            | while IFS= read -r l; do strip_prefix "$l"; done \
             | head -5 | paste -sd ', ' || true)
-          REFACTOR_DESCS=$(echo "$ALL_COMMITS" | grep -E '^refactor(\(|:)' \
-            | while IFS= read -r line; do strip_prefix "$line"; done \
+          REFACTOR_DESCS=$(printf '%s\n' "$ALL_COMMITS" | grep -E '^refactor(\(|:)' \
+            | while IFS= read -r l; do strip_prefix "$l"; done \
             | head -3 | paste -sd ', ' || true)
-          OTHER_DESCS=$(echo "$ALL_COMMITS" \
-            | grep -vE '^(feat|fix|refactor)(\(|!|:)' \
-            | while IFS= read -r line; do strip_prefix "$line"; done \
+          OTHER_DESCS=$(printf '%s\n' "$ALL_COMMITS" \
+            | grep -vE '^(feat|fix|refactor|chore|tests|ci)(\(|!|:)' \
+            | while IFS= read -r l; do strip_prefix "$l"; done \
             | head -3 | paste -sd ', ' || true)
 
-          TOTAL_COUNT=$(echo "$ALL_COMMITS" | grep -c '.' || echo 0)
+          TOTAL_COUNT=$(printf '%s\n' "$ALL_COMMITS" | grep -c '.' || echo 0)
 
-          SUMUP_SECTION=$'\n'"# Sum-Up:"$'\n\n'
-          PARA=""
+          SUMMARY=""
+          [ -n "$FEAT_DESCS" ]     && SUMMARY+="This release introduces: ${FEAT_DESCS}. "
+          [ -n "$FIX_DESCS" ]      && SUMMARY+="Fixes: ${FIX_DESCS}. "
+          [ -n "$REFACTOR_DESCS" ] && SUMMARY+="Refactored: ${REFACTOR_DESCS}. "
+          [ -n "$OTHER_DESCS" ]    && SUMMARY+="Other changes: ${OTHER_DESCS}. "
 
-          if [ -n "$FEAT_DESCS" ]; then
-            PARA+="This release introduces the following new features: ${FEAT_DESCS}. "
-          fi
-          if [ -n "$FIX_DESCS" ]; then
-            PARA+="On the bug-fix side, it resolves: ${FIX_DESCS}. "
-          fi
-          if [ -n "$REFACTOR_DESCS" ]; then
-            PARA+="The codebase also received the following refactors: ${REFACTOR_DESCS}. "
-          fi
-          if [ -n "$OTHER_DESCS" ]; then
-            PARA+="Other maintenance work includes: ${OTHER_DESCS}. "
-          fi
-
-          if [ -z "$PARA" ]; then
-            PARA="This release contains ${TOTAL_COUNT} commit$([ "$TOTAL_COUNT" -gt 1 ] && echo 's' || true) with no conventional-commit-typed changes."
+          if [ -z "$SUMMARY" ]; then
+            SUMMARY="This release contains ${TOTAL_COUNT} commit$([ "$TOTAL_COUNT" -gt 1 ] && echo 's' || true) with no conventional-commit-typed changes."
           else
-            PARA+="A total of ${TOTAL_COUNT} commit$([ "$TOTAL_COUNT" -gt 1 ] && echo 's' || true) were merged into this release."
+            SUMMARY+="A total of ${TOTAL_COUNT} commit$([ "$TOTAL_COUNT" -gt 1 ] && echo 's' || true) shipped in this release."
           fi
 
-          SUMUP_SECTION+="$PARA"
-
-          NOTES="${COMMITS_SECTION}${SUMUP_SECTION}"
+          NOTES="# Changes"$'\n\n'"${CHANGES}"$'\n'"---"$'\n\n'"# Summary"$'\n\n'"${SUMMARY}"
 
           echo "notes<<EOF" >> $GITHUB_OUTPUT
           echo "$NOTES"     >> $GITHUB_OUTPUT
