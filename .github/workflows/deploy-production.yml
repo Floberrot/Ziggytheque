@@ -300,3 +300,22 @@ jobs:
             --service ziggytheque-front \
             --ci \
             -m "Deploy ${{ github.sha }} — ${{ github.event.head_commit.message }}"
+
+  # ---------------------------------------------------------------------------
+  # Release gate — fires only after back + worker + front all deploy successfully
+  # Requires explicit approval before the tag and GitHub Release are created
+  # ---------------------------------------------------------------------------
+
+  approve-release:
+    name: "Approval Gate: Release"
+    runs-on: ubuntu-latest
+    environment: release
+    needs: [deploy-back, deploy-worker, deploy-front]
+    steps:
+      - run: echo "All services deployed successfully — release approved"
+
+  release:
+    name: "Publish Release"
+    needs: [approve-release]
+    uses: Floberrot/Ziggytheque/.github/workflows/release.yml@main
+    secrets: inherit
