@@ -8,10 +8,10 @@ server {
     # Public DNS resolver — 127.0.0.11 is Docker Compose only, not available on Railway
     resolver 8.8.8.8 8.8.4.4 valid=30s ipv6=off;
 
-    # Proxy API calls to the backend service.
+    # Proxy API and cover proxy calls to the backend service.
     # Using a variable forces nginx to re-resolve via the resolver above
     # rather than caching DNS at startup.
-    location /api/ {
+    location ~ ^/(api|proxy)/ {
         set $backend ${BACKEND_URL};
         proxy_pass $backend;
 
