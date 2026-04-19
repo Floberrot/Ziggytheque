@@ -5,7 +5,12 @@
     "wishlist": "Liste de souhaits",
     "add": "Ajouter",
     "notifications": "Notifications",
-    "logout": "Déconnexion"
+    "logout": "Déconnexion",
+    "settings": "Réglages"
+  },
+  "settings": {
+    "language": "Langue",
+    "theme": "Thème"
   },
   "dashboard": {
     "title": "Tableau de bord",
