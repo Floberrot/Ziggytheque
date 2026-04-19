@@ -56,11 +56,13 @@ function closeModal() {
   modalVolumeId.value = null
 }
 
-// ── Inline title/edition edit ──
+// ── Inline title/edition/cover edit ──
 const editingTitle = ref(false)
 const editingEdition = ref(false)
+const editingCover = ref(false)
 const editTitleValue = ref('')
 const editEditionValue = ref('')
+const editCoverValue = ref('')
 
 function startEditTitle() {
   editTitleValue.value = entry.value?.manga.title ?? ''
@@ -72,6 +74,50 @@ function startEditEdition() {
 }
 function cancelEditTitle() { editingTitle.value = false }
 function cancelEditEdition() { editingEdition.value = false }
+
+function startEditCover() {
+  editCoverValue.value = entry.value?.manga.coverUrl ?? ''
+  editingCover.value = true
+}
+function cancelEditCover() { editingCover.value = false }
+function saveCover() {
+  updateMangaMutation.mutate({ coverUrl: editCoverValue.value })
+  editingCover.value = false
+}
+
+// ── Reading status config ──
+const STATUS_OPTIONS = [
+  {
+    value: 'not_started' as ReadingStatus,
+    label: 'À lire',
+    activeClass: 'bg-base-content/15 text-base-content border-base-content/20',
+    hoverClass: 'hover:bg-base-content/10',
+  },
+  {
+    value: 'in_progress' as ReadingStatus,
+    label: 'En cours',
+    activeClass: 'bg-primary text-primary-content border-primary',
+    hoverClass: 'hover:bg-primary/10 hover:text-primary hover:border-primary/40',
+  },
+  {
+    value: 'on_hold' as ReadingStatus,
+    label: 'Pause',
+    activeClass: 'bg-warning text-warning-content border-warning',
+    hoverClass: 'hover:bg-warning/10 hover:text-warning hover:border-warning/40',
+  },
+  {
+    value: 'completed' as ReadingStatus,
+    label: 'Terminé',
+    activeClass: 'bg-success text-success-content border-success',
+    hoverClass: 'hover:bg-success/10 hover:text-success hover:border-success/40',
+  },
+  {
+    value: 'dropped' as ReadingStatus,
+    label: 'Abandonné',
+    activeClass: 'bg-error text-error-content border-error',
+    hoverClass: 'hover:bg-error/10 hover:text-error hover:border-error/40',
+  },
+] as const
 
 // ── Batch price ──
 const batchPrice = ref<number | null>(null)
@@ -266,7 +312,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
 </script>
 
 <template>
-  <div class="min-h-screen" @click="closeContextMenu">
+  <div class="min-h-screen" @click="closeContextMenu(); cancelEditCover()">
     <div v-if="isPending" class="flex justify-center py-20">
       <span class="loading loading-spinner loading-lg" />
     </div>
@@ -293,13 +339,43 @@ function volumeOpacityClass(ve: VolumeEntry): string {
           </RouterLink>
           <div class="flex gap-6">
             <!-- Cover -->
-            <div class="shrink-0">
-              <div class="w-28 md:w-36 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl ring-2 ring-base-content/10">
+            <div class="shrink-0 group/cover relative">
+              <div
+                class="w-28 md:w-36 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl ring-2 ring-base-content/10 cursor-pointer"
+                @click.stop="startEditCover"
+              >
                 <img v-if="entry.manga.coverUrl" :src="coverUrl(entry.manga.coverUrl)!" :alt="entry.manga.title" class="w-full h-full object-cover" />
                 <div v-else class="w-full h-full flex items-center justify-center bg-base-200 text-base-content/20">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                   </svg>
+                </div>
+                <!-- Edit overlay -->
+                <div class="absolute inset-0 bg-black/50 opacity-0 group-hover/cover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </div>
+              </div>
+              <!-- Cover URL edit popover -->
+              <div
+                v-if="editingCover"
+                class="absolute top-full left-0 mt-2 z-30 bg-base-100 border border-base-300 rounded-xl shadow-2xl p-3 w-64"
+                @click.stop
+              >
+                <p class="text-xs text-base-content/50 mb-1.5 font-medium">URL de la couverture</p>
+                <input
+                  v-model="editCoverValue"
+                  type="url"
+                  class="input input-bordered input-xs w-full font-mono text-[11px]"
+                  placeholder="https://..."
+                  autofocus
+                  @keydown.enter="saveCover"
+                  @keydown.escape="cancelEditCover"
+                />
+                <div class="flex gap-1.5 mt-2">
+                  <button class="btn btn-primary btn-xs flex-1" @click="saveCover">Enregistrer</button>
+                  <button class="btn btn-ghost btn-xs" @click="cancelEditCover">Annuler</button>
                 </div>
               </div>
             </div>
@@ -389,19 +465,28 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                 <span class="text-base-content/30">/ {{ entry.totalVolumes }} tomes</span>
               </div>
 
+              <!-- Status pill selector -->
+              <div class="flex flex-wrap gap-1.5">
+                <button
+                  v-for="s in STATUS_OPTIONS"
+                  :key="s.value"
+                  class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all duration-150 cursor-pointer"
+                  :class="entry.readingStatus === s.value
+                    ? s.activeClass
+                    : ['border-base-content/10 text-base-content/35 bg-transparent', s.hoverClass]"
+                  :disabled="statusMutation.isPending.value"
+                  @click="entry.readingStatus !== s.value && statusMutation.mutate(s.value)"
+                >
+                  <span
+                    v-if="statusMutation.isPending.value && entry.readingStatus === s.value"
+                    class="loading loading-spinner w-2.5 h-2.5"
+                  />
+                  {{ s.label }}
+                </button>
+              </div>
+
               <!-- Actions row -->
               <div class="flex flex-wrap items-center gap-2">
-                <select
-                  class="select select-sm select-bordered"
-                  :value="entry.readingStatus"
-                  @change="statusMutation.mutate(($event.target as HTMLSelectElement).value as ReadingStatus)"
-                >
-                  <option value="not_started">{{ t('status.not_started') }}</option>
-                  <option value="in_progress">{{ t('status.in_progress') }}</option>
-                  <option value="completed">{{ t('status.completed') }}</option>
-                  <option value="on_hold">{{ t('status.on_hold') }}</option>
-                  <option value="dropped">{{ t('status.dropped') }}</option>
-                </select>
 
                 <button
                   v-if="missingVolumes.length > 0"

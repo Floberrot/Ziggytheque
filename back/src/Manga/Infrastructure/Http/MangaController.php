@@ -88,6 +88,7 @@ final readonly class MangaController
             mangaId: $id,
             title: $request->title,
             edition: $request->edition,
+            coverUrl: $request->coverUrl,
         ));
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Collection\Application\ToggleVolume;
 
+use App\Collection\Domain\CollectionEntry;
 use App\Collection\Domain\CollectionRepositoryInterface;
+use App\Collection\Domain\ReadingStatusEnum;
 use App\Collection\Domain\VolumeEntry;
 use App\Shared\Domain\Exception\NotFoundException;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -43,6 +45,31 @@ final readonly class ToggleVolumeHandler
             $volumeEntry->isWished = !$volumeEntry->isWished;
         }
 
+        $this->autoUpdateReadingStatus($entry);
+
         $this->repository->save($entry);
+    }
+
+    private function autoUpdateReadingStatus(CollectionEntry $entry): void
+    {
+        // Never override intentional user choices
+        if (\in_array($entry->readingStatus, [ReadingStatusEnum::Dropped, ReadingStatusEnum::OnHold], true)) {
+            return;
+        }
+
+        $total = $entry->volumeEntries->count();
+
+        if ($total === 0) {
+            return;
+        }
+
+        $ownedCount = $entry->volumeEntries->filter(fn (VolumeEntry $ve) => $ve->isOwned)->count();
+        $readCount  = $entry->volumeEntries->filter(fn (VolumeEntry $ve) => $ve->isRead)->count();
+
+        $entry->readingStatus = match (true) {
+            $readCount === $total            => ReadingStatusEnum::Completed,
+            $readCount > 0 || $ownedCount > 0 => ReadingStatusEnum::InProgress,
+            default                          => ReadingStatusEnum::NotStarted,
+        };
     }
 }

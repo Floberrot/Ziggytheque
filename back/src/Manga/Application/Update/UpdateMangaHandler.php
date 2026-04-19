@@ -31,6 +31,10 @@ final readonly class UpdateMangaHandler
             $manga->edition = $command->edition;
         }
 
+        if ($command->coverUrl !== null) {
+            $manga->coverUrl = $command->coverUrl === '' ? null : $command->coverUrl;
+        }
+
         $this->mangaRepository->save($manga);
     }
 }
