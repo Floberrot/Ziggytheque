@@ -29,7 +29,7 @@ final readonly class CoverProxyController
                 'Referer' => 'https://books.google.com/',
                 'User-Agent' => 'Mozilla/5.0',
             ],
-            'max_redirects' => 0,
+            'max_redirects' => 5,
         ]);
 
         $status = $response->getStatusCode();
