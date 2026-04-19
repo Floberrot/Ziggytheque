@@ -1,0 +1,75 @@
+#!/bin/sh
+# commit-msg hook — enforces conventional commit format + scope rules
+# Types:  feat | fix | refactor | chore | tests | ci
+# Scopes: back (back/ changed) · front (front/ changed) · agents (.claude/ changed)
+#         No scope required when only root-level or other files changed.
+
+COMMIT_MSG=$(cat "$1")
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+NC='\033[0m'
+
+# ── 1. Format check ──────────────────────────────────────────────────────────
+PATTERN='^(feat|fix|refactor|chore|tests|ci)(\([a-z]+\))?: .+'
+if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
+  echo "${RED}✗ Bad commit message:${NC} $COMMIT_MSG"
+  echo ""
+  echo "  Format : <type>(<scope>): <description>"
+  echo "  Types  : feat | fix | refactor | chore | tests | ci"
+  echo "  Scopes : back | front | agents"
+  echo ""
+  echo "  Examples:"
+  echo "    feat(front): add manga search page"
+  echo "    fix(back): correct volume price calculation"
+  echo "    chore: update docker-compose"
+  exit 1
+fi
+
+# ── 2. Extract scope (empty string if none) ───────────────────────────────────
+SCOPE=$(echo "$COMMIT_MSG" | sed -n 's/^[a-z]*(\([a-z]*\)).*/\1/p')
+
+# ── 3. Detect which areas have staged files ───────────────────────────────────
+STAGED=$(git diff --cached --name-only 2>/dev/null)
+
+HAS_BACK=$(echo "$STAGED"   | grep -c '^back/'    || true)
+HAS_FRONT=$(echo "$STAGED"  | grep -c '^front/'   || true)
+HAS_AGENTS=$(echo "$STAGED" | grep -c '^\.claude/' || true)
+
+# Count how many scoped areas are touched
+AREA_COUNT=0
+[ "$HAS_BACK" -gt 0 ]   && AREA_COUNT=$((AREA_COUNT + 1))
+[ "$HAS_FRONT" -gt 0 ]  && AREA_COUNT=$((AREA_COUNT + 1))
+[ "$HAS_AGENTS" -gt 0 ] && AREA_COUNT=$((AREA_COUNT + 1))
+
+# ── 4. Scope enforcement (only when a single scoped area is touched) ──────────
+if [ "$AREA_COUNT" -eq 1 ]; then
+  if [ "$HAS_BACK" -gt 0 ] && [ "$SCOPE" != "back" ]; then
+    echo "${RED}✗ Scope mismatch:${NC} back/ files are staged — scope must be ${YELLOW}(back)${NC}."
+    echo "  Got: '${SCOPE:-<none>}'"
+    exit 1
+  fi
+  if [ "$HAS_FRONT" -gt 0 ] && [ "$SCOPE" != "front" ]; then
+    echo "${RED}✗ Scope mismatch:${NC} front/ files are staged — scope must be ${YELLOW}(front)${NC}."
+    echo "  Got: '${SCOPE:-<none>}'"
+    exit 1
+  fi
+  if [ "$HAS_AGENTS" -gt 0 ] && [ "$SCOPE" != "agents" ]; then
+    echo "${RED}✗ Scope mismatch:${NC} .claude/ files are staged — scope must be ${YELLOW}(agents)${NC}."
+    echo "  Got: '${SCOPE:-<none>}'"
+    exit 1
+  fi
+fi
+
+# ── 5. Scope value check (if a scope is given it must be a known one) ─────────
+if [ -n "$SCOPE" ]; then
+  case "$SCOPE" in
+    back|front|agents) ;;
+    *)
+      echo "${RED}✗ Unknown scope:${NC} '($SCOPE)'"
+      echo "  Allowed scopes: back | front | agents"
+      exit 1
+      ;;
+  esac
+fi
+
+exit 0

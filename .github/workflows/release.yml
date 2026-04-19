@@ -144,9 +144,9 @@ jobs:
           fi
 
           if [ -z "$PARA" ]; then
-            PARA="This release contains ${TOTAL_COUNT} commit$([ "$TOTAL_COUNT" -gt 1 ] && echo 's') with no conventional-commit-typed changes."
+            PARA="This release contains ${TOTAL_COUNT} commit$([ "$TOTAL_COUNT" -gt 1 ] && echo 's' || true) with no conventional-commit-typed changes."
           else
-            PARA+="A total of ${TOTAL_COUNT} commit$([ "$TOTAL_COUNT" -gt 1 ] && echo 's') were merged into this release."
+            PARA+="A total of ${TOTAL_COUNT} commit$([ "$TOTAL_COUNT" -gt 1 ] && echo 's' || true) were merged into this release."
           fi
 
           SUMUP_SECTION+="$PARA"
