@@ -1,177 +1,451 @@
 ---
 name: use-railway
 description: >
-  Operate Railway infrastructure: create projects, provision services and
-  databases, manage object storage buckets, deploy code, configure environments
-  and variables, manage domains, troubleshoot failures, check status and metrics,
-  and query Railway docs. Use this skill whenever the user mentions Railway,
-  deployments, services, environments, buckets, object storage, build failures,
-  or infrastructure operations, even if they don't say "Railway" explicitly.
-allowed-tools: Bash(railway:*), Bash(which:*), Bash(command:*), Bash(npm:*), Bash(npx:*), Bash(curl:*), Bash(python3:*)
+  Operate Railway infrastructure for Ziggytheque: deploy services, manage
+  environment variables, troubleshoot failures, configure domains, and release to
+  production. Use this skill whenever the user mentions Railway, deployments,
+  production, services, environments, build failures, or infrastructure, even if
+  they don't say "Railway" explicitly. Always enforces the project's exact
+  service topology, Dockerfile rules, FrankenPHP configuration, and CI/CD flow.
+allowed-tools: Bash(railway:*), Bash(which:*), Bash(command:*), Bash(npm:*), Bash(npx:*), Bash(curl:*)
 ---
 
-# Use Railway
+# Use Railway — Ziggytheque Production
 
-## Railway resource model
+## CRITICAL PROJECT RULES (read before every action)
 
-Railway organizes infrastructure in a hierarchy:
+These are non-negotiable. Any deviation will crash the production deployment.
 
-- **Workspace** is the billing and team scope. A user belongs to one or more workspaces.
-- **Project** is a collection of services under one workspace. It maps to one deployable unit of work.
-- **Environment** is an isolated configuration plane inside a project (for example, `production`, `staging`). Each environment has its own variables, config, and deployment history.
-- **Service** is a single deployable unit inside a project. It can be an app from a repo, a Docker image, or a managed database.
-- **Bucket** is an S3-compatible object storage resource inside a project. Buckets are created at the project level and deployed to environments. Each bucket has credentials (endpoint, access key, secret key) for S3-compatible access.
-- **Deployment** is a point-in-time release of a service in an environment. It has build logs, runtime logs, and a status lifecycle.
+### Rule 1 — FrankenPHP SERVER_NAME
+`SERVER_NAME` **must** be `"http://:80"` on every service that runs FrankenPHP.
+- `http://:80` → correct (HTTP only, no TLS redirect)
+- `:80` → wrong (Caddy auto-enables HTTPS → 308 redirect loop)
+- omitted → wrong (same result)
 
-Most CLI commands operate on the linked project/environment/service context. Use `railway status --json` to see the context, and `--project`, `--environment`, `--service` flags to override.
-
-## Parsing Railway URLs
-
-Users often paste Railway dashboard URLs. Extract IDs before doing anything else:
-
-```
-https://railway.com/project/<PROJECT_ID>/service/<SERVICE_ID>?environmentId=<ENV_ID>
-https://railway.com/project/<PROJECT_ID>/service/<SERVICE_ID>
-```
-
-The URL always contains `projectId` and `serviceId`. It may contain `environmentId` as a query parameter. If the environment ID is missing and the user specifies an environment by name (e.g., "production"), resolve it:
+### Rule 2 — Deploy from repo root for back and worker
+`railway up` for `ziggytheque-back` and `ziggytheque-worker` **must** be executed from the repository root.
+The root `railway.json` and root `Dockerfile` are the build artifacts.
+Running from `back/` triggers Nixpacks (no Dockerfile there) and produces a broken image.
 
 ```bash
-scripts/railway-api.sh \
-  'query getProject($id: String!) {
-    project(id: $id) {
-      environments { edges { node { id name } } }
-    }
-  }' \
-  '{"id": "<PROJECT_ID>"}'
+# CORRECT — run from repo root
+railway up --service ziggytheque-back --ci -m "..."
+
+# WRONG — never do this
+cd back && railway up --service ziggytheque-back --ci
 ```
 
-Match the environment name (case-insensitive) to get the `environmentId`.
+### Rule 3 — Frontend deploy from front/ directory
+`railway up` for `ziggytheque-front` **must** be executed from `front/`.
+The `front/railway.json` and `front/Dockerfile` are used.
 
-**Prefer passing explicit IDs** to CLI commands (`--project`, `--environment`, `--service`) and scripts (`--project-id`, `--environment-id`, `--service-id`) instead of running `railway link`. This avoids modifying global state and is faster.
+```bash
+cd front && railway up --service ziggytheque-front --ci -m "..."
+```
 
-## Preflight
+### Rule 4 — Frontend BACKEND_URL is mandatory
+The `ziggytheque-front` service **must** have `BACKEND_URL` set to the internal
+Railway URL of the backend (e.g. `https://ziggytheque-back.railway.internal` or
+the Railway private URL). If unset, `envsubst` leaves a literal `${BACKEND_URL}`
+in the nginx config and nginx refuses to start.
 
-Before any mutation, verify context:
+### Rule 5 — Worker start command
+`ziggytheque-worker` uses the **same root Dockerfile** as the backend (target: `prod`)
+but has a custom `startCommand` in `worker/railway.json`:
+```
+php bin/console messenger:consume async --time-limit=3600 -vv
+```
+Never change the image source. Never point it at `front/Dockerfile`.
+
+### Rule 6 — Nginx resolver is 8.8.8.8 (not 127.0.0.11)
+`front/nginx.conf.template` uses `resolver 8.8.8.8 8.8.4.4;`.
+`127.0.0.11` is Docker Compose only and is not available on Railway.
+Never change the resolver to a Docker-internal address.
+
+### Rule 7 — Never bypass CI gates
+Production deploys go through `deploy-production.yml`. All 5 quality gates must
+pass before the approval environment is presented. Never push directly via
+`railway up` without the full CI flow for production.
+
+---
+
+## Service Topology
+
+| Railway Service | Dockerfile | Deploy From | Start Command |
+|---|---|---|---|
+| `ziggytheque-back` | root `Dockerfile` (target: `prod`) | repo root | FrankenPHP (default CMD) |
+| `ziggytheque-worker` | root `Dockerfile` (target: `prod`) | repo root | `php bin/console messenger:consume async --time-limit=3600 -vv` |
+| `ziggytheque-front` | `front/Dockerfile` (target: `prod`) | `front/` | nginx (default CMD) |
+
+## Railway Configuration Files
+
+### Root `railway.json` (back service)
+```json
+{
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile"
+  },
+  "deploy": {
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
+  }
+}
+```
+
+### `worker/railway.json`
+```json
+{
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "../Dockerfile",
+    "dockerBuildTarget": "prod",
+    "buildArgs": {
+      "JWT_PASSPHRASE": "${{JWT_PASSPHRASE}}"
+    }
+  },
+  "deploy": {
+    "startCommand": "php bin/console messenger:consume async --time-limit=3600 -vv",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 5
+  }
+}
+```
+
+### `front/railway.json`
+```json
+{
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile",
+    "buildArgs": {
+      "VITE_API_BASE_URL": "${{VITE_API_BASE_URL}}"
+    }
+  },
+  "deploy": {
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
+  }
+}
+```
+
+---
+
+## Dockerfile Architecture
+
+### Root `Dockerfile` (3 stages)
+
+```
+Stage 1 — frontend (node:22-alpine)
+  └─ Builds Vue SPA → /app/dist/
+
+Stage 2 — base (dunglas/frankenphp:1-php8.4)
+  └─ Installs: pdo_pgsql, intl, zip, opcache, apcu
+
+Stage 3 — prod (from base)
+  ├─ ENV APP_ENV=prod APP_DEBUG=0 SERVER_NAME="http://:80"
+  ├─ COPY back/ .
+  ├─ composer install --no-dev --optimize-autoloader --classmap-authoritative
+  ├─ COPY --from=frontend /app/dist /app/public/spa
+  ├─ COPY back/Caddyfile /etc/caddy/Caddyfile
+  ├─ COPY back/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+  ├─ EXPOSE 80
+  └─ ENTRYPOINT ["docker-entrypoint.sh"]
+     CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+```
+
+### `front/Dockerfile` (2 stages)
+
+```
+Stage 1 — builder (node:22-alpine)
+  ├─ ARG VITE_API_BASE_URL (intentionally empty — uses relative /api calls)
+  └─ npm run build → /app/dist/
+
+Stage 2 — prod (nginx:alpine)
+  ├─ COPY /app/dist → /usr/share/nginx/html
+  ├─ COPY nginx.conf.template → /etc/nginx/templates/default.conf.template
+  ├─ ENV BACKEND_URL=http://BACKEND_URL_NOT_SET  ← must be overridden in Railway
+  └─ EXPOSE 80
+```
+
+---
+
+## Caddyfile (`back/Caddyfile`)
+
+```caddyfile
+{
+  frankenphp
+  order php_server before file_server
+}
+
+{$SERVER_NAME:http://:80} {
+  root * /app/public
+  encode zstd br gzip
+  php_server
+}
+```
+
+`{$SERVER_NAME:http://:80}` reads the `SERVER_NAME` env var, defaults to `http://:80`.
+This is why `SERVER_NAME=http://:80` is required — without `http://` prefix, Caddy
+enables TLS and Railway's HTTP proxy gets a redirect loop.
+
+---
+
+## Nginx Config (`front/nginx.conf.template`)
+
+```nginx
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    resolver 8.8.8.8 8.8.4.4 valid=30s ipv6=off;  # NOT 127.0.0.11 (Docker-only)
+
+    location ~ ^/(api|proxy)/ {
+        set $backend ${BACKEND_URL};    # envsubst at container start
+        proxy_pass $backend;
+        proxy_ssl_server_name on;       # sends correct SNI for HTTPS backends
+        proxy_ssl_verify     off;       # inter-service, no cert validation needed
+        proxy_set_header Host              $proxy_host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;  # SPA fallback
+    }
+}
+```
+
+---
+
+## Entrypoint Sequence (`back/docker-entrypoint.sh`)
+
+Runs on every container start for both `ziggytheque-back` and `ziggytheque-worker`:
+
+1. Generate JWT keypair (`lexik:jwt:generate-keypair --overwrite`)
+2. Warm Symfony cache (`cache:warmup --env=prod`)
+3. Test raw DB connection (with SSL/no-SSL diagnostics, checks `DATABASE_URL` and `DATABASE_PUBLIC_URL`)
+4. Run migrations (`doctrine:migrations:migrate --no-interaction --env=prod`)
+5. `exec "$@"` → start FrankenPHP (or the worker start command)
+
+**If migrations fail**, the container exits. Check logs:
+```bash
+railway logs --service ziggytheque-back --lines 100
+```
+
+---
+
+## Required Environment Variables
+
+### `ziggytheque-back` and `ziggytheque-worker`
+
+| Variable | Value / Notes |
+|---|---|
+| `SERVER_NAME` | `http://:80` — **mandatory, exact value** |
+| `APP_ENV` | `prod` |
+| `APP_DEBUG` | `0` |
+| `APP_SECRET` | 32-char random string |
+| `DATABASE_URL` | `postgresql://user:pass@host:5432/dbname?serverVersion=17&charset=utf8` |
+| `DATABASE_PUBLIC_URL` | Optional public proxy URL (Railway provides both) |
+| `JWT_PASSPHRASE` | Passphrase for JWT keypair generation |
+| `GATE_PASSWORD` | Single password for the app gate |
+| `MONITOR_USER` | HTTP Basic user for `/messenger` |
+| `MONITOR_PASSWORD` | HTTP Basic password for `/messenger` |
+| `CORS_ALLOW_ORIGIN` | Regex of allowed origins (e.g. `^https://.*\.railway\.app$`) |
+| `MESSENGER_TRANSPORT_DSN` | `doctrine://default` |
+
+### `ziggytheque-front`
+
+| Variable | Value / Notes |
+|---|---|
+| `BACKEND_URL` | Internal Railway URL of the back service (e.g. `https://ziggytheque-back.up.railway.app`) — **mandatory** |
+| `VITE_API_BASE_URL` | Leave empty — frontend uses relative `/api` calls |
+
+---
+
+## CI/CD Flow (`deploy-production.yml`)
+
+Triggered by: push to `main`
+
+```
+Parallel quality gates (must all pass):
+  ├─ phpcs          (PHP_CodeSniffer, from back/)
+  ├─ deptrac        (architecture enforcement, from back/)
+  ├─ phpstan        (static analysis, needs PostgreSQL service)
+  ├─ db-migrations  (migration + schema validate, needs PostgreSQL service)
+  ├─ tests          (PHPUnit, needs PostgreSQL service)
+  └─ frontend       (vue-tsc + ESLint, from front/)
+         │
+         ▼
+  approve           (GitHub "production" environment — manual approval required)
+         │
+    ┌────┴────────────────┐
+    ▼                     ▼
+  deploy-back           deploy-front
+  (from repo root)      (from front/)
+         │
+         ▼
+  deploy-worker
+  (from repo root, needs deploy-back)
+         │
+         ▼
+  approve-release   (GitHub "release" environment — manual approval)
+         │
+         ▼
+  release           (semantic version tag + GitHub Release via release.yml)
+```
+
+### GitHub Secrets Required
+
+| Secret | Used By |
+|---|---|
+| `RAILWAY_TOKEN` | All deploy jobs |
+| `RAILWAY_PROJECT_ID` | All deploy jobs |
+| `RAILWAY_PRODUCTION_ENVIRONMENT_ID` | All deploy jobs |
+| `JWT_PASSPHRASE` | phpstan, db-migrations, tests jobs |
+
+---
+
+## Manual Deploy (emergency / hotfix)
+
+Only when CI is not available. Always check context first.
+
+```bash
+command -v railway || npm install -g @railway/cli
+railway whoami --json
+
+# Deploy backend (from repo root)
+railway up --service ziggytheque-back --ci \
+  -m "hotfix: <description>"
+
+# Deploy worker (from repo root, after back is healthy)
+railway up --service ziggytheque-worker --ci \
+  -m "hotfix: <description>"
+
+# Deploy frontend (from front/ directory)
+cd front && railway up --service ziggytheque-front --ci \
+  -m "hotfix: <description>"
+```
+
+---
+
+## Troubleshooting Playbook
+
+### Container exits immediately after deploy
+
+```bash
+railway logs --service ziggytheque-back --lines 200
+```
+
+Check for:
+- `[diag] private+no-ssl FAILED` → `DATABASE_URL` wrong or DB not reachable
+- `Migration failed` → run migrations manually (see below)
+- `JWT keypair generation failed` → `JWT_PASSPHRASE` not set
+- `Symfony cache warmup failed` → `APP_SECRET` not set, or code error
+
+### Database migration failure
+
+```bash
+# Check migration status
+railway run --service ziggytheque-back \
+  php bin/console doctrine:migrations:status
+
+# Run migrations manually
+railway run --service ziggytheque-back \
+  php bin/console doctrine:migrations:migrate --no-interaction --env=prod
+```
+
+### Frontend shows blank page or API 502
+
+1. Check `BACKEND_URL` is set on `ziggytheque-front`:
+   ```bash
+   railway variable list --service ziggytheque-front --json
+   ```
+2. Check backend is healthy:
+   ```bash
+   railway service status --service ziggytheque-back --json
+   ```
+3. Check nginx is proxying correctly:
+   ```bash
+   railway logs --service ziggytheque-front --lines 50
+   ```
+
+### 308 redirect loop on backend
+
+`SERVER_NAME` is wrong. Set it to exactly `http://:80`:
+```bash
+railway variable set SERVER_NAME="http://:80" --service ziggytheque-back
+railway variable set SERVER_NAME="http://:80" --service ziggytheque-worker
+```
+Then redeploy both services.
+
+### Worker not consuming messages
+
+```bash
+railway logs --service ziggytheque-worker --lines 100
+# Should show: [OK] Consuming messages from transport "async"
+```
+
+If it's running FrankenPHP instead of the consumer, `startCommand` in
+`worker/railway.json` was overridden. Restore:
+```
+startCommand: php bin/console messenger:consume async --time-limit=3600 -vv
+```
+
+### Build uses Nixpacks instead of Dockerfile
+
+Railway is picking up the wrong build context. Verify:
+- `railway.json` exists in the deploy root
+- `railway.json` has `"builder": "DOCKERFILE"` and correct `dockerfilePath`
+- You are running `railway up` from the correct directory
+
+---
+
+## Railway Resource Model
+
+- **Workspace** — billing and team scope
+- **Project** — collection of services (`ziggytheque-back`, `ziggytheque-worker`, `ziggytheque-front`, PostgreSQL DB)
+- **Environment** — isolated config plane (`production`)
+- **Service** — single deployable unit
+- **Deployment** — point-in-time release with build/runtime logs
+
+## CLI Quick Reference
+
+```bash
+railway status --json                                      # current context
+railway whoami --json                                      # auth + workspace
+railway service status --all --json                        # all services health
+railway variable list --service <svc> --json               # list variables
+railway variable set KEY=value --service <svc>             # set a variable
+railway logs --service <svc> --lines 200                   # recent logs
+railway run --service <svc> <command>                      # run one-off command
+```
+
+## Preflight Before Any Deploy
 
 ```bash
 command -v railway                # CLI installed
 railway whoami --json             # authenticated
-railway --version                 # check CLI version
+railway --version                 # check version (upgrade if needed: railway upgrade)
+railway status --json             # linked project context
 ```
 
-**Context resolution — URL IDs always win:**
-- If the user provides a Railway URL, extract IDs from it. Do NOT run `railway status --json` — it returns the locally linked project, which is usually unrelated.
-- If no URL is given, fall back to `railway status --json` for the linked project/environment/service.
+## Parsing Railway URLs
 
-If the CLI is missing, guide the user to install it.
-
-```bash
-bash <(curl -fsSL cli.new) # Shell script (macOS, Linux, Windows via WSL)
-brew install railway # Homebrew (macOS)
-npm i -g @railway/cli # npm (macOS, Linux, Windows). Requires Node.js version 16 or higher.
+```
+https://railway.com/project/<PROJECT_ID>/service/<SERVICE_ID>?environmentId=<ENV_ID>
 ```
 
-If not authenticated, run `railway login`. If not linked and no URL was provided, run `railway link --project <id-or-name>`.
+Extract IDs and pass via `--project`, `--environment`, `--service` flags instead
+of running `railway link` (avoids global state changes).
 
-If a command is not recognized (for example, `railway environment edit`), the CLI may be outdated. Upgrade with:
+## Execution Rules
 
-```bash
-railway upgrade
-```
-
-## Common quick operations
-
-These are frequent enough to handle without loading a reference:
-
-```bash
-railway status --json                                    # current context
-railway whoami --json                                    # auth and workspace info
-railway project list --json                              # list projects
-railway service status --all --json                      # all services in current context
-railway variable list --service <svc> --json             # list variables
-railway variable set KEY=value --service <svc>           # set a variable
-railway logs --service <svc> --lines 200 --json          # recent logs
-railway up --detach -m "<summary>"                       # deploy current directory
-railway bucket list --json                               # list buckets in current environment
-railway bucket info --bucket <name> --json               # bucket storage and object count
-railway bucket credentials --bucket <name> --json        # S3-compatible credentials
-```
-
-## Routing
-
-For anything beyond quick operations, load the reference that matches the user's intent. Load only what you need, one reference is usually enough, two at most.
-
-| Intent | Reference | Use for |
-|---|---|---|
-| **Analyze a database** ("analyze \<url\>", "analyze db", "analyze database", "analyze service", "introspect", "check my postgres/redis/mysql/mongo") | [analyze-db.md](references/analyze-db.md) | Database introspection and performance analysis. analyze-db.md directs you to the DB-specific reference. **This takes priority over the status/operate routes when a Railway URL to a database service is provided alongside "analyze".** |
-| Create or connect resources | [setup.md](references/setup.md) | Projects, services, databases, buckets, templates, workspaces |
-| Ship code or manage releases | [deploy.md](references/deploy.md) | Deploy, redeploy, restart, build config, monorepo, Dockerfile |
-| Change configuration | [configure.md](references/configure.md) | Environments, variables, config patches, domains, networking |
-| Check health or debug failures | [operate.md](references/operate.md) | Status, logs, metrics, build/runtime triage, recovery |
-| Request from API, docs, or community | [request.md](references/request.md) | Railway GraphQL API queries/mutations, metrics queries, Central Station, official docs |
-
-If the request spans two areas (for example, "deploy and then check if it's healthy"), load both references and compose one response.
-
-## Execution rules
-
-1. Prefer Railway CLI. Fall back to `scripts/railway-api.sh` for operations the CLI doesn't expose.
-2. Use `--json` output where available for reliable parsing.
-3. Resolve context before mutation. Know which project, environment, and service you're acting on.
-4. For destructive actions (delete service, remove deployment, drop database), confirm intent and state impact before executing.
-5. After mutations, verify the result with a read-back command.
-
-## User-only commands (NEVER execute directly)
-
-These commands modify database state and require the user to run them directly in their terminal. **Do NOT execute these with Bash. Instead, show the command and ask the user to run it.**
-
-| Command | Why user-only |
-|---------|---------------|
-| `python3 scripts/enable-pg-stats.py --service <name>` | Modifies shared_preload_libraries, may restart database |
-| `python3 scripts/pg-extensions.py --service <name> install <ext>` | Installs database extension |
-| `python3 scripts/pg-extensions.py --service <name> uninstall <ext>` | Removes database extension |
-| `ALTER SYSTEM SET ...` | Changes PostgreSQL configuration |
-| `DROP EXTENSION ...` | Removes database extension |
-| `CREATE EXTENSION ...` | Installs database extension |
-
-When these operations are needed:
-1. Explain what the command does and any side effects (e.g., restart required)
-2. Show the exact command the user should run
-3. Wait for user confirmation that they ran it
-4. Verify the result with a read-only query
-
-## Composition patterns
-
-Multi-step workflows follow natural chains:
-
-- **Add object storage**: setup (create bucket), setup (get credentials), configure (set S3 variables on app service)
-- **First deploy**: setup (create project + service), configure (set variables and source), deploy, operate (verify healthy)
-- **Fix a failure**: operate (triage logs), configure (fix config/variables), deploy (redeploy), operate (verify recovery)
-- **Add a domain**: configure (add domain + set port), operate (verify DNS and service health)
-- **Docs to action**: request (fetch docs answer), route to the relevant operational reference
-
-When composing, return one unified response covering all steps. Don't ask the user to invoke each step separately.
-
-## Setup decision flow
-
-When the user wants to create or deploy something, determine the right action from current context:
-
-1. Run `railway status --json` in the current directory.
-2. **If linked**: add a service to the existing project (`railway add --service <name>`). Do not create a new project unless the user explicitly says "new project" or "separate project".
-3. **If not linked**: check the parent directory (`cd .. && railway status --json`).
-   - **Parent linked**: this is likely a monorepo sub-app. Add a service and set `rootDirectory` to the sub-app path.
-   - **Parent not linked**: run `railway list --json` and look for a project matching the directory name.
-     - **Match found**: link to it (`railway link --project <name>`).
-     - **No match**: create a new project (`railway init --name <name>`).
-4. When multiple workspaces exist, match by name from `railway whoami --json`.
-
-**Naming heuristic**: app names like "flappy-bird" or "my-api" are service names, not project names. Use the directory or repo name for the project.
-
-## Response format
-
-For all operational responses, return:
-1. What was done (action and scope).
-2. The result (IDs, status, key output).
-3. What to do next (or confirmation that the task is complete).
-
-Keep output concise. Include command evidence only when it helps the user understand what happened.
+1. Prefer Railway CLI; fall back to GraphQL API only for operations the CLI doesn't expose.
+2. Use `--json` output for reliable parsing.
+3. Resolve context (project + environment + service) before any mutation.
+4. For destructive actions (delete service, drop database), confirm intent first.
+5. After mutations, verify with a read-back command.
