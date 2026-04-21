@@ -39,19 +39,13 @@ services:
     App\Manga\Domain\MangaRepositoryInterface:
         alias: App\Manga\Infrastructure\Doctrine\DoctrineMangaRepository
 
-    # Jikan (MyAnimeList) for collection search
-    App\Manga\Domain\ExternalApiClientInterface:
-        alias: App\Manga\Infrastructure\ExternalApi\JikanMangaApiClient
-
-    # Google Books: kept separately for per-volume cover enrichment
+    # External API — stateless fallback chain: MangaDex → Jikan (search) / Google Books (covers)
     App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient:
         arguments:
             $apiKey: '%env(GOOGLE_BOOKS_API_KEY)%'
 
-    # Cover search handler explicitly receives the Google Books client
-    App\Manga\Application\SearchVolumeExternal\SearchVolumeExternalHandler:
-        arguments:
-            $googleBooks: '@App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient'
+    App\Manga\Domain\ExternalApiClientInterface:
+        alias: App\Manga\Infrastructure\ExternalApi\FallbackExternalApiClient
 
     App\Collection\Domain\CollectionRepositoryInterface:
         alias: App\Collection\Infrastructure\Doctrine\DoctrineCollectionRepository

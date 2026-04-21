@@ -22,4 +22,13 @@ interface ExternalApiClientInterface
      * Fetch full manga details including volumes from the external API.
      */
     public function getMangaById(string $externalId): ?ExternalMangaDto;
+
+    /**
+     * Fetch per-volume cover art for an already-known external manga ID.
+     * The ID format is provider-specific — callers must pass the ID exactly
+     * as it was returned by the same provider's searchByTitle / getMangaById.
+     *
+     * @return ExternalVolumeDto[]
+     */
+    public function getVolumeCovers(string $externalId): array;
 }

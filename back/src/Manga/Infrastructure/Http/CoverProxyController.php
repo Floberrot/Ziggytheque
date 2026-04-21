@@ -23,7 +23,12 @@ final readonly class CoverProxyController
     {
         $url = $request->query->get('url', '');
 
-        if (!$url || !preg_match('#^https://books\.google[a-z.]*/#', $url)) {
+        $allowed = [
+            '#^https://uploads\.mangadex\.org/covers/#',
+            '#^https://books\.google[a-z.]*/books/content#',
+        ];
+        $isAllowed = array_any($allowed, static fn (string $p) => (bool) preg_match($p, $url));
+        if (!$url || !$isAllowed) {
             return new Response('', Response::HTTP_BAD_REQUEST);
         }
 

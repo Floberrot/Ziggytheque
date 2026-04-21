@@ -39,6 +39,16 @@ export async function searchVolumeExternal(q: string, page = 1): Promise<{
   return res.data
 }
 
+/** Fetch per-volume cover art via the fallback chain (MangaDex → Google Books) */
+export async function getVolumeCovers(externalId: string): Promise<{
+  number: number
+  coverUrl: string | null
+  releaseDate: string | null
+}[]> {
+  const res = await client.get(`/manga/external/${externalId}/covers`)
+  return res.data
+}
+
 export async function updateManga(
   id: string,
   payload: { title?: string; edition?: string; coverUrl?: string },

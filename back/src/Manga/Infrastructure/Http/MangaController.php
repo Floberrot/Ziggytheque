@@ -6,6 +6,7 @@ namespace App\Manga\Infrastructure\Http;
 
 use App\Manga\Application\AddVolume\AddVolumeCommand;
 use App\Manga\Application\Get\GetMangaQuery;
+use App\Manga\Application\GetVolumeCovers\GetVolumeCoversQuery;
 use App\Manga\Application\Import\ImportMangaCommand;
 use App\Manga\Application\Search\SearchMangaQuery;
 use App\Manga\Application\SearchExternal\SearchExternalMangaQuery;
@@ -45,6 +46,14 @@ final readonly class MangaController
         $page  = max(1, (int) $request->query->get('page', 1));
 
         return new JsonResponse($this->queryBus->ask(new SearchExternalMangaQuery($query, $type, $page)));
+    }
+
+    #[Route('/external/{externalId}/covers', methods: ['GET'])]
+    public function getVolumeCovers(string $externalId): JsonResponse
+    {
+        return new JsonResponse(
+            $this->queryBus->ask(new GetVolumeCoversQuery($externalId))
+        );
     }
 
     /** Google Books search for individual volume covers/metadata */

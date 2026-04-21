@@ -78,6 +78,11 @@ final readonly class JikanMangaApiClient implements ExternalApiClientInterface
         }
     }
 
+    public function getVolumeCovers(string $externalId): array
+    {
+        return [];
+    }
+
     /** @param array<string, mixed> $item */
     private function mapToDto(array $item): ?ExternalMangaDto
     {
