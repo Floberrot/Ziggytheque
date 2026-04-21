@@ -157,7 +157,7 @@ const purchaseMutation = useMutation({
     qc.invalidateQueries({ queryKey: ['collection'] })
     qc.invalidateQueries({ queryKey: ['wishlist'] })
     qc.invalidateQueries({ queryKey: ['stats'] })
-    ui.addToast('Tome marqué comme acheté', 'success')
+    ui.addToast('Tome marqué comme possédé', 'success')
     emit('close')
   },
 })
@@ -165,6 +165,7 @@ const purchaseMutation = useMutation({
 const volumeStatus = computed(() => {
   const v = props.volume
   if (!v) return null
+  if (v.isAnnounced) return 'announced'
   if (v.isOwned) return 'owned'
   if (v.isWished) return 'wished'
   return 'none'
@@ -233,11 +234,20 @@ const volumeStatus = computed(() => {
                     </svg>
                     Souhaité
                   </span>
+                  <span v-else-if="volumeStatus === 'announced'" class="badge badge-ghost gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    À paraître
+                  </span>
                   <span v-else class="badge badge-ghost">Non suivi</span>
                 </div>
 
                 <!-- Quick actions -->
-                <div class="flex flex-col gap-1.5">
+                <div v-if="volume.isAnnounced" class="p-3 rounded-lg bg-base-300/20 text-sm text-base-content/60">
+                  Ce tome n'est pas encore disponible. Les actions seront possibles une fois la couverture publiée.
+                </div>
+                <div v-else class="flex flex-col gap-1.5">
                   <button
                     v-if="!volume.isOwned"
                     class="btn btn-success btn-sm gap-1"
@@ -248,17 +258,6 @@ const volumeStatus = computed(() => {
                       <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                     Possédé
-                  </button>
-                  <button
-                    v-if="volume.isWished && !volume.isOwned"
-                    class="btn btn-success btn-sm gap-1"
-                    :class="{ loading: purchaseMutation.isPending.value }"
-                    @click="purchaseMutation.mutate()"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    Acheté
                   </button>
                   <button
                     v-if="!volume.isWished && !volume.isOwned"

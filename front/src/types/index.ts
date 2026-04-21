@@ -4,6 +4,7 @@ export interface Volume {
   coverUrl: string | null
   price: number | null
   releaseDate: string | null
+  isAnnounced: boolean
 }
 
 export interface Manga {
@@ -33,6 +34,7 @@ export interface VolumeEntry {
   number: number
   coverUrl: string | null
   price: number | null
+  isAnnounced: boolean
   isOwned: boolean
   isRead: boolean
   isWished: boolean
@@ -49,6 +51,7 @@ export interface CollectionEntry {
   ownedCount: number
   readCount: number
   wishedCount: number
+  announcedCount: number
   totalVolumes: number
   addedAt: string
   ownedValue: number

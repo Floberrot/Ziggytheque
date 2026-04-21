@@ -44,6 +44,7 @@ class VolumeEntry
             'number' => $this->volume->number,
             'coverUrl' => $this->volume->coverUrl,
             'price' => $this->volume->price,
+            'isAnnounced' => $this->volume->isAnnounced,
             'isOwned' => $this->isOwned,
             'isRead' => $this->isRead,
             'isWished' => $this->isWished,

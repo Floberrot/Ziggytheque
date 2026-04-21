@@ -75,7 +75,7 @@ async function batchPurchase() {
     await qc.invalidateQueries({ queryKey: ['collection'] })
     await qc.invalidateQueries({ queryKey: ['stats'] })
     selectedVeIds.value = new Set()
-    ui.addToast(`${count} tome${count > 1 ? 's' : ''} marqué${count > 1 ? 's' : ''} comme acheté${count > 1 ? 's' : ''}`, 'success')
+    ui.addToast(`${count} tome${count > 1 ? 's' : ''} marqué${count > 1 ? 's' : ''} comme possédé${count > 1 ? 's' : ''}`, 'success')
   } finally {
     isBatchProcessing.value = false
   }
@@ -265,7 +265,7 @@ function goToDetail(id: string) {
                   v-for="ve in wishedVolumes(entry).sort((a, b) => a.number - b.number)"
                   :key="ve.id"
                   class="shrink-0 cursor-pointer"
-                  :title="batchMode ? `Tome ${ve.number} — Sélectionner` : `Tome ${ve.number} — Marquer acheté`"
+                  :title="batchMode ? `Tome ${ve.number} — Sélectionner` : `Tome ${ve.number} — Marquer comme possédé`"
                   @click="batchMode ? toggleVolumeSelect(ve.id) : purchaseMutation.mutate({ entryId: entry.id, veId: ve.id })"
                 >
                   <div
@@ -329,7 +329,7 @@ function goToDetail(id: string) {
 
             <!-- Hint text -->
             <p class="text-[10px] text-base-content/25 italic leading-tight">
-              {{ batchMode ? 'Appuyez sur les tomes pour les sélectionner' : 'Appuyez sur un tome pour le marquer comme acheté' }}
+              {{ batchMode ? 'Appuyez sur les tomes pour les sélectionner' : 'Appuyez sur un tome pour le marquer comme possédé' }}
             </p>
           </div>
         </div>
@@ -358,7 +358,7 @@ function goToDetail(id: string) {
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
-            Marquer acheté{{ selectedVeIds.size > 1 ? 's' : '' }}
+            Marquer comme possédé{{ selectedVeIds.size > 1 ? 's' : '' }}
           </button>
           <button class="btn btn-ghost btn-sm shrink-0" @click="selectedVeIds = new Set()">
             Vider

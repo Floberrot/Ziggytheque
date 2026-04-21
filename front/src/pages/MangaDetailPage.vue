@@ -301,12 +301,14 @@ function volumeRingClass(ve: VolumeEntry): string {
   if (ve.isOwned && ve.isRead) return 'ring-info/80'
   if (ve.isOwned) return 'ring-success/70'
   if (ve.isWished) return 'ring-warning/60'
+  if (ve.isAnnounced) return 'ring-base-300/20 ring-dashed'
   return 'ring-base-300/30'
 }
 
 function volumeOpacityClass(ve: VolumeEntry): string {
   if (ve.isOwned) return 'opacity-100'
   if (ve.isWished) return 'opacity-65'
+  if (ve.isAnnounced) return 'opacity-40 grayscale'
   return 'opacity-25 grayscale'
 }
 </script>
@@ -659,13 +661,14 @@ function volumeOpacityClass(ve: VolumeEntry): string {
               />
               <div
                 v-else
-                class="w-full h-full flex items-center justify-center bg-base-200"
+                class="w-full h-full flex items-center justify-center"
+                :class="ve.isAnnounced ? 'bg-base-300/30' : 'bg-base-200'"
               >
                 <span
                   class="font-bold text-xl"
-                  :class="ve.isOwned ? 'text-base-content/50' : ve.isWished ? 'text-warning/60' : 'text-base-content/15'"
+                  :class="ve.isAnnounced ? 'text-base-content/40' : ve.isOwned ? 'text-base-content/50' : ve.isWished ? 'text-warning/60' : 'text-base-content/15'"
                 >
-                  {{ ve.number }}
+                  {{ ve.isAnnounced ? '?' : ve.number }}
                 </span>
               </div>
 
@@ -701,12 +704,42 @@ function volumeOpacityClass(ve: VolumeEntry): string {
               </svg>
             </div>
 
+            <!-- Announced badge (top-left) -->
+            <div
+              v-if="ve.isAnnounced"
+              class="absolute top-0.5 left-0.5 px-1.5 py-0.5 rounded bg-base-300/80 text-base-content/60 text-[9px] font-semibold tracking-wide z-10 pointer-events-none shadow-sm"
+            >
+              À paraître
+            </div>
+
             <!-- Number label -->
             <div
               class="text-center text-[10px] sm:text-[9px] mt-0.5 tabular-nums font-semibold leading-tight"
               :class="ve.isOwned ? 'text-base-content/60' : ve.isWished ? 'text-warning/60' : 'text-base-content/20'"
             >
               T{{ ve.number }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Legend -->
+        <div v-if="sortedVolumes.length" class="mt-6 pt-4 border-t border-base-300">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs text-base-content/60">
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-8 rounded ring-2 ring-info/80 bg-base-100" />
+              <span>Lu</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-8 rounded ring-2 ring-success/70 bg-base-100" />
+              <span>Possédé</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-8 rounded ring-2 ring-warning/60 bg-base-100 opacity-65" />
+              <span>Souhaité</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-8 rounded ring-2 ring-dashed ring-base-300/20 bg-base-300/30 opacity-40" />
+              <span>À paraître</span>
             </div>
           </div>
         </div>
@@ -796,7 +829,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
-              <span>Marquer acheté</span>
+              <span>Marquer comme possédé</span>
             </a>
           </li>
           <div class="h-px bg-base-200 my-0.5 mx-2" />

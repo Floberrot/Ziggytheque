@@ -26,6 +26,8 @@ class Volume
         public ?float $price = null,
         #[ORM\Column(nullable: true)]
         public ?\DateTimeImmutable $releaseDate = null,
+        #[ORM\Column]
+        public bool $isAnnounced = false,
     ) {
     }
 
@@ -38,6 +40,7 @@ class Volume
             'coverUrl' => $this->coverUrl,
             'price' => $this->price,
             'releaseDate' => $this->releaseDate?->format(\DateTimeInterface::ATOM),
+            'isAnnounced' => $this->isAnnounced,
         ];
     }
 }

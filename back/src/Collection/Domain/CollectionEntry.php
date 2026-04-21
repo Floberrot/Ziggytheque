@@ -58,6 +58,9 @@ class CollectionEntry
             'wishedCount' => $this->volumeEntries
                 ->filter(fn (VolumeEntry $ve) => $ve->isWished && !$ve->isOwned)
                 ->count(),
+            'announcedCount' => $this->volumeEntries
+                ->filter(fn (VolumeEntry $ve) => $ve->volume->isAnnounced)
+                ->count(),
             'totalVolumes' => $this->manga->volumes->count(),
             'addedAt' => $this->addedAt->format(\DateTimeInterface::ATOM),
             'ownedValue' => array_sum(array_map(

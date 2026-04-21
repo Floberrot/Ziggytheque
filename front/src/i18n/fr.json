@@ -39,8 +39,8 @@
     "addToWishlist": "Tout ajouter à la wishlist",
     "allAdded": "Tous les tomes ajoutés à la liste de souhaits",
     "added": "Ajouté à la liste de souhaits",
-    "purchased": "Tome acheté et ajouté à la collection",
-    "purchase": "Acheté",
+    "purchased": "Tome marqué comme possédé et ajouté à la collection",
+    "purchase": "Possédé",
     "empty": "Votre liste de souhaits est vide"
   },
   "add": {
