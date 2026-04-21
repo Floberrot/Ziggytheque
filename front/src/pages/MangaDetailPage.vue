@@ -763,16 +763,22 @@ function volumeOpacityClass(ve: VolumeEntry): string {
               <span v-if="contextMenu.ve.isRead" class="ml-auto badge badge-info badge-xs">Lu</span>
             </a>
           </li>
-          <li v-if="!contextMenu.ve.isOwned">
+          <li>
             <a
               class="gap-2 text-sm"
               :class="{ 'pointer-events-none opacity-50': toggleMutation.isPending.value }"
               @click="toggleMutation.mutate({ veId: contextMenu.ve.id, field: 'isOwned' })"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <svg v-if="!contextMenu.ve.isOwned" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
               </svg>
-              <span class="font-medium">Marquer possédé</span>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              <span :class="contextMenu.ve.isOwned ? 'text-error' : 'font-medium'">
+                {{ contextMenu.ve.isOwned ? 'Retirer de la collection' : 'Marquer possédé' }}
+              </span>
+              <span v-if="contextMenu.ve.isOwned" class="ml-auto badge badge-success badge-xs">Possédé</span>
             </a>
           </li>
           <li v-if="!contextMenu.ve.isOwned && !contextMenu.ve.isWished">
