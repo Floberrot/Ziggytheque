@@ -1,58 +1,63 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/useAuthStore'
 
+declare module 'vue-router' {
+  interface RouteMeta {
+    layout?: 'auth' | 'app'
+    title?: string
+    requiresAuth?: boolean
+    public?: boolean
+  }
+}
+
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     {
       path: '/gate',
       name: 'gate',
-      component: () => import('@/pages/GatePage.vue'),
-      meta: { public: true, title: 'Accès' },
+      component: () => import('@/features/gate/pages/GatePage.vue'),
+      meta: { layout: 'auth', public: true, title: 'Accès' },
     },
     {
       path: '/',
-      component: () => import('@/components/organisms/MainLayout.vue'),
-      meta: { requiresAuth: true },
-      children: [
-        { path: '', redirect: '/dashboard' },
-        {
-          path: 'dashboard',
-          name: 'dashboard',
-          component: () => import('@/pages/DashboardPage.vue'),
-          meta: { title: 'Tableau de bord' },
-        },
-        {
-          path: 'collection',
-          name: 'collection',
-          component: () => import('@/pages/CollectionPage.vue'),
-          meta: { title: 'Collection' },
-        },
-        {
-          path: 'collection/:id',
-          name: 'collection-detail',
-          component: () => import('@/pages/MangaDetailPage.vue'),
-          meta: { title: 'Série' },
-        },
-        {
-          path: 'wishlist',
-          name: 'wishlist',
-          component: () => import('@/pages/WishlistPage.vue'),
-          meta: { title: 'Liste de souhaits' },
-        },
-        {
-          path: 'add',
-          name: 'add',
-          component: () => import('@/pages/AddMangaPage.vue'),
-          meta: { title: 'Ajouter une série' },
-        },
-        {
-          path: 'notifications',
-          name: 'notifications',
-          component: () => import('@/pages/NotificationsPage.vue'),
-          meta: { title: 'Notifications' },
-        },
-      ],
+      redirect: '/dashboard',
+    },
+    {
+      path: '/dashboard',
+      name: 'dashboard',
+      component: () => import('@/features/dashboard/pages/DashboardPage.vue'),
+      meta: { layout: 'app', requiresAuth: true, title: 'Tableau de bord' },
+    },
+    {
+      path: '/collection',
+      name: 'collection',
+      component: () => import('@/features/collection/pages/CollectionPage.vue'),
+      meta: { layout: 'app', requiresAuth: true, title: 'Collection' },
+    },
+    {
+      path: '/collection/:id',
+      name: 'collection-detail',
+      component: () => import('@/features/collection/pages/MangaDetailPage.vue'),
+      meta: { layout: 'app', requiresAuth: true, title: 'Série' },
+    },
+    {
+      path: '/wishlist',
+      name: 'wishlist',
+      component: () => import('@/features/wishlist/pages/WishlistPage.vue'),
+      meta: { layout: 'app', requiresAuth: true, title: 'Liste de souhaits' },
+    },
+    {
+      path: '/add',
+      name: 'add',
+      component: () => import('@/features/add/pages/AddMangaPage.vue'),
+      meta: { layout: 'app', requiresAuth: true, title: 'Ajouter une série' },
+    },
+    {
+      path: '/notifications',
+      name: 'notifications',
+      component: () => import('@/features/notifications/pages/NotificationsPage.vue'),
+      meta: { layout: 'app', requiresAuth: true, title: 'Notifications' },
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],

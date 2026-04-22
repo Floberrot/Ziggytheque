@@ -1,51 +1,48 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 
-export const THEMES = [
-  'light',
-  'dark',
-  'cupcake',
-  'bumblebee',
-  'emerald',
-  'corporate',
-  'synthwave',
-  'retro',
-  'cyberpunk',
-  'valentine',
-  'halloween',
-  'garden',
-  'forest',
-  'aqua',
-  'lofi',
-  'pastel',
-  'fantasy',
-  'wireframe',
-  'black',
-  'luxury',
-  'dracula',
-  'cmyk',
-  'autumn',
-  'business',
-  'acid',
-  'lemonade',
-  'night',
-  'coffee',
-  'winter',
-  'dim',
-  'nord',
-  'sunset',
-] as const
+export type ThemeMode = 'light' | 'dark' | 'system'
 
-export type Theme = (typeof THEMES)[number]
+export const useThemeStore = defineStore(
+  'theme',
+  () => {
+    const mode = ref<ThemeMode>('system')
 
-export const useThemeStore = defineStore('theme', () => {
-  const stored = localStorage.getItem('theme') as Theme | null
-  const theme = ref<Theme>(stored && (THEMES as readonly string[]).includes(stored) ? stored : 'dark')
+    function applyTheme() {
+      const html = document.documentElement
+      let effectiveTheme: 'light' | 'dark'
 
-  function setTheme(t: Theme) {
-    theme.value = t
-    localStorage.setItem('theme', t)
+      if (mode.value === 'system') {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        effectiveTheme = prefersDark ? 'dark' : 'light'
+        html.removeAttribute('data-theme')
+      } else {
+        effectiveTheme = mode.value
+        html.setAttribute('data-theme', mode.value)
+      }
+
+      html.style.colorScheme = effectiveTheme
+    }
+
+    function setTheme(t: ThemeMode) {
+      mode.value = t
+      applyTheme()
+    }
+
+    watch(mode, applyTheme, { immediate: true })
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if (mode.value === 'system') {
+        applyTheme()
+      }
+    })
+
+    return {
+      mode,
+      setTheme,
+    }
+  },
+  {
+    persist: true,
   }
-
-  return { theme, setTheme }
-})
+)

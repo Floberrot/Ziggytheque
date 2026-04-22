@@ -1,0 +1,50 @@
+:root {
+  /* radii */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --radius-2xl: 28px;
+  --radius-full: 9999px;
+
+  /* elevation */
+  --shadow-xs: 0 1px 2px 0 rgb(24 16 34 / 0.06);
+  --shadow-sm: 0 2px 8px -2px rgb(24 16 34 / 0.10);
+  --shadow-md: 0 8px 24px -8px rgb(24 16 34 / 0.18);
+  --shadow-lg: 0 20px 48px -16px rgb(24 16 34 / 0.28);
+  --shadow-xl: 0 32px 80px -24px rgb(24 16 34 / 0.38);
+  --shadow-glow-primary: 0 0 24px -4px oklch(0.72 0.18 12 / 0.55);
+  --shadow-glow-success: 0 0 24px -4px oklch(0.74 0.15 160 / 0.55);
+
+  /* motion */
+  --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --motion-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-fast: 150ms;
+  --motion-base: 220ms;
+  --motion-slow: 360ms;
+
+  /* fluid type */
+  --fs-xs: clamp(0.72rem, 0.70rem + 0.1vw, 0.78rem);
+  --fs-sm: clamp(0.82rem, 0.80rem + 0.1vw, 0.88rem);
+  --fs-base: clamp(0.95rem, 0.92rem + 0.15vw, 1rem);
+  --fs-lg: clamp(1.10rem, 1.05rem + 0.25vw, 1.22rem);
+  --fs-xl: clamp(1.35rem, 1.25rem + 0.5vw, 1.55rem);
+  --fs-2xl: clamp(1.75rem, 1.55rem + 1vw, 2.1rem);
+  --fs-3xl: clamp(2.2rem, 1.85rem + 1.8vw, 2.9rem);
+  --fs-display: clamp(2.8rem, 2.2rem + 3vw, 3.8rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-base: 0ms;
+    --motion-slow: 0ms;
+  }
+
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
