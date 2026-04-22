@@ -1,15 +1,2 @@
 @import "tailwindcss";
 @plugin "daisyui";
-
-@layer base {
-  /* Focus ring */
-  :focus-visible {
-    outline: 2px solid oklch(0.72 0.18 12);
-    outline-offset: 3px;
-    border-radius: inherit;
-  }
-
-  .focus-ring-inset:focus-visible {
-    outline-offset: -3px;
-  }
-}

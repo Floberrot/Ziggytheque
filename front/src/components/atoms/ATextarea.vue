@@ -15,6 +15,9 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const textareaRef = ref<HTMLTextAreaElement>()
+const emit = defineEmits<{
+  'update:modelValue': [value: string]
+}>()
 
 function updateHeight() {
   if (textareaRef.value) {
@@ -24,11 +27,13 @@ function updateHeight() {
   }
 }
 
-watch(() => props.modelValue, updateHeight, { immediate: true })
+function handleInput(event: Event) {
+  const value = (event.target as HTMLTextAreaElement).value
+  emit('update:modelValue', value)
+  updateHeight()
+}
 
-defineEmits<{
-  'update:modelValue': [value: string]
-}>()
+watch(() => props.modelValue, updateHeight, { immediate: true })
 </script>
 
 <template>
@@ -47,10 +52,7 @@ defineEmits<{
       :aria-describedby="error ? `error-${label}` : undefined"
       class="textarea textarea-bordered w-full resize-none overflow-hidden"
       :class="{ 'textarea-error': error }"
-      @input="
-        $emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)
-        updateHeight()
-      "
+      @input="handleInput"
     />
     <div v-if="error" :id="`error-${label}`" class="label">
       <span class="label-text-alt text-error">{{ error }}</span>
