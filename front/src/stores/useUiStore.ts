@@ -1,13 +1,19 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
+interface Toast {
+  id: string
+  message: string
+  type: 'success' | 'error' | 'info' | 'warning'
+}
+
 export const useUiStore = defineStore('ui', () => {
   const isLoading = ref(false)
-  const toasts = ref<{ id: string; message: string; type: 'success' | 'error' | 'info' }[]>([])
+  const toasts = ref<Toast[]>([])
 
-  function addToast(message: string, type: 'success' | 'error' | 'info' = 'info') {
+  function addToast(options: { message: string; type?: 'success' | 'error' | 'info' | 'warning' }) {
     const id = crypto.randomUUID()
-    toasts.value.push({ id, message, type })
+    toasts.value.push({ id, message: options.message, type: options.type || 'info' })
     setTimeout(() => removeToast(id), 3500)
   }
 
