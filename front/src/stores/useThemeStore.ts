@@ -1,51 +1,44 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
-export const THEMES = [
-  'light',
-  'dark',
-  'cupcake',
-  'bumblebee',
-  'emerald',
-  'corporate',
-  'synthwave',
-  'retro',
-  'cyberpunk',
-  'valentine',
-  'halloween',
-  'garden',
-  'forest',
-  'aqua',
-  'lofi',
-  'pastel',
-  'fantasy',
-  'wireframe',
-  'black',
-  'luxury',
-  'dracula',
-  'cmyk',
-  'autumn',
-  'business',
-  'acid',
-  'lemonade',
-  'night',
-  'coffee',
-  'winter',
-  'dim',
-  'nord',
-  'sunset',
-] as const
+export type ThemeMode = 'light' | 'dark' | 'system'
 
-export type Theme = (typeof THEMES)[number]
+export const useThemeStore = defineStore(
+  'theme',
+  () => {
+    const mode = ref<ThemeMode>('system')
 
-export const useThemeStore = defineStore('theme', () => {
-  const stored = localStorage.getItem('theme') as Theme | null
-  const theme = ref<Theme>(stored && (THEMES as readonly string[]).includes(stored) ? stored : 'dark')
+    const isDark = computed(() => {
+      if (mode.value === 'system') {
+        return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
+      }
+      return mode.value === 'dark'
+    })
 
-  function setTheme(t: Theme) {
-    theme.value = t
-    localStorage.setItem('theme', t)
+    function applyTheme() {
+      const html = typeof document !== 'undefined' ? document.documentElement : null
+      if (!html) return
+
+      if (mode.value === 'system') {
+        html.removeAttribute('data-theme')
+      } else {
+        html.setAttribute('data-theme', `ziggy-${mode.value}`)
+      }
+    }
+
+    function setMode(m: ThemeMode) {
+      mode.value = m
+      applyTheme()
+    }
+
+    watch(mode, applyTheme, { immediate: true })
+
+    return { mode, isDark, setMode }
+  },
+  {
+    persist: {
+      key: 'theme',
+      paths: ['mode'],
+    },
   }
-
-  return { theme, setTheme }
-})
+)

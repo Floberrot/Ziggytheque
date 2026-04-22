@@ -1,5 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+import piniaPersistedState from 'pinia-plugin-persistedstate'
 import { VueQueryPlugin } from '@tanstack/vue-query'
 import { createI18n } from 'vue-i18n'
 import App from './App.vue'
@@ -15,8 +16,11 @@ const i18n = createI18n({
   messages: { en, fr },
 })
 
+const pinia = createPinia()
+pinia.use(piniaPersistedState)
+
 const app = createApp(App)
-app.use(createPinia())
+app.use(pinia)
 app.use(router)
 app.use(VueQueryPlugin)
 app.use(i18n)

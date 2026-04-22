@@ -1,0 +1,100 @@
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/fraunces";
+
+/* Display font: Fraunces */
+@font-feature-values "Fraunces" {
+  @styleset soft 1, wonk 2;
+}
+
+/* Base typography */
+html {
+  font-family: "Inter Variable", system-ui, -apple-system, sans-serif;
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Headings use Fraunces display font */
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Fraunces Variable", serif;
+  font-weight: 600;
+  font-optical-sizing: auto;
+  font-variation-settings:
+    "SOFT" 40,
+    "WONK" 1;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: var(--fs-display);
+}
+
+h2 {
+  font-size: var(--fs-3xl);
+}
+
+h3 {
+  font-size: var(--fs-2xl);
+}
+
+h4 {
+  font-size: var(--fs-xl);
+}
+
+h5 {
+  font-size: var(--fs-lg);
+}
+
+h6 {
+  font-size: var(--fs-base);
+}
+
+/* Typography utilities */
+.text-xs {
+  font-size: var(--fs-xs);
+}
+
+.text-sm {
+  font-size: var(--fs-sm);
+}
+
+.text-base {
+  font-size: var(--fs-base);
+}
+
+.text-lg {
+  font-size: var(--fs-lg);
+}
+
+.text-xl {
+  font-size: var(--fs-xl);
+}
+
+.text-2xl {
+  font-size: var(--fs-2xl);
+}
+
+.text-3xl {
+  font-size: var(--fs-3xl);
+}
+
+.text-display {
+  font-size: var(--fs-display);
+  font-family: "Fraunces Variable", serif;
+  font-optical-sizing: auto;
+  font-variation-settings:
+    "SOFT" 40,
+    "WONK" 1;
+}
+
+/* Numeric tabular alignment */
+.numeric-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Disable font smoothing on display headings for crispness */
+.text-display,
+h1 {
+  text-rendering: optimizeLegibility;
+}
