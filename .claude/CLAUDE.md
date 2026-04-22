@@ -34,18 +34,45 @@
 - #[MapRequestPayload] on every controller that reads a request body
 - `final readonly` on every class that is not extended
 
-## Frontend (front/src/)
-- Atomic Design: atoms (Base*) → molecules → organisms → pages
-- Only pages call useQuery/useMutation
-- Auth: useAuthStore (sessionStorage), Bearer JWT via axios interceptor
-- Stores: useAuthStore, useThemeStore (dark default), useUiStore (toasts)
-- API layer: api/client.ts (axios), api/auth.ts, manga.ts, collection.ts, wishlist.ts, priceCode.ts, stats.ts, notification.ts
-- i18n: vue-i18n, fr.json + en.json, FR default
+## Frontend (front/src/) — Atomic Design + Editorial Dark
+
+**Architecture**: Atomic Design (atoms A* → molecules M* → organisms O* → pages)
+- Tokens: `design/tokens.css` (colors, shadows, motion, typography scale)
+- Themes: `ziggy-light` + `ziggy-dark` (Editorial Dark + neon glows; Fraunces + Inter fonts)
+- Design: DaisyUI v5 with custom theme + Headless UI for a11y (Dialog, RadioGroup, Menu, Switch, Combobox)
+- Stores: `useAuthStore`, `useThemeStore` (light|dark|system), `useUiStore` (toasts)
+- Auth: Bearer JWT via axios interceptor; gate requires `GATE_PASSWORD` env var
+- Routes: `/gate` (public), `/` → `/dashboard` (protected, AppLayout with sidebar + bottom nav)
+- i18n: vue-i18n (en.json, fr.json); FR default
+- Data: Only pages/organisms call `useQuery`/`useMutation` via `composables/queries/**`
+
+## Frontend Architecture — Hard Rules
+
+1. **Pages are composition-only** (< 200 LOC). NO raw `<button>`, `<input>`, `<select>`, inline `<svg>`, or DaisyUI classes (`btn-*`, `badge-*`). Use atoms/molecules only.
+2. **Data fetching is centralized** in `composables/queries/**/*.ts`. Pages/organisms consume those composables; no `useQuery` outside this folder.
+3. **LOC budgets (hard caps)**:
+   - Pages: ≤ 200 lines (target ~150)
+   - Organisms: ≤ 300 lines
+   - Molecules: ≤ 150 lines
+   - Atoms: ≤ 100 lines
+4. **Single theme only**: Only `ziggy-light` + `ziggy-dark` are registered. Adding a theme requires architecture review.
+5. **No inline SVG**. Use `<AIcon name="lucide:..." />`. Exceptions: `AIcon.vue`, `AHeartRating.vue`, `AProgressRing.vue`.
+6. **No direct `localStorage`** outside persisted Pinia stores.
+7. **Repeated pattern rule**: Any UI pattern appearing ≥ 2 times MUST be promoted to an atom/molecule in the same PR.
+8. **Invalidation locality**: `queryClient.invalidateQueries` forbidden outside `composables/queries/**`. Each mutation composable owns its invalidation set.
+9. **Focus indicators mandatory**: No `outline:none` without a `focus-visible:ring-*` (or `.focus-ring-inset` where outline clips).
+10. **Motion tokens only**: No `transition-*` > 80ms that doesn't derive from `--motion-*` tokens.
+11. **Feature folders**: Organisms coupled to domain types (CollectionEntry, VolumeEntry) live in `features/<domain>/organisms/`; cross-domain organisms in `components/organisms/`.
+12. **Naming**: Atoms `A*`, molecules `M*`, organisms `O*` or domain-named (e.g., `MangaHero`).
+13. **Form inputs**: Always use `AInput`, `ATextarea`, `ASelect` with error/hint props and `aria-describedby`.
+14. **Modals**: Always use `MModal` (Headless UI Dialog). Never roll custom modals.
+15. **Dialogs**: Use `MConfirmDialog` for confirmation flows.
+16. **Color/spacing**: Derive from DaisyUI semantic colors (`var(--color-primary)`) and design tokens (`var(--radius-md)`), never hex values.
 
 ## Routes (frontend)
 - /gate — public password gate
-- / → /dashboard (protected, MainLayout sidebar)
-- /collection, /collection/:id, /wishlist, /add, /price-codes, /notifications
+- / → /dashboard (protected, AppLayout with responsive sidebar + bottom nav)
+- /collection, /collection/:id, /wishlist, /add, /notifications
 
 ## API Endpoints
 - POST   /api/auth/gate
