@@ -45,12 +45,12 @@ export function useUpdateVolume() {
   })
 }
 
-export function useInfiniteExternalSearch() {
+export function useInfiniteExternalSearch(query: string) {
   return useInfiniteQuery({
-    queryKey: ['manga', 'external-search'],
-    queryFn: ({ pageParam }) => api.searchVolumeExternal('', pageParam as number),
-    getNextPageParam: (lastPage: any) => {
-      if (lastPage && lastPage.length === 20) return undefined
+    queryKey: ['manga', 'external-search', query],
+    queryFn: ({ pageParam }) => api.searchVolumeExternal(query, pageParam as number),
+    getNextPageParam: (lastPage: any, _allPages, lastPageParam) => {
+      if (lastPage && lastPage.length === 20) return (lastPageParam as number) + 1
       return undefined
     },
     initialPageParam: 1,

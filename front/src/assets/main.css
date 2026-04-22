@@ -1,2 +1,7 @@
 @import "tailwindcss";
-@plugin "daisyui";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/fraunces";
+@import "../design/tokens.css";
+@import "../design/daisy.css";
+@import "../design/typography.css";
+@import "../design/motion.css";

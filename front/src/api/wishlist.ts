@@ -16,11 +16,3 @@ export async function addRemainingToWishlist(collectionEntryId: string): Promise
 export async function clearWishlist(collectionEntryId: string): Promise<void> {
   await client.delete(`/wishlist/${collectionEntryId}`)
 }
-
-/** Mark a specific volume as purchased (owned=true, wished=false) */
-export async function purchaseVolume(
-  collectionEntryId: string,
-  volumeEntryId: string,
-): Promise<void> {
-  await client.post(`/wishlist/${collectionEntryId}/volumes/${volumeEntryId}/purchase`)
-}

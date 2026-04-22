@@ -35,12 +35,23 @@
 - `final readonly` on every class that is not extended
 
 ## Frontend (front/src/)
-- Atomic Design: atoms (Base*) → molecules → organisms → pages
-- Only pages call useQuery/useMutation
-- Auth: useAuthStore (sessionStorage), Bearer JWT via axios interceptor
-- Stores: useAuthStore, useThemeStore (dark default), useUiStore (toasts)
-- API layer: api/client.ts (axios), api/auth.ts, manga.ts, collection.ts, wishlist.ts, priceCode.ts, stats.ts, notification.ts
-- i18n: vue-i18n, fr.json + en.json, FR default
+
+### Architecture
+- **Atomic Design**: atoms (A*) → molecules (M*) → organisms (O*) → pages
+- **Folder Structure**:
+  - `components/{atoms,molecules,organisms}` — domain-agnostic primitives
+  - `features/{domain}/{organisms,pages}` — domain-coupled organisms/pages
+  - `composables/{queries,ui}` — data fetching (queries only) + UI helpers
+  - `layouts/{AppLayout,AuthLayout}` — shell layouts
+  - `design/{tokens,typography,daisy,motion}.css` — design tokens & theme
+  - `stores/` — Pinia stores (useAuthStore, useThemeStore, useUiStore)
+  - `api/` — axios client + endpoint functions
+- **Stores**: useAuthStore, useThemeStore (light|dark|system), useUiStore
+- **Theme**: Editorial Dark (ziggy-dark, ziggy-light) via DaisyUI; no palette picker
+- **Auth**: Bearer JWT via axios interceptor; useGate gate to POST /api/auth/gate
+- **i18n**: vue-i18n, fr.json + en.json, FR default
+- **Icons**: @iconify/vue + lucide icons; use AIcon component only
+- **API layer**: api/client.ts (axios), api/{auth,manga,collection,wishlist,stats,notification}.ts
 
 ## Routes (frontend)
 - /gate — public password gate
@@ -134,3 +145,78 @@ docker compose exec back php bin/console doctrine:migrations:migrate --no-intera
 ```
 
 Never deploy or test against a fresh database without running migrations first.
+
+---
+
+## Frontend Architecture — Hard Rules
+
+### Atomic Design Discipline
+1. **No raw HTML in pages.** Files under `pages/` or `features/*/pages/` MUST NOT contain:
+   - Raw `<button>`, `<input>`, `<select>`, `<textarea>` — use AButton, AInput, ASelect, ATextarea
+   - Inline `<svg>` — use `<AIcon name="..." />`
+   - DaisyUI classes (`btn-*`, `badge-*`, `card-*`) — wrap with atoms/molecules
+2. **Atoms**: No store or query access. Pure props in → events out. Snapshot tests + axe scans required.
+3. **Molecules**: Atoms + small UI logic (state, conditional rendering). No domain knowledge.
+4. **Organisms**: Domain-specific or cross-domain. Can use queries/stores. Reusable across pages.
+5. **Feature Folders**: Domain organisms live under `features/<domain>/organisms/`; only cross-domain in `components/organisms/`.
+
+### Data Fetching
+6. **Centralized queries**: `useQuery` / `useMutation` / `useInfiniteQuery` ONLY inside `composables/queries/**/*.ts`.
+   - Pages/organisms import composables, not query functions directly.
+   - Each mutation composable owns its invalidation set (no `queryClient.invalidateQueries` outside composables/queries/).
+7. **Query composables**: One file per API surface (useCollectionQueries, useMangaQueries, etc.).
+   - Export 1 hook per domain operation.
+   - Mutations handle loading/error via `isPending`, `isError` properties.
+
+### UI Composables
+8. **UI helpers**: `useToast`, `useConfirm`, `useBreakpoint`, `useBatchSelection`, `useKeyboardShortcut`, `useCoverUrl`, `useContextMenu`.
+   - Live under `composables/ui/`, not scattered.
+   - Use for cross-cutting concerns only (not state management).
+
+### Page LOC Budgets
+9. **Hard caps** (enforce via lint or CI):
+   - Pages: **max 200 LOC**. Target: 100–150.
+   - Organisms: **max 300 LOC**.
+   - Molecules: **max 150 LOC**.
+   - Atoms: **max 100 LOC**.
+
+### Design System
+10. **Tokens first**: Use CSS custom properties from `design/tokens.css`:
+    - Motion: `--motion-fast` (150ms), `--motion-base` (220ms), `--motion-slow` (360ms).
+    - Radii: `--radius-xs` through `--radius-full`.
+    - Shadows: `--shadow-xs` through `--shadow-glow-primary`.
+    - No hardcoded durations > 80ms without `--motion-*`.
+11. **Single theme**: Only `ziggy-light` and `ziggy-dark` registered. Palette picker deleted.
+    - System mode supported via `useThemeStore` (light|dark|system).
+    - No inline hex colors; use DaisyUI semantic classes or Tailwind utilities.
+12. **Icons**: `<AIcon name="lucide:..." />` only. No inline SVG except AIcon.vue, AHeartRating.vue.
+
+### Accessibility
+13. **Focus ring mandatory**: No `outline:none` / `focus:outline-none` without `focus-visible:ring-*` compensation.
+14. **Landmarks**: AppLayout emits `<header>`, `<nav aria-label="...">`, `<main id="main">`. Skip link present.
+15. **ARIA**: 
+    - Form inputs: `aria-invalid`, `aria-describedby` for errors.
+    - Dialogs: Headless UI `Dialog` (focus trap, Esc, backdrop, role).
+    - Lists: `role="listbox"`, `role="option"` with `aria-selected` in batch mode.
+    - Toasts: `role="status" aria-live="polite"` (or `role="alert" aria-live="assertive"` for errors).
+16. **Motion**: Respect `prefers-reduced-motion`; animations fade/disabled entirely in reduce mode.
+
+### Naming & Organization
+17. **Component prefixes**:
+    - Atoms: `A*` (AButton.vue, AIcon.vue).
+    - Molecules: `M*` (MModal.vue, MSearchInput.vue).
+    - Organisms: `O*` (OAppSidebar.vue) or domain-named (MangaHero.vue, CollectionFilterBar.vue).
+    - Pages: named naturally (DashboardPage.vue, MangaDetailPage.vue).
+18. **Repeated pattern rule**: Any UI pattern appearing ≥ 2 times with equivalent structure MUST be promoted to a reusable atom/molecule in the same PR.
+
+### API Deduplication
+19. **No duplicate functions**: `purchaseVolume` exists in `collection.ts`; removed from `wishlist.ts`.
+    - Wishlist composable calls collection's purchase function.
+
+### Testing Baseline
+20. **Minimum contract**:
+    - Atoms: snapshot + axe audit + prop-variant smoke test.
+    - Molecules: ↑ + 1 interaction test.
+    - Organisms: mount + stub children + 1 happy-path integration.
+    - Pages: smoke mount + 1 critical user flow (assumes composables are tested separately).
+    - Queries: unit tests with mocked axios.
