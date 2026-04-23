@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Pie } from 'vue-chartjs'
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
+import { Doughnut } from 'vue-chartjs'
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, DoughnutController } from 'chart.js'
 
-ChartJS.register(ArcElement, Tooltip, Legend)
+ChartJS.register(ArcElement, Tooltip, Legend, DoughnutController)
 
 const props = defineProps<{ breakdown: Record<string, number> }>()
 
@@ -16,6 +16,8 @@ function genreColor(seed: string): string {
   return `hsl(${h}, 65%, 55%)`
 }
 
+const total = computed(() => Object.values(props.breakdown).reduce((sum, v) => sum + v, 0))
+
 const chartData = computed(() => {
   const labels = Object.keys(props.breakdown)
   return {
@@ -25,19 +27,40 @@ const chartData = computed(() => {
         data: Object.values(props.breakdown),
         backgroundColor: labels.map(genreColor),
         borderWidth: 2,
+        borderColor: 'transparent',
+        hoverOffset: 8,
       },
     ],
   }
 })
 
-const chartOptions = {
+const chartOptions = computed(() => ({
   responsive: true,
+  maintainAspectRatio: false,
+  cutout: '62%',
   plugins: {
-    legend: { position: 'right' as const },
+    legend: {
+      position: 'right' as const,
+      labels: {
+        padding: 16,
+        usePointStyle: true,
+        pointStyleWidth: 10,
+        font: { size: 12 },
+      },
+    },
+    tooltip: {
+      callbacks: {
+        label: (ctx: { raw: unknown }) => {
+          const val = ctx.raw as number
+          const pct = Math.round((val / total.value) * 100)
+          return ` ${val} (${pct}%)`
+        },
+      },
+    },
   },
-}
+}))
 </script>
 
 <template>
-  <Pie :data="chartData" :options="chartOptions" />
+  <Doughnut :data="chartData" :options="chartOptions" />
 </template>

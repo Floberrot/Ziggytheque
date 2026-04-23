@@ -14,14 +14,19 @@
   },
   "dashboard": {
     "title": "Tableau de bord",
+    "totalMangas": "Séries",
     "ownedVolumes": "Tomes possédés",
     "readVolumes": "Tomes lus",
     "wishlist": "Tomes souhaités",
     "ownedValue": "Valeur possédée",
     "wishlistValue": "Valeur souhaitée",
     "totalValue": "Valeur totale",
+    "valueSummary": "Résumé financier",
     "genreBreakdown": "Répartition par genre",
-    "recentAdditions": "Ajouts récents"
+    "recentAdditions": "Ajouts récents",
+    "readingProgress": "Progression de lecture",
+    "volumesRead": "lus",
+    "volumesOwned": "possédés"
   },
   "collection": {
     "title": "Ma collection",
@@ -84,6 +89,8 @@
   },
   "rating": {
     "notRated": "À noter",
+    "title": "Ta note",
+    "confirm": "Confirmer",
     "saved": "Note enregistrée",
     "error": "Erreur lors de l'enregistrement de la note"
   },
