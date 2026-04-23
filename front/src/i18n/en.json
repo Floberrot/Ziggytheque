@@ -14,14 +14,19 @@
   },
   "dashboard": {
     "title": "Dashboard",
+    "totalMangas": "Series",
     "ownedVolumes": "Owned Volumes",
     "readVolumes": "Read Volumes",
     "wishlist": "Wished Volumes",
     "ownedValue": "Owned Value",
     "wishlistValue": "Wishlist Value",
     "totalValue": "Total Value",
+    "valueSummary": "Financial Summary",
     "genreBreakdown": "Genre Breakdown",
-    "recentAdditions": "Recent Additions"
+    "recentAdditions": "Recent Additions",
+    "readingProgress": "Reading Progress",
+    "volumesRead": "read",
+    "volumesOwned": "owned"
   },
   "collection": {
     "title": "My Collection",
@@ -84,6 +89,8 @@
   },
   "rating": {
     "notRated": "Rate it",
+    "title": "Your rating",
+    "confirm": "Confirm",
     "saved": "Rating saved",
     "error": "Failed to save rating"
   },
