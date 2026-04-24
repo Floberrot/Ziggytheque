@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/useAuthStore'
 import { useUiStore } from '@/stores/useUiStore'
 import { useThemeStore, THEMES } from '@/stores/useThemeStore'
 import { useI18n } from 'vue-i18n'
-import { Menu, Settings, LogOut, Globe, Palette, LayoutDashboard, Library, ShoppingCart, PlusCircle, Bell } from 'lucide-vue-next'
+import { Menu, Settings, LogOut, Globe, Palette, LayoutDashboard, Library, ShoppingCart, PlusCircle, Bell, ClipboardList } from 'lucide-vue-next'
 import BaseToast from '@/components/atoms/BaseToast.vue'
 
 const auth = useAuthStore()
@@ -46,7 +46,8 @@ const navItems: NavItem[] = [
   { name: 'collection',    labelKey: 'nav.collection',    icon: Library },
   { name: 'wishlist',      labelKey: 'nav.wishlist',      icon: ShoppingCart },
   { name: 'add',           labelKey: 'nav.add',           icon: PlusCircle },
-  { name: 'notifications', labelKey: 'nav.notifications', icon: Bell, comingSoon: true },
+  { name: 'notifications', labelKey: 'nav.notifications', icon: Bell },
+  { name: 'journal',       labelKey: 'nav.journal',       icon: ClipboardList },
 ]
 </script>
 

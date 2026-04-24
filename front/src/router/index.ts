@@ -52,6 +52,12 @@ const router = createRouter({
           component: () => import('@/pages/NotificationsPage.vue'),
           meta: { title: 'Notifications' },
         },
+        {
+          path: 'journal',
+          name: 'journal',
+          component: () => import('@/pages/JournalPage.vue'),
+          meta: { title: 'Journal' },
+        },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },

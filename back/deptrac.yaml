@@ -60,6 +60,11 @@ deptrac:
         - type: class
           value: 'App\\Notification\\Domain.*'
 
+    - name: Notification_Shared
+      collectors:
+        - type: class
+          value: 'App\\Notification\\Shared.*'
+
     - name: Notification_Application
       collectors:
         - type: class
@@ -119,6 +124,7 @@ deptrac:
       - Shared
     Notification_Domain:
       - Shared
+      - Collection_Domain
     Stats_Domain:
       - Shared
       - Manga_Domain
@@ -139,8 +145,13 @@ deptrac:
     Manga_Application:
       - Manga_Domain
       - Shared
+    Notification_Shared:
+      - Shared
+
     Notification_Application:
       - Notification_Domain
+      - Notification_Shared
+      - Collection_Domain
       - Shared
     Stats_Application:
       - Stats_Domain
@@ -171,7 +182,9 @@ deptrac:
       - Shared
     Notification_Infrastructure:
       - Notification_Domain
+      - Notification_Shared
       - Notification_Application
+      - Collection_Domain
       - Shared
     Stats_Infrastructure:
       - Stats_Domain

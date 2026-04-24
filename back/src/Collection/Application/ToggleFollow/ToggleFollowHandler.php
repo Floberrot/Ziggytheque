@@ -11,7 +11,9 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 #[AsMessageHandler(bus: 'command.bus')]
 final readonly class ToggleFollowHandler
 {
-    public function __construct(private CollectionRepositoryInterface $repository) {}
+    public function __construct(private CollectionRepositoryInterface $repository)
+    {
+    }
 
     public function __invoke(ToggleFollowCommand $command): bool
     {
@@ -21,6 +23,11 @@ final readonly class ToggleFollowHandler
         }
 
         $entry->notificationsEnabled = !$entry->notificationsEnabled;
+
+        if ($entry->notificationsEnabled) {
+            $entry->notificationsEnabledAt = new \DateTimeImmutable();
+        }
+
         $this->repository->save($entry);
 
         return $entry->notificationsEnabled;

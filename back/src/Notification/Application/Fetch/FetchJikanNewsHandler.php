@@ -5,28 +5,24 @@ declare(strict_types=1);
 namespace App\Notification\Application\Fetch;
 
 use App\Collection\Domain\CollectionRepositoryInterface;
-use App\Notification\Domain\ActivityLog;
-use App\Notification\Domain\ActivityLogRepositoryInterface;
-use App\Notification\Domain\Article;
-use App\Notification\Domain\ArticleRepositoryInterface;
+use App\Notification\Domain\Service\JikanNewsClientInterface;
+use App\Notification\Shared\Event\JikanFetchFailedEvent;
+use App\Notification\Shared\Event\JikanFetchStartedEvent;
+use App\Notification\Shared\Event\JikanFetchSucceededEvent;
+use App\Shared\Application\Bus\EventBusInterface;
 use App\Shared\Domain\Exception\NotFoundException;
-use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
-use Symfony\Component\Uid\Uuid;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Throwable;
 
 #[AsMessageHandler]
 final readonly class FetchJikanNewsHandler
 {
-    private const BASE_URL = 'https://api.jikan.moe/v4';
-
     public function __construct(
-        private HttpClientInterface $httpClient,
         private CollectionRepositoryInterface $collectionRepository,
-        private ArticleRepositoryInterface $articleRepository,
-        private ActivityLogRepositoryInterface $activityLogRepository,
-        private LoggerInterface $logger,
-    ) {}
+        private JikanNewsClientInterface $jikanNewsClient,
+        private EventBusInterface $eventBus,
+    ) {
+    }
 
     public function __invoke(FetchJikanNewsMessage $message): void
     {
@@ -35,59 +31,33 @@ final readonly class FetchJikanNewsHandler
             throw new NotFoundException('CollectionEntry', $message->collectionEntryId);
         }
 
-        $log = new ActivityLog(
-            id: Uuid::v4()->toRfc4122(),
-            collectionEntry: $entry,
-            sourceType: 'jikan',
-            sourceName: 'jikan-news',
+        $started = new JikanFetchStartedEvent(
+            malId: $message->malId,
+            mangaTitle: $message->mangaTitle,
+            collectionEntryId: $entry->id,
         );
-        $this->activityLogRepository->save($log);
+        $this->eventBus->publish($started);
 
         try {
-            $response = $this->httpClient->request(
-                'GET',
-                self::BASE_URL . '/manga/' . $message->malId . '/news',
-                ['timeout' => 10],
-            );
-            $data  = $response->toArray();
-            $items = $data['data'] ?? [];
+            $result = $this->jikanNewsClient->fetch($message->malId, $entry);
 
-            $newCount = 0;
-            foreach ($items as $item) {
-                $url = $item['url'] ?? null;
-                if ($url === null) {
-                    continue;
-                }
-
-                if ($this->articleRepository->existsByCollectionEntryAndUrl($entry->id, $url)) {
-                    continue;
-                }
-
-                $publishedAt = isset($item['date'])
-                    ? new \DateTimeImmutable($item['date'])
-                    : null;
-
-                $article = new Article(
-                    id: Uuid::v4()->toRfc4122(),
-                    collectionEntry: $entry,
-                    title: mb_substr((string) ($item['title'] ?? 'Jikan News'), 0, 500),
-                    url: $url,
-                    sourceName: 'jikan-news',
-                    author: $item['author_username'] ?? null,
-                    imageUrl: $item['images']['jpg']['image_url'] ?? null,
-                    publishedAt: $publishedAt,
-                );
-                $this->articleRepository->save($article);
-                ++$newCount;
-            }
-
-            $log->markSuccess($newCount);
-            $this->activityLogRepository->save($log);
-            $this->logger->info('Jikan news fetched', ['malId' => $message->malId, 'manga' => $message->mangaTitle, 'new' => $newCount]);
-        } catch (\Throwable $e) {
-            $log->markError($e->getMessage());
-            $this->activityLogRepository->save($log);
-            $this->logger->error('Jikan news failed', ['malId' => $message->malId, 'error' => $e->getMessage()]);
+            $this->eventBus->publish(new JikanFetchSucceededEvent(
+                correlationId: $started->correlationId,
+                malId: $message->malId,
+                collectionEntryId: $entry->id,
+                newCount: $result->newCount,
+                itemsReceived: $result->itemsReceived,
+                mangaTitle: $entry->manga->title,
+                mangaCoverUrl: $entry->manga->coverUrl,
+            ));
+        } catch (Throwable $e) {
+            $this->eventBus->publish(new JikanFetchFailedEvent(
+                correlationId: $started->correlationId,
+                malId: $message->malId,
+                collectionEntryId: $entry->id,
+                error: $e->getMessage(),
+                exceptionClass: $e::class,
+            ));
             throw $e;
         }
     }

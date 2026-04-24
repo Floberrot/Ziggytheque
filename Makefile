@@ -44,8 +44,9 @@ logs-back: ## Tail backend logs
 ##@ Backend
 
 .PHONY: cc
-cc: ## Clear Symfony cache
+cc: ## Clear Symfony cache (dev on back, prod on worker)
 	$(BACK) php bin/console cache:clear
+	$(DC) exec worker php bin/console cache:clear
 
 .PHONY: migrate
 migrate: ## Run Doctrine migrations
@@ -82,6 +83,12 @@ phpcbf: ## Auto-fix PHP code style
 .PHONY: test-php
 test-php: ## Run PHP tests
 	$(BACK) composer test
+
+.PHONY: restart-worker
+restart-worker: ## Clear prod cache and restart Messenger worker
+	$(DC) exec worker php bin/console cache:clear
+	$(DC) restart worker
+	@echo "Worker restarted."
 
 .PHONY: logs-worker
 logs-worker: ## Tail Messenger worker logs
@@ -153,6 +160,8 @@ setup: hooks ## First-time setup: start containers, wait for back, generate JWT 
 	@echo "Dropping existing schema..."
 	docker compose exec back php bin/console doctrine:schema:drop --force --full-database
 	$(MAKE) migrate
+	@echo "Restarting containers..."
+	$(DC) restart worker back
 
 ##@ Help
 

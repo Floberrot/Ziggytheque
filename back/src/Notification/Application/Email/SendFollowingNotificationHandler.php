@@ -23,7 +23,8 @@ final readonly class SendFollowingNotificationHandler
         private Environment $twig,
         private LoggerInterface $logger,
         private string $notificationEmail,
-    ) {}
+    ) {
+    }
 
     public function __invoke(SendFollowingNotificationMessage $message): void
     {

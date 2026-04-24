@@ -35,7 +35,7 @@ framework:
             App\Wishlist\Application\Purchase\PurchaseWishlistItemCommand: sync
             App\Notification\Application\Fetch\FetchRssFeedMessage: async
             App\Notification\Application\Fetch\FetchJikanNewsMessage: async
-            App\Notification\Application\Email\SendFollowingNotificationMessage: async
+            App\Notification\Application\Discord\SendDiscordNotificationMessage: async
 
 when@test:
     framework:

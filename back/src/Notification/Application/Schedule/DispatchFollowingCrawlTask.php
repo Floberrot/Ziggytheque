@@ -7,7 +7,8 @@ namespace App\Notification\Application\Schedule;
 use App\Collection\Domain\CollectionRepositoryInterface;
 use App\Notification\Application\Fetch\FetchJikanNewsMessage;
 use App\Notification\Application\Fetch\FetchRssFeedMessage;
-use Psr\Log\LoggerInterface;
+use App\Notification\Shared\Event\SchedulerFiredEvent;
+use App\Shared\Application\Bus\EventBusInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Scheduler\Attribute\AsCronTask;
 
@@ -15,26 +16,21 @@ use Symfony\Component\Scheduler\Attribute\AsCronTask;
  * Runs at 07:00 and 19:00 every day.
  * Dispatches async crawl jobs (one per source per followed manga).
  */
-#[AsCronTask('* * * * *')]
+#[AsCronTask('0 7,19 * * *')]
 final readonly class DispatchFollowingCrawlTask
 {
     public function __construct(
         private CollectionRepositoryInterface $collectionRepository,
         private MessageBusInterface $messageBus,
-        private LoggerInterface $logger,
+        private EventBusInterface $eventBus,
         /** @var array<int, array{name: string, url: string}> */
         private array $rssFeeds,
-    ) {}
+    ) {
+    }
 
     public function __invoke(): void
     {
-        $followed = $this->collectionRepository->findFollowed();
-
-        if (empty($followed)) {
-            $this->logger->info('FollowingCrawl: no followed entries, skipping.');
-            return;
-        }
-
+        $followed  = $this->collectionRepository->findFollowed();
         $totalJobs = 0;
 
         foreach ($followed as $entry) {
@@ -58,9 +54,9 @@ final readonly class DispatchFollowingCrawlTask
             }
         }
 
-        $this->logger->info('FollowingCrawl dispatched', [
-            'followed' => count($followed),
-            'jobs'     => $totalJobs,
-        ]);
+        $this->eventBus->publish(new SchedulerFiredEvent(
+            followedCount: count($followed),
+            jobsDispatched: $totalJobs,
+        ));
     }
 }

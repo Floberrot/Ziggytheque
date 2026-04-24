@@ -22,3 +22,4 @@ front/dist/
 Thumbs.db
 /back/config/jwt/private.pem
 /back/config/jwt/public.pem
+/.claude/screeshots/

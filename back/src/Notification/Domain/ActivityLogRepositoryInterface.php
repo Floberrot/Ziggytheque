@@ -8,6 +8,13 @@ interface ActivityLogRepositoryInterface
 {
     public function save(ActivityLog $log): void;
 
-    /** @return ActivityLog[] */
-    public function findRecent(int $limit = 50): array;
+    public function findById(string $id): ?ActivityLog;
+
+    /**
+     * @param array{eventType?: string, status?: string, collectionEntryId?: string} $filters
+     * @return array{items: ActivityLog[], total: int}
+     */
+    public function findPaginated(int $page, int $limit, array $filters = []): array;
+
+    public function countRecentErrors(int $windowMinutes = 10): int;
 }
