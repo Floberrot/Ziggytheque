@@ -1,6 +1,7 @@
 # Dependencies
 back/vendor/
 front/node_modules/
+node_modules/
 
 # Environment
 back/.env.local
