@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Wishlist\Domain;
 
 use App\Manga\Domain\Manga;
+use DateTimeImmutable;
+use DateTimeInterface;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
@@ -12,7 +14,7 @@ use Doctrine\ORM\Mapping as ORM;
 class WishlistItem
 {
     #[ORM\Column]
-    public \DateTimeImmutable $addedAt;
+    public DateTimeImmutable $addedAt;
 
     public function __construct(
         #[ORM\Id]
@@ -24,7 +26,7 @@ class WishlistItem
         #[ORM\Column]
         public bool $isPurchased = false,
     ) {
-        $this->addedAt = new \DateTimeImmutable();
+        $this->addedAt = new DateTimeImmutable();
     }
 
     /** @return array<string, mixed> */
@@ -34,7 +36,7 @@ class WishlistItem
             'id' => $this->id,
             'manga' => $this->manga->toArray(),
             'isPurchased' => $this->isPurchased,
-            'addedAt' => $this->addedAt->format(\DateTimeInterface::ATOM),
+            'addedAt' => $this->addedAt->format(DateTimeInterface::ATOM),
         ];
     }
 }

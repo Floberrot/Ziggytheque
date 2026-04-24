@@ -6,6 +6,7 @@ namespace App\Stats\Application\GetStats;
 
 use App\Collection\Domain\CollectionEntry;
 use App\Collection\Domain\VolumeEntry;
+use BackedEnum;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -79,7 +80,7 @@ final readonly class GetStatsHandler
 
         $genreBreakdown = [];
         foreach ($genreRows as $row) {
-            $genre = $row['genre'] instanceof \BackedEnum ? $row['genre']->value : 'other';
+            $genre = $row['genre'] instanceof BackedEnum ? $row['genre']->value : 'other';
             $genreBreakdown[$genre] = (int) $row['count'];
         }
 

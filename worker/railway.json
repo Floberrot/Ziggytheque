@@ -9,8 +9,8 @@
     }
   },
   "deploy": {
-    "startCommand": "php bin/console messenger:consume async --time-limit=3600 -vv",
-    "restartPolicyType": "ON_FAILURE",
+    "startCommand": "php bin/console messenger:consume async scheduler_default --time-limit=3600 -vv",
+    "restartPolicyType": "ALWAYS",
     "restartPolicyMaxRetries": 5
   }
 }

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Shared\Domain\Exception;
 
-abstract class DomainException extends \RuntimeException
+use RuntimeException;
+
+abstract class DomainException extends RuntimeException
 {
     abstract public function getHttpStatusCode(): int;
 }
