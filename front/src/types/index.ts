@@ -25,7 +25,7 @@ export interface MangaDetail extends Manga {
 }
 
 export type ReadingStatus = 'not_started' | 'in_progress' | 'completed' | 'on_hold' | 'dropped'
-export type VolumeToggleField = 'isOwned' | 'isRead' | 'isWished'
+export type VolumeToggleField = 'isOwned' | 'isRead' | 'isWished' | 'isAnnounced'
 
 export interface VolumeEntry {
   id: string
@@ -36,6 +36,7 @@ export interface VolumeEntry {
   isOwned: boolean
   isRead: boolean
   isWished: boolean
+  isAnnounced: boolean
   review: string | null
   rating: number | null
 }

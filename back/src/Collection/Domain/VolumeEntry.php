@@ -28,6 +28,8 @@ class VolumeEntry
         public bool $isRead = false,
         #[ORM\Column]
         public bool $isWished = false,
+        #[ORM\Column(options: ['default' => false])]
+        public bool $isAnnounced = false,
         #[ORM\Column(type: 'text', nullable: true)]
         public ?string $review = null,
         #[ORM\Column(nullable: true)]
@@ -47,6 +49,7 @@ class VolumeEntry
             'isOwned' => $this->isOwned,
             'isRead' => $this->isRead,
             'isWished' => $this->isWished,
+            'isAnnounced' => $this->isAnnounced,
             'review' => $this->review,
             'rating' => $this->rating,
         ];

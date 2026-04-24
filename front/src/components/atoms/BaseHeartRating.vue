@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { Heart } from 'lucide-vue-next'
 import './BaseHeartRating.css'
 
 const props = withDefaults(defineProps<{
@@ -92,9 +93,7 @@ function onClick(heartIndex: number, half: 'left' | 'right') {
       v-if="modelValue !== null"
       class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 backdrop-blur-sm"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-3.5 h-3.5 text-rose-500" fill="currentColor">
-        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-      </svg>
+      <Heart class="w-3.5 h-3.5 text-rose-500" fill="currentColor" />
       <span class="text-xs font-semibold text-rose-600 tabular-nums">
         {{ (modelValue / 2).toFixed(1).replace('.0', '') }}
       </span>
@@ -117,9 +116,7 @@ function onClick(heartIndex: number, half: 'left' | 'right') {
       <div class="absolute inset-0 w-1/2 overflow-hidden z-10" @mouseenter="onHalfEnter(i, 'left')" @click="onClick(i, 'left')" />
       <div class="absolute inset-0 left-1/2 w-1/2 overflow-hidden z-10" @mouseenter="onHalfEnter(i, 'right')" @click="onClick(i, 'right')" />
 
-      <svg v-if="heartState(i, 'right') === 'full'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-5 h-5 text-rose-500 transition-transform duration-100" :class="!readonly && hovered !== null ? 'scale-110' : ''" fill="currentColor">
-        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-      </svg>
+      <Heart v-if="heartState(i, 'right') === 'full'" class="w-5 h-5 text-rose-500 transition-transform duration-100" :class="!readonly && hovered !== null ? 'scale-110' : ''" fill="currentColor" />
 
       <svg v-else-if="heartState(i, 'left') === 'full' && heartState(i, 'right') !== 'full'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-5 h-5 transition-transform duration-100" :class="!readonly && hovered !== null ? 'scale-110' : ''">
         <defs>
@@ -130,9 +127,7 @@ function onClick(heartIndex: number, half: 'left' | 'right') {
         <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="none" stroke="currentColor" stroke-width="1.5" class="text-base-content/20" :clip-path="`url(#right-${i})`"/>
       </svg>
 
-      <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-5 h-5 text-base-content/20 transition-transform duration-100" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-      </svg>
+      <Heart v-else class="w-5 h-5 text-base-content/20 transition-transform duration-100" :class="!readonly && hovered !== null ? 'scale-110' : ''" />
     </div>
 
     <span v-if="modelValue !== null" class="text-xs text-base-content/50 font-medium tabular-nums ml-0.5">({{ labelText }})</span>
@@ -173,17 +168,13 @@ function onClick(heartIndex: number, half: 'left' | 'right') {
 
               <!-- Mini hearts preview -->
               <div class="flex justify-center gap-1 mt-3 mb-6">
-                <svg
+                <Heart
                   v-for="i in 5"
                   :key="i"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
                   class="w-6 h-6 transition-colors duration-100"
                   :class="sheetValue >= i * 2 ? 'text-rose-500' : sheetValue >= i * 2 - 1 ? 'text-rose-300' : 'text-base-content/15'"
                   fill="currentColor"
-                >
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                </svg>
+                />
               </div>
 
               <!-- Slider -->

@@ -10,7 +10,7 @@ final readonly class ToggleVolumeRequest
 {
     public function __construct(
         #[Assert\NotBlank]
-        #[Assert\Choice(choices: ['isOwned', 'isRead', 'isWished'])]
+        #[Assert\Choice(choices: ['isOwned', 'isRead', 'isWished', 'isAnnounced'])]
         public string $field,
     ) {
     }

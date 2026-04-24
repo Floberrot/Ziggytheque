@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
+import { Search, Plus, Book } from 'lucide-vue-next'
 import { getCollection } from '@/api/collection'
 import { useI18n } from 'vue-i18n'
 import MangaCard from '@/components/organisms/MangaCard.vue'
@@ -64,9 +65,7 @@ const totalVolumes = computed(() => collection.value?.reduce((s, e) => s + e.tot
               <span class="text-xs opacity-70">au total</span>
             </div>
             <RouterLink to="/add" class="btn btn-primary btn-sm gap-1.5 shadow">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
-              </svg>
+              <Plus class="h-4 w-4" stroke-width="2.5" />
               {{ t('collection.add') }}
             </RouterLink>
           </div>
@@ -75,9 +74,7 @@ const totalVolumes = computed(() => collection.value?.reduce((s, e) => s + e.tot
         <!-- Search bar -->
         <div class="mt-5 max-w-md">
           <label class="input input-bordered flex items-center gap-2 bg-base-100">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-40 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+            <Search class="h-4 w-4 opacity-40 shrink-0" />
             <input
               v-model="search"
               type="search"
@@ -103,9 +100,7 @@ const totalVolumes = computed(() => collection.value?.reduce((s, e) => s + e.tot
       <!-- Empty state -->
       <div v-else-if="filtered.length === 0" class="flex flex-col items-center justify-center py-24 gap-4">
         <div class="opacity-20">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-          </svg>
+          <Book class="h-16 w-16" stroke-width="1" />
         </div>
         <p class="text-base-content/40 text-lg font-medium">
           {{ search ? 'Aucun résultat pour cette recherche' : t('collection.empty') }}
