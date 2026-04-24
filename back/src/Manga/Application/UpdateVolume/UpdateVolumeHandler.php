@@ -7,6 +7,7 @@ namespace App\Manga\Application\UpdateVolume;
 use App\Manga\Domain\MangaRepositoryInterface;
 use App\Manga\Domain\Volume;
 use App\Shared\Domain\Exception\NotFoundException;
+use DateTimeImmutable;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler(bus: 'command.bus')]
@@ -38,7 +39,7 @@ final readonly class UpdateVolumeHandler
         }
 
         if ($command->releaseDate !== null) {
-            $volume->releaseDate = new \DateTimeImmutable($command->releaseDate);
+            $volume->releaseDate = new DateTimeImmutable($command->releaseDate);
         }
 
         if ($command->price !== null) {

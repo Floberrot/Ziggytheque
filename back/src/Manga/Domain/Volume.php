@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Manga\Domain;
 
+use DateTimeImmutable;
+use DateTimeInterface;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
@@ -25,7 +27,7 @@ class Volume
         #[ORM\Column(type: 'float', nullable: true)]
         public ?float $price = null,
         #[ORM\Column(nullable: true)]
-        public ?\DateTimeImmutable $releaseDate = null,
+        public ?DateTimeImmutable $releaseDate = null,
     ) {
     }
 
@@ -37,7 +39,7 @@ class Volume
             'number' => $this->number,
             'coverUrl' => $this->coverUrl,
             'price' => $this->price,
-            'releaseDate' => $this->releaseDate?->format(\DateTimeInterface::ATOM),
+            'releaseDate' => $this->releaseDate?->format(DateTimeInterface::ATOM),
         ];
     }
 }

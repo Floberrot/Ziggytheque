@@ -7,6 +7,7 @@ namespace App\Manga\Application\AddVolume;
 use App\Manga\Domain\MangaRepositoryInterface;
 use App\Manga\Domain\Volume;
 use App\Shared\Domain\Exception\NotFoundException;
+use DateTimeImmutable;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Uid\Uuid;
 
@@ -32,7 +33,7 @@ final readonly class AddVolumeHandler
             number: $command->number,
             coverUrl: $command->coverUrl,
             releaseDate: $command->releaseDate !== null
-                ? new \DateTimeImmutable($command->releaseDate)
+                ? new DateTimeImmutable($command->releaseDate)
                 : null,
         );
 

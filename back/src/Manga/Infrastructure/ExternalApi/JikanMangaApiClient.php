@@ -7,6 +7,7 @@ namespace App\Manga\Infrastructure\ExternalApi;
 use App\Manga\Domain\ExternalApiClientInterface;
 use App\Manga\Domain\ExternalMangaDto;
 use Psr\Log\LoggerInterface;
+use Throwable;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 final readonly class JikanMangaApiClient implements ExternalApiClientInterface
@@ -49,7 +50,7 @@ final readonly class JikanMangaApiClient implements ExternalApiClientInterface
             $this->logger->info('Jikan: returning results', ['count' => count($results)]);
 
             return $results;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->logger->error('Jikan: search failed', ['error' => $e->getMessage()]);
             throw $e;
         }
@@ -72,7 +73,7 @@ final readonly class JikanMangaApiClient implements ExternalApiClientInterface
             $this->logger->info('Jikan: fetch complete', ['found' => $result !== null]);
 
             return $result;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->logger->error('Jikan: fetch by id failed', ['error' => $e->getMessage()]);
             throw $e;
         }

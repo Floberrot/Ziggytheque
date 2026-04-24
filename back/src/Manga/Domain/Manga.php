@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Manga\Domain;
 
+use DateTimeImmutable;
+use DateTimeInterface;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -23,7 +25,7 @@ class Manga
     public Collection $volumes;
 
     #[ORM\Column]
-    public \DateTimeImmutable $createdAt;
+    public DateTimeImmutable $createdAt;
 
     public function __construct(
         #[ORM\Id]
@@ -47,7 +49,7 @@ class Manga
         public ?string $externalId = null,
     ) {
         $this->volumes = new ArrayCollection();
-        $this->createdAt = new \DateTimeImmutable();
+        $this->createdAt = new DateTimeImmutable();
     }
 
     public function addVolume(Volume $volume): void
@@ -71,7 +73,7 @@ class Manga
             'genre' => $this->genre?->value,
             'externalId' => $this->externalId,
             'totalVolumes' => $this->volumes->count(),
-            'createdAt' => $this->createdAt->format(\DateTimeInterface::ATOM),
+            'createdAt' => $this->createdAt->format(DateTimeInterface::ATOM),
         ];
     }
 

@@ -6,6 +6,7 @@ namespace App\Collection\Application\ToggleFollow;
 
 use App\Collection\Domain\CollectionRepositoryInterface;
 use App\Shared\Domain\Exception\NotFoundException;
+use DateTimeImmutable;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler(bus: 'command.bus')]
@@ -25,7 +26,7 @@ final readonly class ToggleFollowHandler
         $entry->notificationsEnabled = !$entry->notificationsEnabled;
 
         if ($entry->notificationsEnabled) {
-            $entry->notificationsEnabledAt = new \DateTimeImmutable();
+            $entry->notificationsEnabledAt = new DateTimeImmutable();
         }
 
         $this->repository->save($entry);

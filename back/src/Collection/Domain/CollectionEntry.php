@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Collection\Domain;
 
 use App\Manga\Domain\Manga;
+use DateTimeImmutable;
+use DateTimeInterface;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -24,7 +26,7 @@ class CollectionEntry
     public Collection $volumeEntries;
 
     #[ORM\Column]
-    public \DateTimeImmutable $addedAt;
+    public DateTimeImmutable $addedAt;
 
     public function __construct(
         #[ORM\Id]
@@ -42,12 +44,12 @@ class CollectionEntry
         #[ORM\Column]
         public bool $notificationsEnabled = false,
         #[ORM\Column(nullable: true)]
-        public ?\DateTimeImmutable $lastNotifiedAt = null,
+        public ?DateTimeImmutable $lastNotifiedAt = null,
         #[ORM\Column(nullable: true)]
-        public ?\DateTimeImmutable $notificationsEnabledAt = null,
+        public ?DateTimeImmutable $notificationsEnabledAt = null,
     ) {
         $this->volumeEntries = new ArrayCollection();
-        $this->addedAt = new \DateTimeImmutable();
+        $this->addedAt = new DateTimeImmutable();
     }
 
     /** @return array<string, mixed> */
@@ -66,8 +68,8 @@ class CollectionEntry
                 ->count(),
             'totalVolumes' => $this->manga->volumes->count(),
             'notificationsEnabled' => $this->notificationsEnabled,
-            'notificationsEnabledAt' => $this->notificationsEnabledAt?->format(\DateTimeInterface::ATOM),
-            'addedAt' => $this->addedAt->format(\DateTimeInterface::ATOM),
+            'notificationsEnabledAt' => $this->notificationsEnabledAt?->format(DateTimeInterface::ATOM),
+            'addedAt' => $this->addedAt->format(DateTimeInterface::ATOM),
             'ownedValue' => array_sum(array_map(
                 fn (VolumeEntry $ve) => $ve->isOwned ? ($ve->volume->price ?? 0.0) : 0.0,
                 $this->volumeEntries->toArray(),
