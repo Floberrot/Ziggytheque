@@ -38,14 +38,18 @@ final readonly class DoctrineArticleRepository implements ArticleRepositoryInter
         $qb = $this->em->createQueryBuilder()
             ->select('a')
             ->from(Article::class, 'a')
+            ->join('a.collectionEntry', 'ce')
             ->orderBy('a.createdAt', 'DESC');
 
         if ($collectionEntryId !== null) {
-            $qb->where('a.collectionEntry = :ceId')
+            $qb->where('ce.id = :ceId')
                ->setParameter('ceId', $collectionEntryId);
+        } else {
+            // TOUS : masquer les entrées dont les notifs sont désactivées
+            $qb->where('ce.notificationsEnabled = true');
         }
 
-        $total = (clone $qb)->select('COUNT(a.id)')->getQuery()->getSingleScalarResult();
+        $total = (clone $qb)->select('COUNT(a.id)')->resetDQLPart('orderBy')->getQuery()->getSingleScalarResult();
 
         $items = $qb
             ->setFirstResult(($page - 1) * $limit)

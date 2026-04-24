@@ -10,5 +10,6 @@ final readonly class FetchJikanNewsMessage
         public string $collectionEntryId,
         public string $mangaTitle,
         public string $malId,
-    ) {}
+    ) {
+    }
 }

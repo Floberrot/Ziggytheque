@@ -14,7 +14,9 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/api/articles')]
 final readonly class ArticleController
 {
-    public function __construct(private QueryBusInterface $queryBus) {}
+    public function __construct(private QueryBusInterface $queryBus)
+    {
+    }
 
     #[Route('', methods: ['GET'])]
     public function list(Request $request): JsonResponse
@@ -31,10 +33,14 @@ final readonly class ArticleController
     #[Route('/activity-logs', methods: ['GET'])]
     public function activityLogs(Request $request): JsonResponse
     {
-        $limit = min(200, max(1, (int) $request->query->get('limit', 50)));
+        $page              = max(1, (int) $request->query->get('page', 1));
+        $limit             = min(100, max(1, (int) $request->query->get('limit', 50)));
+        $eventType         = $request->query->get('eventType') ?: null;
+        $status            = $request->query->get('status') ?: null;
+        $collectionEntryId = $request->query->get('collectionEntryId') ?: null;
 
         return new JsonResponse(
-            $this->queryBus->ask(new GetActivityLogsQuery($limit)),
+            $this->queryBus->ask(new GetActivityLogsQuery($page, $limit, $eventType, $status, $collectionEntryId)),
         );
     }
 }

@@ -73,6 +73,7 @@ export interface Article {
   sourceName: string
   author: string | null
   imageUrl: string | null
+  snippet: string | null
   publishedAt: string | null
   createdAt: string
 }
@@ -85,17 +86,38 @@ export interface ArticlePage {
   totalPages: number
 }
 
+export type EventType =
+  | 'rss_fetch'
+  | 'jikan_fetch'
+  | 'discord_sent'
+  | 'scheduler_fire'
+  | 'http_error'
+  | 'worker_failure'
+  | 'user_action'
+
+export type LogStatus = 'running' | 'success' | 'error'
+
 export interface ActivityLog {
   id: string
-  collectionEntryId: string
-  mangaTitle: string
-  sourceType: 'rss' | 'jikan'
+  eventType: EventType
   sourceName: string
-  status: 'running' | 'success' | 'error'
+  collectionEntryId: string | null
+  mangaTitle: string | null
+  status: LogStatus
   errorMessage: string | null
   newArticlesCount: number | null
+  metadata: Record<string, unknown> | null
+  durationMs: number | null
   startedAt: string
   finishedAt: string | null
+}
+
+export interface ActivityLogPage {
+  items: ActivityLog[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
 }
 
 export interface CollectionEntryDetail extends CollectionEntry {

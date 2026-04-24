@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
+import { useQuery } from '@tanstack/vue-query'
 import { getArticles } from '@/api/notification'
-import { getCollection, toggleFollow } from '@/api/collection'
+import { getCollection } from '@/api/collection'
 import { useI18n } from 'vue-i18n'
 import ArticleCard from '@/components/molecules/ArticleCard.vue'
 import type { CollectionEntry } from '@/types'
 
 const { t } = useI18n()
-const qc = useQueryClient()
 
 const page = ref(1)
 const limit = 12
@@ -30,23 +29,11 @@ const { data: articlePage, isPending } = useQuery({
 
 watch(selectedCollectionId, () => { page.value = 1 })
 
-const toggleFollowMutation = useMutation({
-  mutationFn: (id: string) => toggleFollow(id),
-  onSuccess: () => qc.invalidateQueries({ queryKey: ['collection'] }),
-})
 </script>
 
 <template>
   <div class="p-4 sm:p-6 space-y-6">
     <h1 class="text-2xl font-bold">{{ t('notifications.title') }}</h1>
-
-    <div v-if="isPending" class="flex justify-center py-16">
-      <span class="loading loading-spinner loading-lg" />
-    </div>
-
-    <div v-else-if="!notifications?.length" class="text-center py-16 text-base-content/50">
-      {{ t('notifications.empty') }}
-    </div>
 
     <div class="max-w-4xl mx-auto px-6 py-8 space-y-6">
       <!-- Filter bar -->

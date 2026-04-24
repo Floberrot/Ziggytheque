@@ -5,6 +5,7 @@
     "wishlist": "Wishlist",
     "add": "Add",
     "notifications": "Notifications",
+    "journal": "Journal",
     "logout": "Logout",
     "settings": "Settings"
   },
@@ -102,6 +103,27 @@
     "confirm": "Confirm",
     "saved": "Rating saved",
     "error": "Failed to save rating"
+  },
+  "journal": {
+    "title": "Activity Journal",
+    "allTypes": "All types",
+    "allStatuses": "All statuses",
+    "allMangas": "All mangas",
+    "running": "Running",
+    "success": "Success",
+    "error": "Error",
+    "date": "Date",
+    "type": "Type",
+    "manga": "Manga",
+    "source": "Source",
+    "status": "Status",
+    "articles": "Articles",
+    "duration": "Duration",
+    "entries": "entries",
+    "empty": "No events recorded",
+    "userAction": "User action",
+    "search": "Search",
+    "hint": "Select filters and click Search"
   },
   "common": {
     "search": "Search...",

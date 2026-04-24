@@ -10,5 +10,6 @@ final readonly class SendFollowingNotificationMessage
         public string $collectionEntryId,
         /** @var string[] */
         public array $articleIds,
-    ) {}
+    ) {
+    }
 }

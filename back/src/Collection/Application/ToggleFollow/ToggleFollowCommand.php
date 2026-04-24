@@ -6,5 +6,7 @@ namespace App\Collection\Application\ToggleFollow;
 
 final readonly class ToggleFollowCommand
 {
-    public function __construct(public string $collectionEntryId) {}
+    public function __construct(public string $collectionEntryId)
+    {
+    }
 }

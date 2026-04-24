@@ -2,11 +2,15 @@ parameters:
     gate_password: '%env(GATE_PASSWORD)%'
     jwt_ttl: '%env(int:JWT_TTL)%'
     notification_email: '%env(NOTIFICATION_EMAIL)%'
+    discord_webhook_url: '%env(default::DISCORD_WEBHOOK_URL)%'
     following.rss_feeds:
-        - { name: 'manga-news', url: 'https://www.manga-news.com/index.php/feed/' }
-        - { name: 'nautiljon', url: 'https://www.nautiljon.com/rss.xml' }
-        - { name: 'anime-kun', url: 'https://www.anime-kun.net/feed/' }
-        - { name: 'animotaku', url: 'https://animotaku.fr/feed/' }
+        - { name: 'manga-news',      url: 'https://www.manga-news.com/index.php/feed/news' }
+        - { name: 'adala-news',      url: 'https://adala-news.fr/feed/' }
+        - { name: 'animeland',       url: 'https://animeland.fr/feed/' }
+        - { name: 'animotaku',       url: 'https://animotaku.fr/feed/' }
+        - { name: 'nautiljon',       url: 'http://feeds.feedburner.com/nautiljon/NdFI' }
+        - { name: 'journal-du-japon', url: 'https://www.journaldujapon.com/feed/' }
+        - { name: 'planete-bd',      url: 'http://feeds.feedburner.com/PlaneteBdLight-ChroniquesMangas' }
 
 services:
     _defaults:
@@ -74,10 +78,27 @@ services:
     App\Notification\Domain\ActivityLogRepositoryInterface:
         alias: App\Notification\Infrastructure\Doctrine\DoctrineActivityLogRepository
 
+    App\Notification\Infrastructure\Doctrine\DoctrineActivityLogRepository:
+        arguments:
+            $doctrine: '@doctrine'
+
     App\Notification\Application\Schedule\DispatchFollowingCrawlTask:
         arguments:
             $rssFeeds: '%following.rss_feeds%'
 
+    App\Notification\Domain\Service\RssFeedParserInterface:
+        alias: App\Notification\Infrastructure\Rss\RssFeedParser
+
+    App\Notification\Domain\Service\JikanNewsClientInterface:
+        alias: App\Notification\Infrastructure\Jikan\JikanNewsClient
+
     App\Notification\Application\Email\SendFollowingNotificationHandler:
         arguments:
             $notificationEmail: '%notification_email%'
+
+    App\Notification\Domain\DiscordNotifierInterface:
+        alias: App\Notification\Infrastructure\Discord\DiscordNotifier
+
+    App\Notification\Infrastructure\Discord\DiscordNotifier:
+        arguments:
+            $webhookUrl: '%env(default::DISCORD_WEBHOOK_URL)%'

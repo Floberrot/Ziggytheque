@@ -49,6 +49,11 @@ defineProps<{ article: Article }>()
         {{ article.title }}
       </h3>
 
+      <!-- Snippet -->
+      <p v-if="article.snippet" class="text-[11px] text-base-content/55 leading-relaxed line-clamp-2 italic mt-0.5">
+        {{ article.snippet }}
+      </p>
+
       <!-- Author + date -->
       <div class="flex items-center gap-3 text-[11px] text-base-content/40 mt-1">
         <span v-if="article.author">par {{ article.author }}</span>

@@ -10,7 +10,9 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 #[AsMessageHandler(bus: 'query.bus')]
 final readonly class GetArticlesHandler
 {
-    public function __construct(private ArticleRepositoryInterface $repository) {}
+    public function __construct(private ArticleRepositoryInterface $repository)
+    {
+    }
 
     /** @return array{items: array<int, array<string, mixed>>, total: int, page: int, limit: int, totalPages: int} */
     public function __invoke(GetArticlesQuery $query): array

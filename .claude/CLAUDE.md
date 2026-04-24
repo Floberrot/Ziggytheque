@@ -27,12 +27,26 @@
 - `Stats/` — GetStats query (totalOwned, totalRead, totalWishlist, collectionValue, genreBreakdown)
 - `Notification/` — Notification entity, stub endpoints
 
+## Code Style
+
+- **Never use FQCN for PHP built-in classes** — always add a `use` import at the top of the file. Applies to `\DateTimeImmutable`, `\DateTimeInterface`, `\SimpleXMLElement`, `\Throwable`, `\RuntimeException`, etc.
+
+```php
+// Bad
+$dt = new \DateTimeImmutable('2026-04-01');
+
+// Good
+use DateTimeImmutable;
+$dt = new DateTimeImmutable('2026-04-01');
+```
+
 ## Key Patterns
 - Hexagonal: Domain → Application → Infrastructure
 - CQRS via Symfony Messenger (command.bus / query.bus / event.bus), default_bus: command.bus
 - No try/catch in controllers — ExceptionListener handles all DomainExceptions
 - #[MapRequestPayload] on every controller that reads a request body
 - `final readonly` on every class that is not extended
+- Full architecture rules with code examples: **see `.claude/backend.md`** — mandatory reading before any backend work
 
 ## Frontend (front/src/)
 - Atomic Design: atoms (Base*) → molecules → organisms → pages
