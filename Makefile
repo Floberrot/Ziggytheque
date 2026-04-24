@@ -138,6 +138,7 @@ hooks: ## Install git hooks from .githooks/
 install: ## Install all dependencies (local)
 	cd back && composer install
 	cd front && npm install
+	npm install
 
 .PHONY: setup
 setup: hooks ## First-time setup: start containers, wait for back, generate JWT keys, migrate, seed price codes
