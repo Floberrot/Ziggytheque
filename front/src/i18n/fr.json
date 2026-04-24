@@ -73,7 +73,10 @@
     "totalVolumes": "Nombre de tomes"
   },
   "volume": {
-    "price": "Prix (€)"
+    "price": "Prix (€)",
+    "announced": "Annoncé",
+    "wished": "Souhaité",
+    "untracked": "Non suivi"
   },
   "notifications": {
     "title": "Notifications",

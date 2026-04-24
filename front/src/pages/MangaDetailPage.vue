@@ -3,12 +3,14 @@ import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import {
+  ArrowLeft, Star, RefreshCw, Book, BookOpen, Check, CheckSquare, Pencil, Trash2, Eye, Tag, Megaphone, Package, Info,
+} from 'lucide-vue-next'
+import {
   getCollectionEntry,
   removeFromCollection,
   updateReadingStatus,
   toggleVolume,
   addRemainingToWishlist,
-  purchaseVolume,
   syncVolumes,
   batchSetVolumePrice,
   updateCollectionRating,
@@ -18,7 +20,7 @@ import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
 import EnrichVolumeModal from '@/components/organisms/EnrichVolumeModal.vue'
 import BaseHeartRating from '@/components/atoms/BaseHeartRating.vue'
-import type { ReadingStatus, VolumeEntry } from '@/types'
+import type { ReadingStatus, VolumeEntry, VolumeToggleField } from '@/types'
 import { coverUrl } from '@/utils/coverUrl'
 
 const route = useRoute()
@@ -210,7 +212,7 @@ const statusMutation = useMutation({
 })
 
 const toggleMutation = useMutation({
-  mutationFn: ({ veId, field }: { veId: string; field: 'isOwned' | 'isRead' | 'isWished' }) =>
+  mutationFn: ({ veId, field }: { veId: string; field: VolumeToggleField }) =>
     toggleVolume(id, veId, field),
   onSuccess: () => {
     qc.invalidateQueries({ queryKey: ['collection', id] })
@@ -231,17 +233,6 @@ const addToWishlistMutation = useMutation({
   },
 })
 
-const purchaseMutation = useMutation({
-  mutationFn: (veId: string) => purchaseVolume(id, veId),
-  onSuccess: () => {
-    qc.invalidateQueries({ queryKey: ['collection', id] })
-    qc.invalidateQueries({ queryKey: ['collection'] })
-    qc.invalidateQueries({ queryKey: ['wishlist'] })
-    qc.invalidateQueries({ queryKey: ['stats'] })
-    ui.addToast(t('wishlist.purchased'), 'success')
-    closeContextMenu()
-  },
-})
 
 const syncMutation = useMutation({
   mutationFn: () => syncVolumes(id, syncTarget.value !== '' ? Number(syncTarget.value) : undefined),
@@ -301,12 +292,14 @@ function volumeRingClass(ve: VolumeEntry): string {
   if (ve.isOwned && ve.isRead) return 'ring-info/80'
   if (ve.isOwned) return 'ring-success/70'
   if (ve.isWished) return 'ring-warning/60'
+  if (ve.isAnnounced && !ve.isOwned) return 'ring-secondary/60'
   return 'ring-base-300/30'
 }
 
 function volumeOpacityClass(ve: VolumeEntry): string {
   if (ve.isOwned) return 'opacity-100'
   if (ve.isWished) return 'opacity-65'
+  if (ve.isAnnounced && !ve.isOwned) return 'opacity-60'
   return 'opacity-25 grayscale'
 }
 </script>
@@ -332,9 +325,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
             :to="{ name: 'collection' }"
             class="md:hidden inline-flex items-center gap-1.5 text-sm text-base-content/50 hover:text-base-content mb-4 transition-colors"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
+            <ArrowLeft class="h-4 w-4" />
             Collection
           </RouterLink>
           <div class="flex flex-col sm:flex-row gap-5 sm:gap-6">
@@ -346,15 +337,11 @@ function volumeOpacityClass(ve: VolumeEntry): string {
               >
                 <img v-if="entry.manga.coverUrl" :src="coverUrl(entry.manga.coverUrl)!" :alt="entry.manga.title" class="w-full h-full object-cover" />
                 <div v-else class="w-full h-full flex items-center justify-center bg-base-200 text-base-content/20">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
+                  <Book class="h-10 w-10" stroke-width="1.5" />
                 </div>
                 <!-- Edit overlay -->
                 <div class="absolute inset-0 bg-black/50 opacity-0 group-hover/cover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
+                  <Pencil class="h-7 w-7 text-white" />
                 </div>
               </div>
               <!-- Cover URL edit popover -->
@@ -401,9 +388,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                     title="Renommer"
                     @click="startEditTitle"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
+                    <Pencil class="h-4 w-4" />
                   </button>
                 </div>
 
@@ -427,9 +412,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                       title="Modifier l'édition"
                       @click="startEditEdition"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
+                      <Pencil class="h-3 w-3" />
                     </button>
                   </div>
                   <span class="badge badge-outline">{{ entry.manga.language.toUpperCase() }}</span>
@@ -494,9 +477,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                   :class="{ loading: addToWishlistMutation.isPending.value }"
                   @click="addToWishlistMutation.mutate()"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                  </svg>
+                  <Star class="h-4 w-4" />
                   Souhaiter les {{ missingVolumes.length }} manquants
                 </button>
 
@@ -504,9 +485,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                   class="btn btn-ghost btn-sm gap-1"
                   @click="showSyncPanel = !showSyncPanel"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
+                  <RefreshCw class="h-4 w-4" />
                   Ajouter tomes
                 </button>
 
@@ -520,9 +499,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
 
               <!-- Batch price pill -->
               <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-base-200/60 border border-dashed border-base-content/15 text-xs self-start">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-base-content/35 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                </svg>
+                <Tag class="h-3 w-3 text-base-content/35 shrink-0" />
                 <span class="text-base-content/40 font-medium tracking-wide">€ / tome</span>
                 <input
                   v-model.number="batchPrice"
@@ -540,9 +517,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                   :disabled="batchPrice === null || batchPriceMutation.isPending.value"
                   @click="batchPrice !== null && batchPriceMutation.mutate(batchPrice)"
                 >
-                  <svg v-if="!batchPriceMutation.isPending.value" xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
+                  <Check v-if="!batchPriceMutation.isPending.value" class="h-3 w-3" stroke-width="3" />
                   <span v-else class="loading loading-spinner loading-[8px]" />
                 </button>
               </div>
@@ -595,15 +570,16 @@ function volumeOpacityClass(ve: VolumeEntry): string {
               <span class="flex items-center gap-1.5">
                 <span class="w-2 h-2 rounded-sm bg-warning ring-1 ring-warning inline-block" />Souhaité
               </span>
+              <span class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-sm bg-secondary ring-1 ring-secondary inline-block" />Annoncé
+              </span>
             </div>
             <button
               class="btn btn-xs gap-1"
               :class="batchMode ? 'btn-primary' : 'btn-ghost'"
               @click="toggleBatchMode"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-              </svg>
+              <CheckSquare class="w-3 h-3" />
               {{ batchMode ? 'Terminer' : 'Sélectionner' }}
             </button>
           </div>
@@ -663,7 +639,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
               >
                 <span
                   class="font-bold text-xl"
-                  :class="ve.isOwned ? 'text-base-content/50' : ve.isWished ? 'text-warning/60' : 'text-base-content/15'"
+                  :class="ve.isOwned ? 'text-base-content/50' : ve.isWished ? 'text-warning/60' : ve.isAnnounced ? 'text-secondary/50' : 'text-base-content/15'"
                 >
                   {{ ve.number }}
                 </span>
@@ -683,12 +659,17 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                 class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
               >
                 <div class="bg-white/80 rounded-full p-1 shadow">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
+                  <Eye class="h-4 w-4 text-primary" />
                 </div>
               </div>
+            </div>
+
+            <!-- Announced badge (top-left) -->
+            <div
+              v-if="ve.isAnnounced && !ve.isOwned"
+              class="absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full bg-secondary flex items-center justify-center z-10 pointer-events-none shadow-sm"
+            >
+              <Megaphone class="w-2 h-2 text-secondary-content" />
             </div>
 
             <!-- Wished badge (top-right) -->
@@ -696,15 +677,13 @@ function volumeOpacityClass(ve: VolumeEntry): string {
               v-if="ve.isWished && !ve.isOwned"
               class="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-warning flex items-center justify-center z-10 pointer-events-none shadow-sm"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-2 h-2 text-warning-content" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-              </svg>
+              <Star class="w-2 h-2 text-warning-content" fill="currentColor" stroke-width="0" />
             </div>
 
             <!-- Number label -->
             <div
               class="text-center text-[10px] sm:text-[9px] mt-0.5 tabular-nums font-semibold leading-tight"
-              :class="ve.isOwned ? 'text-base-content/60' : ve.isWished ? 'text-warning/60' : 'text-base-content/20'"
+              :class="ve.isOwned ? 'text-base-content/60' : ve.isWished ? 'text-warning/60' : ve.isAnnounced ? 'text-secondary/60' : 'text-base-content/20'"
             >
               T{{ ve.number }}
             </div>
@@ -740,7 +719,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
   <Teleport to="body">
     <div v-if="contextMenu" class="fixed inset-0 z-[90]" @click="closeContextMenu">
       <div
-        class="absolute bg-base-100 rounded-xl shadow-2xl border border-base-300 overflow-hidden w-52 py-1"
+        class="absolute bg-base-100 rounded-xl shadow-2xl border border-base-300 overflow-hidden w-48 py-1"
         :style="{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }"
         @click.stop
       >
@@ -748,64 +727,75 @@ function volumeOpacityClass(ve: VolumeEntry): string {
           Tome {{ contextMenu.ve.number }}
         </div>
         <ul class="menu menu-xs p-1 gap-0.5">
-          <li v-if="contextMenu.ve.isOwned">
-            <a
-              class="gap-2 text-sm"
-              :class="{ 'pointer-events-none opacity-50': toggleMutation.isPending.value }"
-              @click="toggleMutation.mutate({ veId: contextMenu.ve.id, field: 'isRead' })"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-              <span :class="contextMenu.ve.isRead ? 'text-base-content/60' : 'font-medium'">
-                {{ contextMenu.ve.isRead ? 'Marquer non lu' : 'Marquer lu' }}
-              </span>
-              <span v-if="contextMenu.ve.isRead" class="ml-auto badge badge-info badge-xs">Lu</span>
-            </a>
-          </li>
+          <!-- Annoncé (only when not owned) -->
           <li v-if="!contextMenu.ve.isOwned">
             <a
               class="gap-2 text-sm"
-              :class="{ 'pointer-events-none opacity-50': toggleMutation.isPending.value }"
+              :class="[
+                { 'pointer-events-none opacity-50': toggleMutation.isPending.value },
+                contextMenu.ve.isAnnounced ? 'text-base-content font-semibold' : '',
+              ]"
+              @click="toggleMutation.mutate({ veId: contextMenu.ve.id, field: 'isAnnounced' })"
+            >
+              <Megaphone class="h-4 w-4" :class="contextMenu.ve.isAnnounced ? 'text-base-content' : 'text-base-content/50'" />
+              Annoncé
+              <span v-if="contextMenu.ve.isAnnounced" class="ml-auto badge badge-neutral badge-xs">●</span>
+            </a>
+          </li>
+          <!-- Possédé (toggle in both directions) -->
+          <li>
+            <a
+              class="gap-2 text-sm"
+              :class="[
+                { 'pointer-events-none opacity-50': toggleMutation.isPending.value },
+                contextMenu.ve.isOwned ? 'text-success font-semibold' : '',
+              ]"
               @click="toggleMutation.mutate({ veId: contextMenu.ve.id, field: 'isOwned' })"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-              <span class="font-medium">Marquer possédé</span>
+              <Package class="h-4 w-4" :class="contextMenu.ve.isOwned ? 'text-success' : 'text-base-content/50'" />
+              Possédé
+              <span v-if="contextMenu.ve.isOwned" class="ml-auto badge badge-success badge-xs">●</span>
             </a>
           </li>
-          <li v-if="!contextMenu.ve.isOwned && !contextMenu.ve.isWished">
+          <!-- Lu (only when owned) -->
+          <li v-if="contextMenu.ve.isOwned">
             <a
               class="gap-2 text-sm"
-              :class="{ 'pointer-events-none opacity-50': toggleMutation.isPending.value }"
+              :class="[
+                { 'pointer-events-none opacity-50': toggleMutation.isPending.value },
+                contextMenu.ve.isRead ? 'text-info font-semibold' : '',
+              ]"
+              @click="toggleMutation.mutate({ veId: contextMenu.ve.id, field: 'isRead' })"
+            >
+              <BookOpen class="h-4 w-4" :class="contextMenu.ve.isRead ? 'text-info' : 'text-base-content/50'" />
+              Lu
+              <span v-if="contextMenu.ve.isRead" class="ml-auto badge badge-info badge-xs">●</span>
+            </a>
+          </li>
+          <!-- Wishlist (only when not owned) -->
+          <li v-if="!contextMenu.ve.isOwned">
+            <a
+              class="gap-2 text-sm"
+              :class="[
+                { 'pointer-events-none opacity-50': toggleMutation.isPending.value },
+                contextMenu.ve.isWished ? 'text-warning font-semibold' : '',
+              ]"
               @click="toggleMutation.mutate({ veId: contextMenu.ve.id, field: 'isWished' })"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-              </svg>
-              <span>Ajouter à la wishlist</span>
-            </a>
-          </li>
-          <li v-if="contextMenu.ve.isWished && !contextMenu.ve.isOwned">
-            <a
-              class="gap-2 text-sm"
-              :class="{ 'pointer-events-none opacity-50': purchaseMutation.isPending.value }"
-              @click="purchaseMutation.mutate(contextMenu.ve.id)"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              <span>Marquer acheté</span>
+              <Star
+                class="h-4 w-4"
+                :class="contextMenu.ve.isWished ? 'text-warning' : 'text-base-content/50'"
+                :fill="contextMenu.ve.isWished ? 'currentColor' : 'none'"
+              />
+              Wishlist
+              <span v-if="contextMenu.ve.isWished" class="ml-auto badge badge-warning badge-xs">●</span>
             </a>
           </li>
           <div class="h-px bg-base-200 my-0.5 mx-2" />
           <li>
             <a class="gap-2 text-sm" @click="openModalFromContext">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <span>Détails / Couverture</span>
+              <Info class="h-4 w-4" />
+              Détails
             </a>
           </li>
         </ul>
@@ -831,9 +821,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
               :disabled="isBatchProcessing"
               @click="batchToggle('isRead')"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
+              <BookOpen class="h-4 w-4" />
               Marquer lus
             </button>
             <button
@@ -842,9 +830,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
               :disabled="isBatchProcessing"
               @click="batchToggle('isRead')"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
+              <BookOpen class="h-4 w-4" />
               Marquer non lus
             </button>
             <button
@@ -853,9 +839,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
               :disabled="isBatchProcessing"
               @click="batchToggle('isOwned')"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
+              <Package class="h-4 w-4" />
               Marquer possédés
             </button>
             <button
@@ -864,9 +848,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
               :disabled="isBatchProcessing"
               @click="batchToggle('isWished')"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-              </svg>
+              <Star class="h-4 w-4" />
               Wishlist
             </button>
           </div>
@@ -886,9 +868,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
         <div class="relative z-10 bg-base-100 rounded-2xl shadow-2xl p-6 max-w-sm w-full">
           <div class="flex items-start gap-3 mb-4">
             <div class="w-10 h-10 rounded-full bg-error/15 flex items-center justify-center shrink-0 text-error">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
+              <Trash2 class="h-5 w-5" />
             </div>
             <div>
               <h3 class="font-bold text-lg leading-tight">Retirer de la collection ?</h3>

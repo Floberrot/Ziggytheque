@@ -9,7 +9,7 @@ final readonly class ToggleVolumeCommand
     public function __construct(
         public string $collectionEntryId,
         public string $volumeEntryId,
-        public string $field, // 'isOwned' | 'isRead'
+        public string $field, // 'isOwned' | 'isRead' | 'isWished' | 'isAnnounced'
     ) {
     }
 }

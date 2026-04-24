@@ -38,11 +38,14 @@ final readonly class ToggleVolumeHandler
             $volumeEntry->isOwned = !$volumeEntry->isOwned;
             if ($volumeEntry->isOwned) {
                 $volumeEntry->isWished = false;
+                $volumeEntry->isAnnounced = false;
             }
         } elseif ($command->field === 'isRead') {
             $volumeEntry->isRead = !$volumeEntry->isRead;
         } elseif ($command->field === 'isWished') {
             $volumeEntry->isWished = !$volumeEntry->isWished;
+        } elseif ($command->field === 'isAnnounced') {
+            $volumeEntry->isAnnounced = !$volumeEntry->isAnnounced;
         }
 
         $this->autoUpdateReadingStatus($entry);

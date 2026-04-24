@@ -73,7 +73,10 @@
     "totalVolumes": "Total volumes"
   },
   "volume": {
-    "price": "Price (€)"
+    "price": "Price (€)",
+    "announced": "Announced",
+    "wished": "Wished",
+    "untracked": "Untracked"
   },
   "notifications": {
     "title": "Notifications",

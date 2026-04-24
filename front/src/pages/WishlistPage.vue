@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
+import { CheckSquare, X, Star, Plus, ArrowRight, Check, ShoppingCart, Book } from 'lucide-vue-next'
 import { getWishlist, clearWishlist, purchaseVolume } from '@/api/wishlist'
 import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
@@ -129,15 +130,11 @@ function goToDetail(id: string) {
             :class="batchMode ? 'btn-primary' : 'btn-ghost'"
             @click="toggleBatchMode"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
+            <CheckSquare class="h-4 w-4" />
             {{ batchMode ? 'Terminer' : 'Sélectionner' }}
           </button>
           <RouterLink to="/add" class="btn btn-warning btn-sm gap-1.5 shadow">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
-            </svg>
+            <Plus class="h-4 w-4" stroke-width="2.5" />
             Ajouter
           </RouterLink>
         </div>
@@ -160,9 +157,7 @@ function goToDetail(id: string) {
       <!-- Empty -->
       <div v-else-if="!entries?.length" class="flex flex-col items-center justify-center py-24 gap-4">
         <div class="opacity-20">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-          </svg>
+          <Star class="h-16 w-16" stroke-width="1" />
         </div>
         <p class="text-base-content/40 text-lg font-medium">{{ t('wishlist.empty') }}</p>
         <p class="text-base-content/30 text-sm text-center max-w-xs">
@@ -191,16 +186,12 @@ function goToDetail(id: string) {
               class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 hover:scale-105"
             />
             <div v-else class="absolute inset-0 flex items-center justify-center text-base-content/20">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
+              <Book class="h-10 w-10" stroke-width="1.5" />
             </div>
             <!-- Wished count badge -->
             <div class="absolute top-2 left-2 z-10">
               <span class="badge badge-warning badge-sm font-bold shadow gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                </svg>
+                <Star class="h-3 w-3" />
                 {{ wishedVolumes(entry).length }}
               </span>
             </div>
@@ -237,9 +228,7 @@ function goToDetail(id: string) {
                   title="Retirer de la liste de souhaits"
                   @click="clearMutation.mutate(entry.id)"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <X class="h-4 w-4" />
                 </button>
               </div>
             </div>
@@ -292,9 +281,7 @@ function goToDetail(id: string) {
                       class="absolute inset-0 flex items-center justify-center transition-all duration-150"
                       :class="selectedVeIds.has(ve.id) ? 'bg-primary/80' : 'bg-transparent hover:bg-base-content/10'"
                     >
-                      <svg v-if="selectedVeIds.has(ve.id)" class="w-6 h-6 text-white drop-shadow" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                      </svg>
+                      <Check v-if="selectedVeIds.has(ve.id)" class="w-6 h-6 text-white drop-shadow" stroke-width="3" />
                     </div>
 
                     <!-- Purchase overlay (normal mode hover) -->
@@ -302,9 +289,7 @@ function goToDetail(id: string) {
                       v-else
                       class="absolute inset-0 bg-success/90 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center text-success-content"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
-                      </svg>
+                      <Check class="h-5 w-5" stroke-width="2.5" />
                     </div>
                   </div>
                   <div
@@ -318,9 +303,7 @@ function goToDetail(id: string) {
                 <!-- View all CTA -->
                 <div class="shrink-0 cursor-pointer" @click="goToDetail(entry.id)">
                   <div class="w-14 h-20 rounded-xl border-2 border-dashed border-base-300 hover:border-primary flex items-center justify-center transition-colors text-base-content/30 hover:text-primary">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                    </svg>
+                    <ArrowRight class="h-5 w-5" />
                   </div>
                   <div class="text-center text-[10px] mt-1 text-base-content/25 leading-none">voir tout</div>
                 </div>
@@ -355,9 +338,7 @@ function goToDetail(id: string) {
             :class="{ loading: isBatchProcessing }"
             @click="batchPurchase"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
+            <ShoppingCart class="h-4 w-4" />
             Marquer acheté{{ selectedVeIds.size > 1 ? 's' : '' }}
           </button>
           <button class="btn btn-ghost btn-sm shrink-0" @click="selectedVeIds = new Set()">

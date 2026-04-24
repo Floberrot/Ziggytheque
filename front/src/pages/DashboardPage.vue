@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { useI18n } from 'vue-i18n'
+import { Book } from 'lucide-vue-next'
 import { getStats } from '@/api/stats'
 import StatCard from '@/components/molecules/StatCard.vue'
 import GenrePieChart from '@/components/molecules/GenrePieChart.vue'
@@ -126,9 +127,9 @@ const today = computed(() =>
                 />
                 <div
                   v-else
-                  class="w-16 h-24 bg-base-300 rounded-lg flex items-center justify-center text-2xl group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-200"
+                  class="w-16 h-24 bg-base-300 rounded-lg flex items-center justify-center text-base-content/30 group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-200"
                 >
-                  📚
+                  <Book class="h-8 w-8" />
                 </div>
                 <div class="absolute -bottom-1.5 -right-1.5 badge badge-xs badge-primary font-semibold">
                   {{ entry.ownedCount }}/{{ entry.totalVolumes }}
