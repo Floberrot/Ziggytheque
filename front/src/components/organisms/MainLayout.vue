@@ -34,13 +34,20 @@ function closeSettings() {
   settingsOpen.value = false
 }
 
-const navItems = [
+interface NavItem {
+  name: string
+  labelKey: string
+  icon: unknown
+  comingSoon?: true
+}
+
+const navItems: NavItem[] = [
   { name: 'dashboard',     labelKey: 'nav.dashboard',     icon: LayoutDashboard },
   { name: 'collection',    labelKey: 'nav.collection',    icon: Library },
   { name: 'wishlist',      labelKey: 'nav.wishlist',      icon: ShoppingCart },
   { name: 'add',           labelKey: 'nav.add',           icon: PlusCircle },
   { name: 'notifications', labelKey: 'nav.notifications', icon: Bell, comingSoon: true },
-] as const
+]
 </script>
 
 <template>
