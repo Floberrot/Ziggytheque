@@ -11,6 +11,8 @@ final readonly class FetchRssFeedMessage
         public string $mangaTitle,
         public string $feedName,
         public string $feedUrl,
+        public string $crawlJobId,
+        public string $crawlRunId,
     ) {
     }
 }

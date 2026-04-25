@@ -18,7 +18,7 @@ const searched  = ref(false)
 
 const { data: collection } = useQuery({ queryKey: ['collection'], queryFn: getCollection })
 
-const { data, isPending, refetch } = useQuery({
+const { data, isLoading, isFetching, refetch } = useQuery({
   queryKey: computed(() => ['journal', page.value, eventType.value, status.value, ceId.value]),
   queryFn: () => getActivityLogs({
     page: page.value,
@@ -28,7 +28,8 @@ const { data, isPending, refetch } = useQuery({
     collectionEntryId: ceId.value || undefined,
   }),
   enabled: searched,
-  refetchInterval: computed(() => searched.value ? 30_000 : false),
+  // Plain number — not a computed. TanStack Query + enabled:searched already gates execution.
+  refetchInterval: 30_000,
 })
 
 function search() {
@@ -38,13 +39,17 @@ function search() {
 }
 
 const EVENT_TYPES: { value: EventType | ''; label: string }[] = [
-  { value: '',               label: t('journal.allTypes') },
-  { value: 'rss_fetch',     label: 'RSS' },
-  { value: 'jikan_fetch',   label: 'Jikan' },
-  { value: 'discord_sent',  label: 'Discord' },
-  { value: 'scheduler_fire',label: 'Scheduler' },
-  { value: 'worker_failure',label: 'Worker' },
-  { value: 'user_action',   label: t('journal.userAction') },
+  { value: '',                  label: t('journal.allTypes') },
+  { value: 'rss_fetch',         label: 'RSS' },
+  { value: 'jikan_fetch',       label: 'Jikan' },
+  { value: 'discord_sent',      label: 'Discord' },
+  { value: 'scheduler_fire',    label: 'Scheduler' },
+  { value: 'worker_failure',    label: 'Worker' },
+  { value: 'user_action',       label: t('journal.userAction') },
+  { value: 'collection_action', label: 'Collection' },
+  { value: 'manga_action',      label: 'Manga' },
+  { value: 'auth_action',       label: 'Auth' },
+  { value: 'wishlist_action',   label: 'Wishlist' },
 ]
 
 const STATUSES: { value: LogStatus | ''; label: string }[] = [
@@ -71,7 +76,7 @@ const STATUSES: { value: LogStatus | ''; label: string }[] = [
         <option value="">{{ t('journal.allMangas') }}</option>
         <option v-for="e in collection" :key="e.id" :value="e.id">{{ e.manga.title }}</option>
       </select>
-      <button class="btn btn-sm btn-primary" :class="{ loading: isPending }" @click="search">
+      <button class="btn btn-sm btn-primary" :class="{ loading: isFetching }" @click="search">
         {{ t('journal.search') }}
       </button>
       <span v-if="searched" class="text-xs text-base-content/40 ml-auto">
@@ -85,7 +90,7 @@ const STATUSES: { value: LogStatus | ''; label: string }[] = [
     </div>
 
     <!-- Loading skeleton -->
-    <div v-else-if="isPending" class="space-y-1">
+    <div v-else-if="isLoading" class="space-y-1">
       <div v-for="i in 10" :key="i" class="h-10 rounded bg-base-200 animate-pulse" />
     </div>
 

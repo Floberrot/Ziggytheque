@@ -22,6 +22,7 @@ services:
         exclude:
             - '../src/*/Domain/Exception/'
             - '../src/Shared/Domain/'
+            - '../src/*/Shared/Event/'
 
     # Gate auth
     App\Auth\Infrastructure\Http\GateUserProvider:
@@ -43,7 +44,7 @@ services:
         alias: App\Shared\Infrastructure\Bus\MessengerQueryBus
 
     App\Shared\Application\Bus\EventBusInterface:
-        alias: App\Shared\Infrastructure\Bus\MessengerEventBus
+        alias: App\Shared\Infrastructure\Bus\SymfonyEventBus
 
     # Repository interfaces bound to Doctrine implementations
     App\Manga\Domain\MangaRepositoryInterface:
@@ -75,6 +76,13 @@ services:
     App\Notification\Domain\ArticleRepositoryInterface:
         alias: App\Notification\Infrastructure\Doctrine\DoctrineArticleRepository
 
+    App\Notification\Domain\CrawlRunRepositoryInterface:
+        alias: App\Notification\Infrastructure\Doctrine\DoctrineCrawlRunRepository
+
+    App\Notification\Domain\CrawlJobRepositoryInterface:
+        alias: App\Notification\Infrastructure\Doctrine\DoctrineCrawlJobRepository
+
+
     App\Notification\Domain\ActivityLogRepositoryInterface:
         alias: App\Notification\Infrastructure\Doctrine\DoctrineActivityLogRepository
 
@@ -102,3 +110,6 @@ services:
     App\Notification\Infrastructure\Discord\DiscordNotifier:
         arguments:
             $webhookUrl: '%env(default::DISCORD_WEBHOOK_URL)%'
+
+    App\Stats\Domain\StatsRepositoryInterface:
+        alias: App\Stats\Infrastructure\Doctrine\DoctrineStatsRepository

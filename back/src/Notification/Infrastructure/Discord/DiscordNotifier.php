@@ -70,6 +70,60 @@ final readonly class DiscordNotifier implements DiscordNotifierInterface
         $this->send(['embeds' => [$embed]]);
     }
 
+    /**
+     * @param array<int, array{
+     *     mangaTitle: string,
+     *     mangaCoverUrl: string|null,
+     *     articles: array<int, array{title: string, url: string}>
+     * }> $entries
+     */
+    public function sendSchedulerSummary(array $entries): void
+    {
+        $entries   = array_slice($entries, 0, 10);
+        $total     = count($entries);
+        $now       = new DateTimeImmutable();
+        $timestamp = $now->format(DateTimeInterface::ATOM);
+        $embeds    = [];
+
+        foreach ($entries as $i => $entry) {
+            $lines = array_map(
+                static fn (array $a) => sprintf('• [%s](%s)', mb_substr($a['title'], 0, 100), $a['url']),
+                array_slice($entry['articles'], 0, 8),
+            );
+
+            $embed = [
+                'title'       => mb_substr($entry['mangaTitle'], 0, 256),
+                'description' => mb_substr(implode("\n", $lines), 0, 4096),
+                'color'       => self::COLOR_GREEN,
+                'timestamp'   => $timestamp,
+            ];
+
+            if ($entry['mangaCoverUrl'] !== null) {
+                $embed['thumbnail'] = ['url' => $entry['mangaCoverUrl']];
+            }
+
+            if ($i === $total - 1) {
+                $embed['footer'] = ['text' => 'Ziggytheque'];
+            }
+
+            $embeds[] = $embed;
+        }
+
+        $mangaCount   = $total;
+        $articleCount = array_sum(array_map(static fn (array $e) => count($e['articles']), $entries));
+
+        $this->send([
+            'content' => sprintf(
+                '📰 **Récap du jour** — %d manga%s · %d article%s',
+                $mangaCount,
+                $mangaCount > 1 ? 's' : '',
+                $articleCount,
+                $articleCount > 1 ? 's' : '',
+            ),
+            'embeds'  => $embeds,
+        ]);
+    }
+
     public function sendAlert(string $title, string $description, bool $critical = false): void
     {
         $this->send([

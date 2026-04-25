@@ -6,6 +6,7 @@ namespace App\Notification\Infrastructure\Doctrine;
 
 use App\Notification\Domain\Article;
 use App\Notification\Domain\ArticleRepositoryInterface;
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 
 final readonly class DoctrineArticleRepository implements ArticleRepositoryInterface
@@ -58,5 +59,21 @@ final readonly class DoctrineArticleRepository implements ArticleRepositoryInter
             ->getResult();
 
         return ['items' => $items, 'total' => (int) $total];
+    }
+
+    public function findCreatedSince(DateTimeImmutable $since): array
+    {
+        return $this->em->createQueryBuilder()
+            ->select('a')
+            ->from(Article::class, 'a')
+            ->join('a.collectionEntry', 'ce')
+            ->join('ce.manga', 'm')
+            ->where('a.createdAt >= :since')
+            ->andWhere('ce.notificationsEnabled = true')
+            ->setParameter('since', $since)
+            ->orderBy('m.title', 'ASC')
+            ->addOrderBy('a.createdAt', 'DESC')
+            ->getQuery()
+            ->getResult();
     }
 }
