@@ -12,5 +12,9 @@ enum EventTypeEnum: string
     case SchedulerFire = 'scheduler_fire';
     case HttpError     = 'http_error';
     case WorkerFailure = 'worker_failure';
-    case UserAction    = 'user_action';
+    case UserAction       = 'user_action';
+    case CollectionAction = 'collection_action';
+    case MangaAction      = 'manga_action';
+    case AuthAction       = 'auth_action';
+    case WishlistAction   = 'wishlist_action';
 }

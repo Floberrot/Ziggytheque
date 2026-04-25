@@ -36,8 +36,24 @@ final readonly class RssFeedParser implements RssFeedParserInterface
             throw RssFeedParserException::httpError($statusCode);
         }
 
+        $content = $response->getContent(false);
+
+        // Strip UTF-8 BOM if present — some feeds include it and simplexml rejects it
+        if (str_starts_with($content, "\xEF\xBB\xBF")) {
+            $content = substr($content, 3);
+        }
+
+        // Reject non-XML payloads early (HTML error pages, Cloudflare challenges, etc.)
+        $trimmed = ltrim($content);
+        $lower   = strtolower($trimmed);
+        $isHtml = str_starts_with($lower, '<!doctype') || str_starts_with($lower, '<html');
+        if (!str_starts_with($trimmed, '<') || $isHtml) {
+            throw RssFeedParserException::invalidXml($feedUrl);
+        }
+
         libxml_use_internal_errors(true);
-        $xml = simplexml_load_string($response->getContent(false));
+        $flags = LIBXML_RECOVER | LIBXML_NOERROR | LIBXML_NOWARNING;
+        $xml   = simplexml_load_string($content, SimpleXMLElement::class, $flags);
         libxml_clear_errors();
 
         if ($xml === false) {

@@ -6,13 +6,17 @@ defineProps<{ log: ActivityLog }>()
 const expanded = ref(false)
 
 const eventTypeLabel: Record<EventType, string> = {
-  rss_fetch:      'RSS',
-  jikan_fetch:    'Jikan',
-  discord_sent:   'Discord',
-  scheduler_fire: 'Scheduler',
-  http_error:     'HTTP Error',
-  worker_failure: 'Worker',
-  user_action:    'API',
+  rss_fetch:         'RSS',
+  jikan_fetch:       'Jikan',
+  discord_sent:      'Discord',
+  scheduler_fire:    'Scheduler',
+  http_error:        'HTTP Error',
+  worker_failure:    'Worker',
+  user_action:       'API',
+  collection_action: 'Collection',
+  manga_action:      'Manga',
+  auth_action:       'Auth',
+  wishlist_action:   'Wishlist',
 }
 
 const statusClass: Record<string, string> = {

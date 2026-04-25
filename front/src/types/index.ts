@@ -94,6 +94,10 @@ export type EventType =
   | 'http_error'
   | 'worker_failure'
   | 'user_action'
+  | 'collection_action'
+  | 'manga_action'
+  | 'auth_action'
+  | 'wishlist_action'
 
 export type LogStatus = 'running' | 'success' | 'error'
 

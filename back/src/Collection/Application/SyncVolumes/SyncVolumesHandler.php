@@ -6,11 +6,16 @@ namespace App\Collection\Application\SyncVolumes;
 
 use App\Collection\Domain\CollectionRepositoryInterface;
 use App\Collection\Domain\VolumeEntry;
+use App\Collection\Shared\Event\SyncVolumesFailedEvent;
+use App\Collection\Shared\Event\SyncVolumesStartedEvent;
+use App\Collection\Shared\Event\SyncVolumesSucceededEvent;
 use App\Manga\Domain\MangaRepositoryInterface;
 use App\Manga\Domain\Volume;
+use App\Shared\Application\Bus\EventBusInterface;
 use App\Shared\Domain\Exception\NotFoundException;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Uid\Uuid;
+use Throwable;
 
 #[AsMessageHandler(bus: 'command.bus')]
 final readonly class SyncVolumesHandler
@@ -18,53 +23,77 @@ final readonly class SyncVolumesHandler
     public function __construct(
         private CollectionRepositoryInterface $collectionRepository,
         private MangaRepositoryInterface $mangaRepository,
+        private EventBusInterface $eventBus,
     ) {
     }
 
     public function __invoke(SyncVolumesCommand $command): void
     {
-        $entry = $this->collectionRepository->findById($command->collectionEntryId);
+        $started = new SyncVolumesStartedEvent(
+            collectionEntryId: $command->collectionEntryId,
+        );
+        $this->eventBus->publish($started);
 
-        if ($entry === null) {
-            throw new NotFoundException('CollectionEntry', $command->collectionEntryId);
-        }
+        try {
+            $entry = $this->collectionRepository->findById($command->collectionEntryId);
 
-        $manga = $entry->manga;
+            if ($entry === null) {
+                throw new NotFoundException('CollectionEntry', $command->collectionEntryId);
+            }
 
-        // Step 1: if upToVolume is given, create missing Volume placeholders on the Manga
-        if ($command->upToVolume !== null && $command->upToVolume > 0) {
-            $existingNumbers = $manga->volumes
-                ->map(fn (Volume $v) => $v->number)
+            $manga = $entry->manga;
+
+            // Step 1: if upToVolume is given, create missing Volume placeholders on the Manga
+            if ($command->upToVolume !== null && $command->upToVolume > 0) {
+                $existingNumbers = $manga->volumes
+                    ->map(fn (Volume $v) => $v->number)
+                    ->toArray();
+
+                for ($n = 1; $n <= $command->upToVolume; $n++) {
+                    if (!in_array($n, $existingNumbers, true)) {
+                        $manga->addVolume(new Volume(
+                            id: Uuid::v4()->toRfc4122(),
+                            manga: $manga,
+                            number: $n,
+                        ));
+                    }
+                }
+
+                $this->mangaRepository->save($manga);
+            }
+
+            // Step 2: create missing VolumeEntries for any Volume not yet tracked
+            $trackedVolumeIds = $entry->volumeEntries
+                ->map(fn (VolumeEntry $ve) => $ve->volume->id)
                 ->toArray();
 
-            for ($n = 1; $n <= $command->upToVolume; $n++) {
-                if (!in_array($n, $existingNumbers, true)) {
-                    $manga->addVolume(new Volume(
+            $addedCount = 0;
+            foreach ($manga->volumes as $volume) {
+                if (!in_array($volume->id, $trackedVolumeIds, true)) {
+                    $entry->volumeEntries->add(new VolumeEntry(
                         id: Uuid::v4()->toRfc4122(),
-                        manga: $manga,
-                        number: $n,
+                        collectionEntry: $entry,
+                        volume: $volume,
                     ));
+                    $addedCount++;
                 }
             }
 
-            $this->mangaRepository->save($manga);
+            $this->collectionRepository->save($entry);
+
+            $this->eventBus->publish(new SyncVolumesSucceededEvent(
+                correlationId: $started->correlationId,
+                collectionEntryId: $entry->id,
+                addedCount: $addedCount,
+            ));
+        } catch (Throwable $e) {
+            $this->eventBus->publish(new SyncVolumesFailedEvent(
+                correlationId: $started->correlationId,
+                collectionEntryId: $command->collectionEntryId,
+                error: $e->getMessage(),
+                exceptionClass: $e::class,
+            ));
+            throw $e;
         }
-
-        // Step 2: create missing VolumeEntries for any Volume not yet tracked
-        $trackedVolumeIds = $entry->volumeEntries
-            ->map(fn (VolumeEntry $ve) => $ve->volume->id)
-            ->toArray();
-
-        foreach ($manga->volumes as $volume) {
-            if (!in_array($volume->id, $trackedVolumeIds, true)) {
-                $entry->volumeEntries->add(new VolumeEntry(
-                    id: Uuid::v4()->toRfc4122(),
-                    collectionEntry: $entry,
-                    volume: $volume,
-                ));
-            }
-        }
-
-        $this->collectionRepository->save($entry);
     }
 }

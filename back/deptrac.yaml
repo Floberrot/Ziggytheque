@@ -12,6 +12,11 @@ deptrac:
         - type: class
           value: 'App\\Auth\\Domain.*'
 
+    - name: Auth_Shared
+      collectors:
+        - type: class
+          value: 'App\\Auth\\Shared.*'
+
     - name: Auth_Application
       collectors:
         - type: class
@@ -28,6 +33,11 @@ deptrac:
         - type: class
           value: 'App\\Collection\\Domain.*'
 
+    - name: Collection_Shared
+      collectors:
+        - type: class
+          value: 'App\\Collection\\Shared.*'
+
     - name: Collection_Application
       collectors:
         - type: class
@@ -43,6 +53,11 @@ deptrac:
       collectors:
         - type: class
           value: 'App\\Manga\\Domain.*'
+
+    - name: Manga_Shared
+      collectors:
+        - type: class
+          value: 'App\\Manga\\Shared.*'
 
     - name: Manga_Application
       collectors:
@@ -97,6 +112,11 @@ deptrac:
         - type: class
           value: 'App\\Wishlist\\Domain.*'
 
+    - name: Wishlist_Shared
+      collectors:
+        - type: class
+          value: 'App\\Wishlist\\Shared.*'
+
     - name: Wishlist_Application
       collectors:
         - type: class
@@ -134,20 +154,32 @@ deptrac:
       - Manga_Domain
       - Collection_Domain
 
+    # Shared layers: can depend on Shared only
+    Auth_Shared:
+      - Shared
+    Collection_Shared:
+      - Shared
+    Manga_Shared:
+      - Shared
+    Notification_Shared:
+      - Shared
+    Wishlist_Shared:
+      - Shared
+
     # Application layers: can depend on their own Domain + Shared + other Application/Domain layers
     Auth_Application:
       - Auth_Domain
+      - Auth_Shared
       - Shared
     Collection_Application:
       - Collection_Domain
+      - Collection_Shared
       - Manga_Domain
       - Shared
     Manga_Application:
       - Manga_Domain
+      - Manga_Shared
       - Shared
-    Notification_Shared:
-      - Shared
-
     Notification_Application:
       - Notification_Domain
       - Notification_Shared
@@ -160,6 +192,7 @@ deptrac:
       - Shared
     Wishlist_Application:
       - Wishlist_Domain
+      - Wishlist_Shared
       - Manga_Domain
       - Collection_Domain
       - Collection_Application
@@ -168,17 +201,23 @@ deptrac:
     # Infrastructure layers: can depend on Domain + Application + Shared (their own and others)
     Auth_Infrastructure:
       - Auth_Domain
+      - Auth_Shared
       - Auth_Application
+      - Notification_Domain
       - Shared
     Collection_Infrastructure:
       - Collection_Domain
+      - Collection_Shared
       - Collection_Application
       - Manga_Domain
       - Manga_Application
+      - Notification_Domain
       - Shared
     Manga_Infrastructure:
       - Manga_Domain
+      - Manga_Shared
       - Manga_Application
+      - Notification_Domain
       - Shared
     Notification_Infrastructure:
       - Notification_Domain
@@ -195,11 +234,13 @@ deptrac:
       - Shared
     Wishlist_Infrastructure:
       - Wishlist_Domain
+      - Wishlist_Shared
       - Wishlist_Application
       - Manga_Domain
       - Manga_Application
       - Collection_Domain
       - Collection_Application
+      - Notification_Domain
       - Shared
 
     # Shared can depend on nothing (it is the base layer)

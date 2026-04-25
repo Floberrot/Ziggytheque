@@ -5,6 +5,8 @@ services:
       dockerfile: Dockerfile.dev
     ports:
       - "8000:80"
+    env_file:
+      - ./back/.env.local
     volumes:
       - ./back:/app
       - back_vendor:/app/vendor
@@ -16,7 +18,6 @@ services:
       CORS_ALLOW_ORIGIN: "^https?://(localhost|127\\.0\\.0\\.1)(:[0-9]+)?$"
       MAILER_DSN: smtp://mailer:1025
       NOTIFICATION_EMAIL: you@example.com
-      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
     depends_on:
       db:
         condition: service_healthy
@@ -60,7 +61,13 @@ services:
     build:
       context: ./back
       dockerfile: Dockerfile.dev
+    # --time-limit=3600: worker gracefully restarts every hour to prevent memory leaks.
+    # restart: unless-stopped ensures Docker immediately relaunches it after each cycle.
+    # Both async (user-triggered jobs) and scheduler_default (cron tasks) run in this process.
     command: php bin/console messenger:consume async scheduler_default --time-limit=3600 -vv
+    restart: unless-stopped
+    env_file:
+      - ./back/.env.local
     volumes:
       - ./back:/app
       - back_vendor:/app/vendor
@@ -70,7 +77,6 @@ services:
       MESSENGER_TRANSPORT_DSN: doctrine://default?auto_setup=0
       MAILER_DSN: smtp://mailer:1025
       NOTIFICATION_EMAIL: you@example.com
-      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
     depends_on:
       db:
         condition: service_healthy

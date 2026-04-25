@@ -247,3 +247,36 @@ Notification_Application:
 
 Every module that needs to be consumed by others **must** expose a `Shared/` layer.
 If a module has no `Shared/`, it cannot be depended upon by other modules.
+
+---
+
+## R7 — ActivityLog lifecycle is handled by 3 generic listeners, not N per-event listeners
+
+**Never** create a listener file per domain event for ActivityLog. Use the 3 generic listeners in
+`Notification/Infrastructure/Listener/`:
+
+- `ActivityLogStartedEventListener` — handles ALL `StartedEventInterface` events → creates log
+- `ActivityLogSucceededEventListener` — handles ALL `SucceededEventInterface` events → markSuccess
+- `ActivityLogFailedEventListener` — handles ALL `FailedEventInterface` events → markError
+
+These work because `SymfonyEventBus` dispatches each event to both its class name AND all its
+`App\` interfaces. New events are automatically covered by implementing the correct marker interface.
+
+```php
+// ✅ Good — new event, zero listener boilerplate
+final readonly class SomeNewStartedEvent implements StartedEventInterface
+{
+    // correlationId, sourceName, collectionEntryId (optional) as public properties
+}
+
+// Automatically handled by ActivityLogStartedEventListener — no new file needed
+```
+
+```php
+// ❌ Bad — do not create ActivityLogSomeNewStartedListener.php
+#[AsEventListener]
+final readonly class ActivityLogSomeNewStartedListener { ... }
+```
+
+`ActivityLogEventHandler` (in `Notification/Domain/Service/`) centralises all creation/update logic.
+The 3 generic listeners inject it and delegate — zero duplication.

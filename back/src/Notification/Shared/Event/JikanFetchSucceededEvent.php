@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Notification\Shared\Event;
 
-final readonly class JikanFetchSucceededEvent
+use App\Shared\Domain\Event\SucceededEventInterface;
+
+final readonly class JikanFetchSucceededEvent implements SucceededEventInterface
 {
     public function __construct(
         public string $correlationId,

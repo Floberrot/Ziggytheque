@@ -41,7 +41,7 @@ class ActivityLog
         #[ORM\Column(type: 'json', nullable: true)]
         public ?array $metadata = null,
     ) {
-        $this->startedAt = new \DateTimeImmutable();
+        $this->startedAt = new DateTimeImmutable();
     }
 
     /** @param array<string, mixed> $metadata */
