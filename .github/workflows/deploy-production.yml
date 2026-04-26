@@ -237,30 +237,21 @@ jobs:
   # --- Docker build validation -----------------------------------------------
 
   docker-build:
-    name: "Gate: Docker Build (prod + worker + frontend)"
+    name: "Gate: Docker Build (prod + frontend)"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
       - name: Build backend prod stage
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: Dockerfile
-          target: prod
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Build worker stage
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile
-          target: worker
-          push: false
-          cache-from: type=gha
       - name: Build frontend
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v5
         with:
           context: front
           file: front/Dockerfile

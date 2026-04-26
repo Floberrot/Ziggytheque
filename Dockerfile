@@ -29,7 +29,7 @@ FROM base AS prod
 
 ENV APP_ENV=prod
 ENV APP_DEBUG=0
-# SERVER_NAME is set at runtime in docker-entrypoint.sh using Railway's PORT env var
+# PORT is injected by Railway at runtime; Caddyfile binds to :{$PORT:80}
 
 COPY back/ .
 
@@ -47,16 +47,7 @@ COPY back/Caddyfile /etc/caddy/Caddyfile
 COPY back/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-EXPOSE ${PORT:-80}
+EXPOSE 80
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
-
-# ── Stage 4: Worker ───────────────────────────────────────────────────────────
-FROM prod AS worker
-
-COPY back/worker-entrypoint.sh /usr/local/bin/worker-entrypoint.sh
-RUN chmod +x /usr/local/bin/worker-entrypoint.sh
-
-ENTRYPOINT ["worker-entrypoint.sh"]
-CMD ["php", "bin/console", "messenger:consume", "async", "scheduler_default", "--time-limit=3600", "-vv"]
