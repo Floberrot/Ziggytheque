@@ -234,9 +234,43 @@ jobs:
       - run: npm run type-check
       - run: npm run lint
 
+  # --- Docker build validation -----------------------------------------------
+
+  docker-build:
+    name: "Gate: Docker Build (prod + worker + frontend)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build backend prod stage
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          target: prod
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build worker stage
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          target: worker
+          push: false
+          cache-from: type=gha
+      - name: Build frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: front
+          file: front/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   # ---------------------------------------------------------------------------
-  # Approval gate — QA must pass; a required reviewer then approves in GitHub
-  # before any production service is touched
+  # Approval gate — QA + Docker build must pass; a required reviewer then
+  # approves in GitHub before any production service is touched
   # ---------------------------------------------------------------------------
 
   approve:
@@ -244,7 +278,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     # db-migrations will logically fail if any pending migration exists. No block in this case.
-    needs: [phpcs, deptrac, phpstan, tests, frontend]
+    needs: [phpcs, deptrac, phpstan, tests, frontend, docker-build]
     steps:
       - run: echo "Production deployment approved — proceeding"
 
@@ -261,9 +295,8 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
       - name: Deploy backend service
-        # Run from repo root so Railway finds railway.json → uses root Dockerfile.
-        # back/ has no Dockerfile, so railway up from back/ triggers Nixpacks (wrong).
-        # COMMIT_MSG is set as env var (not inline) to prevent backticks in the message
+        # Run from repo root — railway.json targets the prod stage (FrankenPHP).
+        # COMMIT_MSG is set as env var to prevent backticks in the message
         # from being interpreted as shell command substitution.
         env:
           COMMIT_MSG: ${{ github.event.head_commit.message }}
@@ -282,10 +315,15 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
       - name: Deploy worker service
-        # Same as back: run from root to pick up railway.json + root Dockerfile.
+        # Must run from root (full build context: back/ front/ available for multi-stage build).
+        # Copy worker/railway.json over railway.json so Railway picks up the worker
+        # build target instead of the prod target defined in the root railway.json.
+        # worker/railway.json uses dockerfilePath: "Dockerfile" (root-relative) and
+        # dockerBuildTarget: "worker".
         env:
           COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
+          cp worker/railway.json railway.json
           railway up \
             --service ziggytheque-worker \
             --ci \
