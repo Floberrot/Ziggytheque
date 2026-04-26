@@ -99,18 +99,31 @@ make setup  # starts containers, waits for back, generates JWT keys, runs migrat
 
 ## Docker Gotchas (learned in production)
 
-### 1. FrankenPHP — always disable auto-HTTPS in Docker
-FrankenPHP/Caddy enables auto-HTTPS by default. In Docker this causes a 308 redirect
-from HTTP to HTTPS, breaking any HTTP proxy pointed at the container.
+### 1. FrankenPHP — always disable auto-HTTPS
 
-**Rule:** Always set `SERVER_NAME: "http://:80"` in the `back` service environment.
-Never use bare `SERVER_NAME: ":80"` or omit it — both trigger TLS.
+FrankenPHP/Caddy enables auto-HTTPS by default. In Docker/Railway this causes a 308
+redirect from HTTP to HTTPS, breaking any HTTP proxy pointed at the container.
+
+**Local dev (docker-compose):** Set `SERVER_NAME: "http://:80"` in the `back` service
+environment (used by FrankenPHP's default Caddyfile in `Dockerfile.dev`).
 
 ```yaml
 # docker-compose.yml — back service
 environment:
   SERVER_NAME: "http://:80"
 ```
+
+**Production (Railway):** Bind directly to `$PORT` in the Caddyfile — do NOT use
+`SERVER_NAME` for production. Railway injects `PORT` at runtime.
+
+```caddy
+# back/Caddyfile
+:{$PORT:80} {
+  ...
+}
+```
+
+Never use bare `SERVER_NAME: ":80"` or omit it in local dev — both trigger TLS.
 
 ### 2. Vite proxy — use Docker service name, never localhost
 When Vite runs inside a Docker container, `localhost` resolves to that container itself,

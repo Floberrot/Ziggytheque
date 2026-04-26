@@ -1,9 +1,6 @@
 #!/bin/sh
 set -e
 
-# FrankenPHP reads SERVER_NAME to determine the port. Railway assigns PORT
-# dynamically, so override the Dockerfile default at runtime.
-export SERVER_NAME="http://:${PORT:-80}"
 echo "[entrypoint] Listening on port ${PORT:-80}"
 
 if [ ! -f config/jwt/private.pem ]; then
