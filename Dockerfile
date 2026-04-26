@@ -51,3 +51,12 @@ EXPOSE ${PORT:-80}
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+
+# ── Stage 4: Worker ───────────────────────────────────────────────────────────
+FROM prod AS worker
+
+COPY back/worker-entrypoint.sh /usr/local/bin/worker-entrypoint.sh
+RUN chmod +x /usr/local/bin/worker-entrypoint.sh
+
+ENTRYPOINT ["worker-entrypoint.sh"]
+CMD ["php", "bin/console", "messenger:consume", "async", "scheduler_default", "--time-limit=3600", "-vv"]

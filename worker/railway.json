@@ -3,13 +3,9 @@
   "build": {
     "builder": "DOCKERFILE",
     "dockerfilePath": "../Dockerfile",
-    "dockerBuildTarget": "prod",
-    "buildArgs": {
-      "JWT_PASSPHRASE": "${{JWT_PASSPHRASE}}"
-    }
+    "dockerBuildTarget": "worker"
   },
   "deploy": {
-    "startCommand": "php bin/console messenger:consume async scheduler_default --time-limit=3600 -vv",
     "restartPolicyType": "ALWAYS",
     "restartPolicyMaxRetries": 5
   }
