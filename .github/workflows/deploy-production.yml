@@ -263,11 +263,15 @@ jobs:
       - name: Deploy backend service
         # Run from repo root so Railway finds railway.json → uses root Dockerfile.
         # back/ has no Dockerfile, so railway up from back/ triggers Nixpacks (wrong).
+        # COMMIT_MSG is set as env var (not inline) to prevent backticks in the message
+        # from being interpreted as shell command substitution.
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           railway up \
             --service ziggytheque-back \
             --ci \
-            -m "Deploy ${{ github.sha }} — ${{ github.event.head_commit.message }}"
+            -m "Deploy ${{ github.sha }} — $COMMIT_MSG"
 
   deploy-worker:
     name: "Production: Deploy Worker"
@@ -279,11 +283,13 @@ jobs:
         run: npm install -g @railway/cli
       - name: Deploy worker service
         # Same as back: run from root to pick up railway.json + root Dockerfile.
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           railway up \
             --service ziggytheque-worker \
             --ci \
-            -m "Deploy ${{ github.sha }} — ${{ github.event.head_commit.message }}"
+            -m "Deploy ${{ github.sha }} — $COMMIT_MSG"
 
   deploy-front:
     name: "Production: Deploy Frontend"
@@ -295,11 +301,13 @@ jobs:
         run: npm install -g @railway/cli
       - name: Deploy frontend service
         working-directory: front
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           railway up \
             --service ziggytheque-front \
             --ci \
-            -m "Deploy ${{ github.sha }} — ${{ github.event.head_commit.message }}"
+            -m "Deploy ${{ github.sha }} — $COMMIT_MSG"
 
   # ---------------------------------------------------------------------------
   # Release gate — fires only after back + worker + front all deploy successfully
