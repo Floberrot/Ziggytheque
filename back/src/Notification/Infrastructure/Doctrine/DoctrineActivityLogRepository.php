@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notification\Infrastructure\Doctrine;
 
+use App\Collection\Domain\CollectionEntry;
 use App\Notification\Domain\ActivityLog;
 use App\Notification\Domain\ActivityLogRepositoryInterface;
 use DateTimeImmutable;
@@ -33,6 +34,15 @@ final readonly class DoctrineActivityLogRepository implements ActivityLogReposit
     public function save(ActivityLog $log): void
     {
         $em = $this->em();
+
+        // Re-resolve collectionEntry in the current EM. After a CollectionEntry is deleted,
+        // the in-memory reference on the log is a detached/removed object that causes
+        // "new entity found" on the next flush. find() returns null when the row is gone,
+        // which is correct: ON DELETE SET NULL already nulled the FK in the DB.
+        if ($log->collectionEntry !== null) {
+            $log->collectionEntry = $em->find(CollectionEntry::class, $log->collectionEntry->id);
+        }
+
         $em->persist($log);
         $em->flush();
     }

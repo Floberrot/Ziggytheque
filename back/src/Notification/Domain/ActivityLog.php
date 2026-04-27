@@ -29,7 +29,7 @@ class ActivityLog
         public readonly string $sourceName,
         #[ORM\ManyToOne(targetEntity: CollectionEntry::class)]
         #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
-        public readonly ?CollectionEntry $collectionEntry = null,
+        public ?CollectionEntry $collectionEntry = null,
         /** 'running' | 'success' | 'error' */
         #[ORM\Column(length: 20)]
         public string $status = 'running',

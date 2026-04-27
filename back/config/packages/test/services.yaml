@@ -1,0 +1,4 @@
+services:
+    # Test-env service overrides are in config/services.yaml under when@test:
+    # This file is intentionally minimal; Symfony loads packages/test/ before services.yaml,
+    # so overrides placed here are overwritten by the production definitions.

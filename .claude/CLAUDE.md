@@ -1,5 +1,28 @@
 # Ziggytheque — Project Instructions
 
+## Testing — Mandatory on Every Feature
+
+**Tests are part of feature delivery, never a separate phase.**
+
+Every time a feature is planned, developed, or removed — this rule is non-negotiable:
+
+| Change | Required test action |
+|---|---|
+| New HTTP endpoint | Add a functional test in `back/tests/Functional/` covering success + all error paths |
+| Modified endpoint (request/response shape, status codes) | Update the corresponding functional test to reflect the new contract |
+| Deleted endpoint | Delete the corresponding functional test |
+| New domain entity / VO / enum | Add a unit test in `back/tests/Unit/` covering construction and all public methods |
+| New domain service or application handler with pure logic | Add a unit test covering all branches |
+| Modified domain object or handler | Update the unit test to match the new behaviour |
+| Deleted domain object or handler | Delete the corresponding unit test |
+
+**Rules:**
+- A feature PR that adds or changes production code without touching `tests/` is **incomplete** — do not mark work as done.
+- Unit tests (`back/tests/Unit/`) cover pure domain objects: entities, VOs, enums, exceptions, domain services. No kernel, no DB, no HTTP.
+- Functional tests (`back/tests/Functional/`) boot the real Symfony kernel and hit real PostgreSQL. They test every HTTP status code the endpoint can return.
+- Use `NullMangaApiClient` and `when@test:` service overrides in `config/services.yaml` to stub external HTTP calls — never let tests reach the real internet.
+- The DAMA PHPUnit extension (configured in `phpunit.dist.xml`) wraps each test in a savepoint; no manual DB cleanup is needed between tests.
+
 ## Git Discipline
 
 - **One commit per PR** — a PR must land as a single commit. Prefer `git commit --amend` to add changes to the current commit; use `git rebase -i` to squash only if amend is not possible.
