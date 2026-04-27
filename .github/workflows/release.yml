@@ -40,7 +40,7 @@ jobs:
             COMMITS_RAW=$(git log "${BASE}..HEAD" --pretty=format:"%s")
 
             BUMP="patch"
-            if echo "$COMMITS_RAW" | grep -qE '^(feat|fix)(\(|!|:)'; then
+            if echo "$COMMITS_RAW" | grep -qE '^feat(\(|!|:)'; then
               BUMP="minor"
             fi
 
