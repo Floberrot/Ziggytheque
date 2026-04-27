@@ -67,9 +67,6 @@ services:
     App\Collection\Domain\CollectionRepositoryInterface:
         alias: App\Collection\Infrastructure\Doctrine\DoctrineCollectionRepository
 
-    App\Wishlist\Domain\WishlistRepositoryInterface:
-        alias: App\Wishlist\Infrastructure\Doctrine\DoctrineWishlistRepository
-
     App\Notification\Domain\NotificationRepositoryInterface:
         alias: App\Notification\Infrastructure\Doctrine\DoctrineNotificationRepository
 
@@ -113,3 +110,8 @@ services:
 
     App\Stats\Domain\StatsRepositoryInterface:
         alias: App\Stats\Infrastructure\Doctrine\DoctrineStatsRepository
+
+when@test:
+    services:
+        App\Manga\Domain\ExternalApiClientInterface:
+            alias: App\Manga\Infrastructure\ExternalApi\NullMangaApiClient

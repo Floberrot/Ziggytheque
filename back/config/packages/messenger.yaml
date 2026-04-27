@@ -30,9 +30,6 @@ framework:
             App\Collection\Application\Remove\RemoveFromCollectionCommand: sync
             App\Collection\Application\ToggleVolume\ToggleVolumeCommand: sync
             App\Collection\Application\UpdateStatus\UpdateReadingStatusCommand: sync
-            App\Wishlist\Application\Add\AddWishlistItemCommand: sync
-            App\Wishlist\Application\Remove\RemoveWishlistItemCommand: sync
-            App\Wishlist\Application\Purchase\PurchaseWishlistItemCommand: sync
             App\Notification\Application\Fetch\FetchRssFeedMessage: async
             App\Notification\Application\Fetch\FetchJikanNewsMessage: async
             App\Notification\Application\Discord\SendSchedulerDiscordSummaryMessage: async

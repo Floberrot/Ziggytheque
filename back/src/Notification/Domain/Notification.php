@@ -33,10 +33,10 @@ class Notification
     public function toArray(): array
     {
         return [
-            'id' => $this->id,
-            'type' => $this->type,
-            'message' => $this->message,
-            'isRead' => $this->isRead,
+            'id'        => $this->id,
+            'type'      => $this->type,
+            'message'   => $this->message,
+            'isRead'    => $this->isRead,
             'createdAt' => $this->createdAt->format(DateTimeInterface::ATOM),
         ];
     }
