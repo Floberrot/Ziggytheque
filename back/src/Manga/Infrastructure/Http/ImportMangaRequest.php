@@ -13,11 +13,10 @@ final readonly class ImportMangaRequest
         #[Assert\Length(max: 255)]
         public string $title,
         #[Assert\NotBlank]
-        #[Assert\Length(max: 100)]
-        public string $edition,
-        #[Assert\NotBlank]
         #[Assert\Length(max: 10)]
         public string $language,
+        #[Assert\Length(max: 100)]
+        public ?string $edition = null,
         public ?string $author = null,
         public ?string $summary = null,
         public ?string $coverUrl = null,

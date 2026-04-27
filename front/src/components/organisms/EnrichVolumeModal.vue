@@ -13,7 +13,7 @@ const props = defineProps<{
   collectionEntryId: string
   mangaId: string
   mangaTitle: string
-  mangaEdition: string
+  mangaEdition: string | null
   volume: VolumeEntry | null
 }>()
 
@@ -53,7 +53,7 @@ watch(() => [props.open, props.volume] as const, ([open, vol], prev) => {
 
   if (justOpened && vol) {
     skipNextSearch = true
-    searchQuery.value = `${props.mangaTitle} tome ${vol.number} ${props.mangaEdition}`.trim()
+    searchQuery.value = `${props.mangaTitle} tome ${vol.number} ${props.mangaEdition ?? ''}`.trim()
     if (!vol.coverUrl) {
       runSearch(searchQuery.value)
     }

@@ -21,6 +21,8 @@ import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
 import EnrichVolumeModal from '@/components/organisms/EnrichVolumeModal.vue'
 import BaseHeartRating from '@/components/atoms/BaseHeartRating.vue'
+import { FRENCH_EDITIONS } from '@/data/editions'
+import BaseEditionSelector from '@/components/atoms/BaseEditionSelector.vue'
 import type { ReadingStatus, VolumeEntry, VolumeToggleField } from '@/types'
 import { coverUrl } from '@/utils/coverUrl'
 
@@ -64,7 +66,7 @@ const editingTitle = ref(false)
 const editingEdition = ref(false)
 const editingCover = ref(false)
 const editTitleValue = ref('')
-const editEditionValue = ref('')
+const editEditionValue = ref<string | null>(null)
 const editCoverValue = ref('')
 
 function startEditTitle() {
@@ -72,11 +74,15 @@ function startEditTitle() {
   editingTitle.value = true
 }
 function startEditEdition() {
-  editEditionValue.value = entry.value?.manga.edition ?? ''
+  editEditionValue.value = entry.value?.manga.edition ?? null
   editingEdition.value = true
 }
 function cancelEditTitle() { editingTitle.value = false }
 function cancelEditEdition() { editingEdition.value = false }
+
+const editionLogo = computed(() =>
+  FRENCH_EDITIONS.find((e) => e.name === entry.value?.manga.edition)?.logo ?? null,
+)
 
 function startEditCover() {
   editCoverValue.value = entry.value?.manga.coverUrl ?? ''
@@ -404,18 +410,31 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                 <!-- Inline edition edit -->
                 <div class="flex flex-wrap gap-1.5 mt-2">
                   <div v-if="editingEdition" class="flex items-center gap-1.5">
-                    <input
-                      v-model="editEditionValue"
-                      class="input input-bordered input-xs font-medium w-40"
-                      autofocus
-                      @keydown.enter="updateMangaMutation.mutate({ edition: editEditionValue })"
-                      @keydown.escape="cancelEditEdition"
+                    <BaseEditionSelector
+                      :model-value="editEditionValue"
+                      input-class="input input-bordered input-xs font-medium w-40"
+                      :autofocus="true"
+                      @update:model-value="editEditionValue = $event"
+                      @confirm="updateMangaMutation.mutate({ edition: editEditionValue ?? '' })"
+                      @cancel="cancelEditEdition"
                     />
-                    <button class="btn btn-primary btn-xs" @click="updateMangaMutation.mutate({ edition: editEditionValue })">✓</button>
+                    <button class="btn btn-primary btn-xs" @click="updateMangaMutation.mutate({ edition: editEditionValue ?? '' })">✓</button>
                     <button class="btn btn-ghost btn-xs" @click="cancelEditEdition">✕</button>
                   </div>
                   <div v-else class="group/edition flex items-center gap-1">
-                    <span class="badge badge-primary cursor-pointer" @click="startEditEdition">{{ entry.manga.edition }}</span>
+                    <span
+                      class="badge cursor-pointer gap-1.5"
+                      :class="entry.manga.edition ? 'badge-primary' : 'badge-ghost'"
+                      @click="startEditEdition"
+                    >
+                      <img
+                        v-if="editionLogo"
+                        :src="editionLogo"
+                        :alt="entry.manga.edition!"
+                        class="w-3.5 h-3.5 rounded-sm object-contain"
+                      />
+                      {{ entry.manga.edition ?? 'Édition inconnue' }}
+                    </span>
                     <button
                       class="btn btn-ghost btn-xs opacity-0 group-hover/edition:opacity-60 transition-opacity p-0 min-h-0 h-auto"
                       title="Modifier l'édition"

@@ -13,8 +13,8 @@ export async function getManga(id: string): Promise<MangaDetail> {
 
 export async function importManga(payload: {
   title: string
-  edition: string
   language: string
+  edition?: string
   author?: string
   summary?: string
   coverUrl?: string
