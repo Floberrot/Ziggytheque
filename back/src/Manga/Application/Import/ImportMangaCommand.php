@@ -8,8 +8,8 @@ final readonly class ImportMangaCommand
 {
     public function __construct(
         public string $title,
-        public string $edition,
         public string $language,
+        public ?string $edition = null,
         public ?string $author = null,
         public ?string $summary = null,
         public ?string $coverUrl = null,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, computed, watch } from 'vue'
+  import { ref, computed } from 'vue'
   import { useRouter } from 'vue-router'
   import { useMutation, useQueryClient } from '@tanstack/vue-query'
   import { ArrowLeft, Search, RefreshCw, Book, ImageOff, Star } from 'lucide-vue-next'
@@ -10,6 +10,7 @@
   import { useExternalSearch } from '@/composables/useExternalSearch'
   import type { ExternalMangaResult } from '@/composables/useExternalSearch'
   import { coverUrl } from '@/utils/coverUrl'
+  import BaseEditionSelector from '@/components/atoms/BaseEditionSelector.vue'
 
   const router = useRouter()
   const qc = useQueryClient()
@@ -77,8 +78,8 @@
     mutationFn: () =>
       importManga({
         title: form.value.title,
-        edition: form.value.edition,
         language: form.value.language,
+        edition: form.value.edition || undefined,
         author: form.value.author || undefined,
         summary: form.value.summary || undefined,
         coverUrl: form.value.coverUrl || undefined,
@@ -130,58 +131,6 @@
     'other',
   ]
 
-  const frenchEditions = [
-    'Pika Édition',
-    'Glénat',
-    'Kana',
-    'Ki-oon',
-    'Kazé Manga',
-    'Kurokawa',
-    'Delcourt / Tonkam',
-    'Akata',
-    'Nobi Nobi!',
-    'Doki-Doki',
-    'Soleil Manga',
-    'Michel Lafon',
-    "J'ai Lu",
-    'Panini Comics',
-    'Bamboo Édition',
-    'Kami',
-    'Vega-Dupuis',
-    'Crunchryroll',
-  ]
-
-  const editionInput = ref('')
-  watch(
-    () => form.value.edition,
-    (v) => {
-      if (v !== editionInput.value) editionInput.value = v
-    },
-  )
-  const editionFiltered = computed(() => {
-    const q = editionInput.value.toLowerCase().trim()
-    if (!q) return frenchEditions
-    return frenchEditions.filter((e) => e.toLowerCase().includes(q))
-  })
-  const showEditionDropdown = ref(false)
-
-  function selectEdition(edition: string) {
-    form.value.edition = edition
-    editionInput.value = edition
-    showEditionDropdown.value = false
-  }
-
-  // Sync editionInput when form.edition changes (e.g. from applyResult)
-  function onEditionInput() {
-    form.value.edition = editionInput.value
-    showEditionDropdown.value = true
-  }
-
-  function onEditionBlur() {
-    setTimeout(() => {
-      showEditionDropdown.value = false
-    }, 150)
-  }
 </script>
 
 <template>
@@ -337,32 +286,12 @@
         </div>
 
         <!-- Edition -->
-        <div class="space-y-1 relative">
-          <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{ t('manga.edition') }} *</label>
-          <input
-            v-model="editionInput"
-            type="text"
-            class="input input-bordered w-full"
-            placeholder="Pika, Glénat, Kana…"
-            required
-            autocomplete="off"
-            @input="onEditionInput"
-            @focus="showEditionDropdown = true"
-            @blur="onEditionBlur"
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{ t('manga.edition') }}</label>
+          <BaseEditionSelector
+            :model-value="form.edition || null"
+            @update:model-value="form.edition = $event ?? ''"
           />
-          <ul
-            v-if="showEditionDropdown && editionFiltered.length"
-            class="absolute top-full left-0 right-0 z-30 mt-0.5 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-44 overflow-y-auto text-sm"
-          >
-            <li
-              v-for="ed in editionFiltered"
-              :key="ed"
-              class="px-3 py-2.5 cursor-pointer hover:bg-primary hover:text-primary-content transition-colors"
-              @mousedown.prevent="selectEdition(ed)"
-            >
-              {{ ed }}
-            </li>
-          </ul>
         </div>
 
         <div class="grid grid-cols-2 gap-3">

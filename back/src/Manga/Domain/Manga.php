@@ -33,8 +33,8 @@ class Manga
         public readonly string $id,
         #[ORM\Column(length: 255)]
         public string $title,
-        #[ORM\Column(length: 100)]
-        public string $edition,
+        #[ORM\Column(length: 100, nullable: true)]
+        public ?string $edition,
         #[ORM\Column(length: 10)]
         public string $language,
         #[ORM\Column(nullable: true)]

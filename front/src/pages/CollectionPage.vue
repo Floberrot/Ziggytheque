@@ -20,7 +20,7 @@ const filtered = computed(() => {
   return collection.value.filter(
     (e) =>
       e.manga.title.toLowerCase().includes(q) ||
-      e.manga.edition.toLowerCase().includes(q) ||
+      (e.manga.edition?.toLowerCase().includes(q) ?? false) ||
       (e.manga.author?.toLowerCase().includes(q) ?? false),
   )
 })

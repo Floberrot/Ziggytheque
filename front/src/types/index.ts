@@ -9,7 +9,7 @@ export interface Volume {
 export interface Manga {
   id: string
   title: string
-  edition: string
+  edition: string | null
   language: string
   author: string | null
   summary: string | null
