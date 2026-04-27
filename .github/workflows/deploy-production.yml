@@ -260,8 +260,9 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ---------------------------------------------------------------------------
-  # Approval gate — QA + Docker build must pass; a required reviewer then
-  # approves in GitHub before any production service is touched
+  # Approval gates — both must be granted before any production service is
+  # touched. Gate 1 approves the deployment; Gate 2 approves the release.
+  # They are presented sequentially so each reviewer sees a distinct prompt.
   # ---------------------------------------------------------------------------
 
   approve:
@@ -273,14 +274,23 @@ jobs:
     steps:
       - run: echo "Production deployment approved — proceeding"
 
+  approve-release:
+    name: "Approval Gate: Release"
+    runs-on: ubuntu-latest
+    environment: release
+    needs: [approve]
+    steps:
+      - run: echo "Release creation approved — proceeding"
+
   # ---------------------------------------------------------------------------
-  # Deploy to production — back then worker sequentially, front in parallel
+  # Deploy to production — back then worker sequentially, front in parallel.
+  # Both approval gates must pass before any service is touched.
   # ---------------------------------------------------------------------------
 
   deploy-back:
     name: "Production: Deploy Backend"
     runs-on: ubuntu-latest
-    needs: [approve]
+    needs: [approve-release]
     steps:
       - uses: actions/checkout@v4
       - name: Install Railway CLI
@@ -323,7 +333,7 @@ jobs:
   deploy-front:
     name: "Production: Deploy Frontend"
     runs-on: ubuntu-latest
-    needs: [approve]
+    needs: [approve-release]
     steps:
       - uses: actions/checkout@v4
       - name: Install Railway CLI
@@ -339,21 +349,13 @@ jobs:
             -m "Deploy ${{ github.sha }} — $COMMIT_MSG"
 
   # ---------------------------------------------------------------------------
-  # Release gate — fires only after back + worker + front all deploy successfully
-  # Requires explicit approval before the tag and GitHub Release are created
+  # Release — fires automatically once all services deploy successfully.
+  # No additional approval required; both gates were already granted above.
   # ---------------------------------------------------------------------------
-
-  approve-release:
-    name: "Approval Gate: Release"
-    runs-on: ubuntu-latest
-    environment: release
-    needs: [deploy-back, deploy-worker, deploy-front]
-    steps:
-      - run: echo "All services deployed successfully — release approved"
 
   release:
     name: "Publish Release"
-    needs: [approve-release]
+    needs: [deploy-back, deploy-worker, deploy-front]
     uses: Floberrot/Ziggytheque/.github/workflows/release.yml@main
     secrets: inherit
     permissions:
