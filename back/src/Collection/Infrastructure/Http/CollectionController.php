@@ -21,6 +21,7 @@ use App\Shared\Application\Bus\QueryBusInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -34,9 +35,20 @@ final readonly class CollectionController
     }
 
     #[Route('', methods: ['GET'])]
-    public function list(): JsonResponse
+    public function list(#[MapQueryString] CollectionFilterRequest $request): JsonResponse
     {
-        return new JsonResponse($this->queryBus->ask(new GetCollectionQuery()));
+        $query = new GetCollectionQuery(
+            search:        $request->search,
+            genre:         $request->genre,
+            edition:       $request->edition,
+            readingStatus: $request->readingStatus,
+            sort:          $request->sort,
+            followedOnly:  $request->followed,
+            page:          $request->page,
+            limit:         20,
+        );
+
+        return new JsonResponse($this->queryBus->ask($query));
     }
 
     #[Route('', methods: ['POST'])]

@@ -54,6 +54,10 @@ Every time a feature is planned, developed, or removed — this rule is non-nego
 
 - **Never use FQCN for PHP built-in classes** — always add a `use` import at the top of the file. Applies to `\DateTimeImmutable`, `\DateTimeInterface`, `\SimpleXMLElement`, `\Throwable`, `\RuntimeException`, etc.
 
+- **Variable names must be full and descriptive** — no single-letter variables, no abbreviations. Use the domain context: `$entry` not `$e`, `$volume` not `$v`, `$command` not `$cmd`. Full rules: see `backend.md` R10.
+
+- **All paginated queries and results use Shared base classes** — extend `AbstractPaginatedQuery` for any query with `page`/`limit`, and extend `PaginatedResult<T>` for the result VO. Never inline pagination fields. Full rules: see `backend.md` R11.
+
 ```php
 // Bad
 $dt = new \DateTimeImmutable('2026-04-01');

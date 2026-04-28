@@ -1,40 +1,104 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useQuery } from '@tanstack/vue-query'
-import { Search, Plus, Book } from 'lucide-vue-next'
-import { getCollection } from '@/api/collection'
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useInfiniteQuery } from '@tanstack/vue-query'
+import { Search, Plus, Book, X, RotateCcw } from 'lucide-vue-next'
+import { getCollection, type CollectionFilters } from '@/api/collection'
 import { useI18n } from 'vue-i18n'
 import MangaCard from '@/components/organisms/MangaCard.vue'
 
 const { t } = useI18n()
-const { data: collection, isPending } = useQuery({ queryKey: ['collection'], queryFn: getCollection })
 
-const search = ref('')
-const page = ref(1)
-const perPage = 18
+const GENRES = [
+  'shonen', 'shojo', 'seinen', 'josei', 'kodomomuke',
+  'isekai', 'fantasy', 'action', 'romance', 'horror',
+  'sci_fi', 'slice_of_life', 'sports', 'other',
+] as const
 
-const filtered = computed(() => {
-  if (!collection.value) return []
-  const q = search.value.toLowerCase().trim()
-  if (!q) return collection.value
-  return collection.value.filter(
-    (e) =>
-      e.manga.title.toLowerCase().includes(q) ||
-      (e.manga.edition?.toLowerCase().includes(q) ?? false) ||
-      (e.manga.author?.toLowerCase().includes(q) ?? false),
-  )
+const READING_STATUSES = ['not_started', 'in_progress', 'completed', 'on_hold', 'dropped'] as const
+
+// ── Filter state ──────────────────────────────────────────────────────────────
+
+const searchInput = ref('')
+
+const filters = reactive<CollectionFilters>({
+  search:        undefined,
+  genre:         undefined,
+  edition:       undefined,
+  readingStatus: undefined,
+  sort:          undefined,
+  followed:      false,
 })
 
-const paginated = computed(() => {
-  const start = (page.value - 1) * perPage
-  return filtered.value.slice(start, start + perPage)
+// Debounce search input (300 ms)
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+watch(searchInput, (val) => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    filters.search = val.trim() || undefined
+  }, 300)
 })
 
-const totalPages = computed(() => Math.ceil(filtered.value.length / perPage))
+const hasActiveFilters = computed(
+  () => !!(filters.search || filters.genre || filters.edition || filters.readingStatus || filters.sort || filters.followed),
+)
 
-const totalOwned = computed(() => collection.value?.reduce((s, e) => s + e.ownedCount, 0) ?? 0)
-const totalWished = computed(() => collection.value?.reduce((s, e) => s + e.wishedCount, 0) ?? 0)
-const totalVolumes = computed(() => collection.value?.reduce((s, e) => s + e.totalVolumes, 0) ?? 0)
+function resetFilters() {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  searchInput.value    = ''
+  filters.search        = undefined
+  filters.genre         = undefined
+  filters.edition       = undefined
+  filters.readingStatus = undefined
+  filters.sort          = undefined
+  filters.followed      = false
+}
+
+// ── Infinite query ────────────────────────────────────────────────────────────
+
+const queryKey = computed(() => [
+  'collection',
+  {
+    search:        filters.search,
+    genre:         filters.genre,
+    edition:       filters.edition,
+    readingStatus: filters.readingStatus,
+    sort:          filters.sort,
+    followed:      filters.followed,
+  },
+])
+
+const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useInfiniteQuery({
+  queryKey,
+  queryFn: ({ pageParam }) =>
+    getCollection({ ...filters, page: pageParam as number }),
+  getNextPageParam: (lastPage) => {
+    const fetched = lastPage.page * lastPage.limit
+    return fetched < lastPage.total ? lastPage.page + 1 : undefined
+  },
+  initialPageParam: 1,
+})
+
+const entries = computed(() => data.value?.pages.flatMap((p) => p.items) ?? [])
+const total   = computed(() => data.value?.pages[0]?.total ?? 0)
+
+// ── Infinite scroll sentinel ──────────────────────────────────────────────────
+
+const sentinel = ref<HTMLElement | null>(null)
+let observer: IntersectionObserver | null = null
+
+onMounted(() => {
+  observer = new IntersectionObserver(([entry]) => {
+    if (entry.isIntersecting && hasNextPage.value && !isFetchingNextPage.value) {
+      fetchNextPage()
+    }
+  })
+  if (sentinel.value) observer.observe(sentinel.value)
+})
+
+onUnmounted(() => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  observer?.disconnect()
+})
 </script>
 
 <template>
@@ -46,50 +110,112 @@ const totalVolumes = computed(() => collection.value?.reduce((s, e) => s + e.tot
           <div>
             <h1 class="text-3xl font-extrabold tracking-tight">{{ t('collection.title') }}</h1>
             <p class="text-base-content/50 text-sm mt-1">
-              {{ collection?.length ?? 0 }} oeuvre{{ (collection?.length ?? 0) !== 1 ? 's' : '' }} suivie{{ (collection?.length ?? 0) !== 1 ? 's' : '' }}
+              {{ total }} oeuvre{{ total !== 1 ? 's' : '' }} suivie{{ total !== 1 ? 's' : '' }}
             </p>
           </div>
 
-          <!-- Stats pills -->
           <div class="flex gap-3 flex-wrap items-center">
-            <div class="flex flex-col items-center px-4 py-2 rounded-xl bg-success/10 text-success">
-              <span class="font-bold text-lg">{{ totalOwned }}</span>
-              <span class="text-xs opacity-70">possédés</span>
-            </div>
-            <div v-if="totalWished > 0" class="flex flex-col items-center px-4 py-2 rounded-xl bg-warning/10 text-warning">
-              <span class="font-bold text-lg">{{ totalWished }}</span>
-              <span class="text-xs opacity-70">souhaités</span>
-            </div>
-            <div class="flex flex-col items-center px-4 py-2 rounded-xl bg-base-200 text-base-content/70">
-              <span class="font-bold text-lg">{{ totalVolumes }}</span>
-              <span class="text-xs opacity-70">au total</span>
-            </div>
             <RouterLink to="/add" class="btn btn-primary btn-sm gap-1.5 shadow">
               <Plus class="h-4 w-4" stroke-width="2.5" />
               {{ t('collection.add') }}
             </RouterLink>
           </div>
         </div>
+      </div>
+    </div>
 
-        <!-- Search bar -->
-        <div class="mt-5 max-w-md">
-          <label class="input input-bordered flex items-center gap-2 bg-base-100">
-            <Search class="h-4 w-4 opacity-40 shrink-0" />
-            <input
-              v-model="search"
-              type="search"
-              class="grow text-sm"
-              :placeholder="t('common.search')"
-              @input="page = 1"
-            />
-          </label>
-        </div>
+    <!-- Sticky filter bar -->
+    <div class="sticky top-0 z-10 bg-base-100/95 backdrop-blur border-b border-base-200 px-4 sm:px-6 py-3">
+      <div class="max-w-7xl mx-auto flex flex-wrap gap-2 items-center">
+        <!-- Search -->
+        <label class="input input-bordered input-sm flex items-center gap-2 bg-base-100 w-52">
+          <Search class="h-4 w-4 opacity-40 shrink-0" />
+          <input
+            v-model="searchInput"
+            type="search"
+            class="grow text-sm min-w-0"
+            :placeholder="t('filter.searchPlaceholder')"
+          />
+          <button
+            v-if="searchInput"
+            class="opacity-40 hover:opacity-100"
+            @click="searchInput = ''"
+          >
+            <X class="h-3 w-3" />
+          </button>
+        </label>
+
+        <!-- Genre -->
+        <select
+          v-model="filters.genre"
+          class="select select-bordered select-sm"
+          :class="{ 'select-primary': filters.genre }"
+        >
+          <option :value="undefined">{{ t('filter.allGenres') }}</option>
+          <option v-for="g in GENRES" :key="g" :value="g">
+            {{ t(`genre.${g}`) }}
+          </option>
+        </select>
+
+        <!-- Reading status -->
+        <select
+          v-model="filters.readingStatus"
+          class="select select-bordered select-sm"
+          :class="{ 'select-primary': filters.readingStatus }"
+        >
+          <option :value="undefined">{{ t('filter.allStatus') }}</option>
+          <option v-for="s in READING_STATUSES" :key="s" :value="s">
+            {{ t(`status.${s}`) }}
+          </option>
+        </select>
+
+        <!-- Sort -->
+        <select
+          v-model="filters.sort"
+          class="select select-bordered select-sm"
+          :class="{ 'select-primary': filters.sort }"
+        >
+          <option :value="undefined">{{ t('filter.allSorts') }}</option>
+          <option value="rating_desc">{{ t('filter.sortRatingDesc') }}</option>
+          <option value="rating_asc">{{ t('filter.sortRatingAsc') }}</option>
+        </select>
+
+        <!-- Edition -->
+        <input
+          v-model="filters.edition"
+          type="text"
+          class="input input-bordered input-sm w-32"
+          :class="{ 'input-primary': filters.edition }"
+          :placeholder="t('filter.editionPlaceholder')"
+        />
+
+        <!-- Followed toggle -->
+        <label class="flex items-center gap-2 cursor-pointer select-none">
+          <input
+            v-model="filters.followed"
+            type="checkbox"
+            class="toggle toggle-primary toggle-sm"
+          />
+          <span class="text-sm" :class="{ 'text-primary font-medium': filters.followed }">
+            {{ t('filter.followedOnly') }}
+          </span>
+        </label>
+
+        <!-- Reset button -->
+        <button
+          v-if="hasActiveFilters"
+          class="btn btn-ghost btn-sm gap-1"
+          @click="resetFilters"
+        >
+          <RotateCcw class="h-3.5 w-3.5" />
+          {{ t('filter.reset') }}
+        </button>
       </div>
     </div>
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-      <!-- Loading -->
-      <div v-if="isPending" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      <!-- Loading skeleton -->
+      <div v-if="isLoading" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         <div
           v-for="i in 12"
           :key="i"
@@ -98,14 +224,17 @@ const totalVolumes = computed(() => collection.value?.reduce((s, e) => s + e.tot
       </div>
 
       <!-- Empty state -->
-      <div v-else-if="filtered.length === 0" class="flex flex-col items-center justify-center py-24 gap-4">
+      <div v-else-if="!isLoading && entries.length === 0" class="flex flex-col items-center justify-center py-24 gap-4">
         <div class="opacity-20">
           <Book class="h-16 w-16" stroke-width="1" />
         </div>
         <p class="text-base-content/40 text-lg font-medium">
-          {{ search ? 'Aucun résultat pour cette recherche' : t('collection.empty') }}
+          {{ hasActiveFilters ? 'Aucun résultat pour ces filtres' : t('collection.empty') }}
         </p>
-        <RouterLink v-if="!search" to="/add" class="btn btn-primary btn-sm">
+        <button v-if="hasActiveFilters" class="btn btn-ghost btn-sm" @click="resetFilters">
+          {{ t('filter.reset') }}
+        </button>
+        <RouterLink v-else to="/add" class="btn btn-primary btn-sm">
           {{ t('collection.add') }}
         </RouterLink>
       </div>
@@ -116,39 +245,18 @@ const totalVolumes = computed(() => collection.value?.reduce((s, e) => s + e.tot
         class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
       >
         <MangaCard
-          v-for="(entry, i) in paginated"
+          v-for="(entry, i) in entries"
           :key="entry.id"
           :entry="entry"
-          :style="{ animationDelay: `${i * 30}ms` }"
+          :style="{ animationDelay: `${(i % 20) * 30}ms` }"
           class="card-appear"
         />
       </div>
 
-      <!-- Pagination -->
-      <div v-if="totalPages > 1" class="flex justify-center gap-2 mt-10">
-        <button
-          class="btn btn-sm btn-ghost"
-          :disabled="page === 1"
-          @click="page--"
-        >
-          ‹
-        </button>
-        <button
-          v-for="p in totalPages"
-          :key="p"
-          class="btn btn-sm"
-          :class="p === page ? 'btn-primary' : 'btn-ghost'"
-          @click="page = p"
-        >
-          {{ p }}
-        </button>
-        <button
-          class="btn btn-sm btn-ghost"
-          :disabled="page === totalPages"
-          @click="page++"
-        >
-          ›
-        </button>
+      <!-- Infinite scroll sentinel + loading indicator -->
+      <div ref="sentinel" class="h-4 mt-4" />
+      <div v-if="isFetchingNextPage" class="flex justify-center py-6">
+        <span class="loading loading-spinner loading-md text-primary" />
       </div>
     </div>
   </div>

@@ -280,3 +280,92 @@ final readonly class ActivityLogSomeNewStartedListener { ... }
 
 `ActivityLogEventHandler` (in `Notification/Domain/Service/`) centralises all creation/update logic.
 The 3 generic listeners inject it and delegate — zero duplication.
+
+---
+
+## R10 — Variable names must be full and descriptive — no abbreviations, no single letters
+
+Every variable must be named after what it represents in the current domain context.
+Single letters (`$e`, `$v`, `$q`, `$r`) and abbreviations (`$ve`, `$ce`, `$qb` in callbacks)
+are forbidden everywhere — closures, loops, array_map callbacks, match arms, all code.
+
+```php
+// ❌ Bad
+array_map(static fn (CollectionEntry $e) => $e->toArray(), $items);
+$this->volumeEntries->filter(fn (VolumeEntry $ve) => $ve->isOwned);
+
+// ✅ Good
+array_map(static fn (CollectionEntry $entry) => $entry->toArray(), $items);
+$this->volumeEntries->filter(fn (VolumeEntry $volumeEntry) => $volumeEntry->isOwned);
+```
+
+The type hint already appears in the closure signature — the variable name must add meaning,
+not just echo the type abbreviation.
+
+---
+
+## R11 — All paginated queries and results use the Shared pagination base classes
+
+Any endpoint that returns a paginated list **must** use:
+
+- `App\Shared\Application\Pagination\AbstractPaginatedQuery` as the base for the query object
+- `App\Shared\Application\Pagination\PaginatedResult` as the base for the result object
+
+**Query:** extend `AbstractPaginatedQuery`, pass `$page` and `$limit` to `parent::__construct()`.
+
+```php
+// ✅ Good
+final readonly class GetWidgetQuery extends AbstractPaginatedQuery
+{
+    public function __construct(
+        public ?string $search = null,
+        int $page = 1,
+        int $limit = 20,
+    ) {
+        parent::__construct($page, $limit);
+    }
+}
+```
+
+**Result:** create a concrete subclass of `PaginatedResult<T>` in the module's `Application/` folder.
+Implement `serializeItems()` to convert typed domain objects to plain arrays.
+
+```php
+// ✅ Good — one file per paginated resource
+/** @extends PaginatedResult<Widget> */
+final class WidgetPaginatedResult extends PaginatedResult
+{
+    protected function serializeItems(): array
+    {
+        return array_map(
+            static fn (Widget $widget) => $widget->toArray(),
+            $this->items,
+        );
+    }
+}
+```
+
+**Handler:** build the result object and call `toArray()` — never inline the pagination envelope.
+
+```php
+// ✅ Good
+public function __invoke(GetWidgetQuery $query): array
+{
+    $result = $this->repository->findFiltered($query);
+
+    return (new WidgetPaginatedResult(
+        items: $result['items'],
+        total: $result['total'],
+        page:  $query->page,
+        limit: $query->limit,
+    ))->toArray();
+}
+
+// ❌ Bad — raw inline array, bypasses the shared abstraction
+return [
+    'items' => array_map(fn ($w) => $w->toArray(), $result['items']),
+    'total' => $result['total'],
+    'page'  => $query->page,
+    'limit' => $query->limit,
+];
+```

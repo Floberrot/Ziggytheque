@@ -15,11 +15,11 @@ const selectedCollectionId = ref<string | undefined>(undefined)
 
 const { data: collection } = useQuery({
   queryKey: ['collection'],
-  queryFn: getCollection,
+  queryFn: () => getCollection(),
 })
 
 const followedEntries = computed<CollectionEntry[]>(
-  () => collection.value?.filter((e) => e.notificationsEnabled) ?? [],
+  () => collection.value?.items.filter((e) => e.notificationsEnabled) ?? [],
 )
 
 const { data: articlePage, isPending } = useQuery({

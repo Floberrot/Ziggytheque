@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Collection\Application\UpdateStatus;
 
 use App\Collection\Domain\CollectionRepositoryInterface;
-use App\Collection\Domain\ReadingStatusEnum;
 use App\Collection\Shared\Event\UpdateReadingStatusSucceededEvent;
 use App\Shared\Application\Bus\EventBusInterface;
 use App\Shared\Domain\Exception\NotFoundException;
@@ -30,12 +29,12 @@ final readonly class UpdateReadingStatusHandler
                 throw new NotFoundException('CollectionEntry', $command->id);
             }
 
-            $entry->readingStatus = ReadingStatusEnum::from($command->status);
+            $entry->readingStatus = $command->status;
             $this->repository->save($entry);
 
             $this->eventBus->publish(new UpdateReadingStatusSucceededEvent(
                 collectionEntryId: $entry->id,
-                status: $command->status,
+                status: $command->status->value,
             ));
         } catch (Throwable $e) {
             throw $e;
