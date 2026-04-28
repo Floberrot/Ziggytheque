@@ -250,6 +250,93 @@ If a module has no `Shared/`, it cannot be depended upon by other modules.
 
 ---
 
+## R8 — Always use PHP enums in DTOs and Request classes — never `string` + `#[Assert\Choice]`
+
+Any field whose valid values form a closed set **must** use a typed PHP enum, not a raw `string`.
+This applies to every layer: `Request` DTOs, application `Query`/`Command` objects, domain
+methods, and entity properties.
+
+```php
+// ❌ Bad — recreates the enum in the wrong layer with validation boilerplate
+#[Assert\Choice(choices: ['not_started', 'in_progress', 'completed', 'on_hold', 'dropped'])]
+public string $status,
+
+// ✅ Good — the type system enforces valid values; no Assert needed
+public ReadingStatusEnum $status,
+```
+
+**With `#[MapQueryString]` / `#[MapRequestPayload]`:** Symfony's mapper calls
+`TheEnum::from($value)` automatically. An invalid string from the client returns 422 with
+no extra code. Drop `#[Assert\Choice]` entirely for enum-backed fields.
+
+**No enum exists yet?** Create one in the relevant `Domain/` folder before writing the DTO.
+If valid values belong to a specific bounded context, the enum lives in that context's `Domain/`.
+
+```php
+// New enum — back/src/Collection/Domain/CollectionSortEnum.php
+enum CollectionSortEnum: string
+{
+    case RatingAsc  = 'rating_asc';
+    case RatingDesc = 'rating_desc';
+}
+```
+
+**Finding existing violations:**
+
+```bash
+grep -rn "Assert\\\\Choice" back/src/*/Infrastructure/Http/
+```
+
+Each hit where the choices map to a domain concept is a violation to fix.
+
+---
+
+## R9 — `#[MapQueryString]` on every controller that reads query parameters (GET, DELETE)
+
+Never read from `Request $request` manually for query string parameters.
+Use Symfony's `#[MapQueryString]` attribute (available since Symfony 6.3) with a dedicated
+input DTO that lives in `Infrastructure/Http/`. Symfony maps, coerces, and validates the
+parameters automatically; a constraint violation returns 422 with no controller boilerplate.
+
+The request DTO:
+- Is named with a **`Request` suffix** (e.g. `CollectionFilterRequest`, `DeleteMangaRequest`) so it is immediately recognisable as a controller-layer HTTP input object.
+- Is **not** `final readonly` — Symfony mutates it after construction.
+- Has **public** properties with defaults matching the "no filter / no input" state.
+- Carries `#[Assert\*]` constraints for enum-like fields and numeric ranges.
+- Lives in the same `Infrastructure/Http/` directory as the controller.
+
+```php
+// Infrastructure/Http/CollectionFilterRequest.php  ← request DTO, HTTP layer only
+use Symfony\Component\Validator\Constraints as Assert;
+
+final class CollectionFilterRequest
+{
+    public ?string $genre = null;
+
+    #[Assert\Choice(choices: ['rating_asc', 'rating_desc'])]
+    public ?string $sort = null;
+
+    #[Assert\Positive]
+    public int $page = 1;
+}
+
+// Infrastructure/Http/CollectionController.php  ← controller, no Request injection
+use Symfony\Component\HttpKernel\Attribute\MapQueryString;
+
+#[Route('/api/collection', methods: ['GET'])]
+public function list(#[MapQueryString] CollectionFilterRequest $request): JsonResponse
+{
+    $query = new GetCollectionQuery(genre: $request->genre, sort: $request->sort, page: $request->page);
+    return new JsonResponse(($this->queryBus)($query));
+}
+```
+
+**Pairing with `#[MapRequestPayload]`:** use `#[MapRequestPayload]` for POST/PATCH/PUT (request
+body), and `#[MapQueryString]` for GET/DELETE (query string). Never mix the two or fall back
+to `$request->query->get(...)`.
+
+---
+
 ## R7 — ActivityLog lifecycle is handled by 3 generic listeners, not N per-event listeners
 
 **Never** create a listener file per domain event for ActivityLog. Use the 3 generic listeners in
