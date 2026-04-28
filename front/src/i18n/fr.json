@@ -125,6 +125,34 @@
     "search": "Rechercher",
     "hint": "Sélectionnez des filtres et cliquez sur Rechercher"
   },
+  "genre": {
+    "shonen": "Shōnen",
+    "shojo": "Shōjo",
+    "seinen": "Seinen",
+    "josei": "Josei",
+    "kodomomuke": "Kodomomuke",
+    "isekai": "Isekai",
+    "fantasy": "Fantasy",
+    "action": "Action",
+    "romance": "Romance",
+    "horror": "Horreur",
+    "sci_fi": "Science-fiction",
+    "slice_of_life": "Slice of life",
+    "sports": "Sports",
+    "other": "Autre"
+  },
+  "filter": {
+    "searchPlaceholder": "Rechercher par titre...",
+    "allGenres": "Tous les genres",
+    "allStatus": "Tous les statuts",
+    "allSorts": "Tri par défaut",
+    "editionPlaceholder": "Édition...",
+    "sortRatingDesc": "Meilleure note",
+    "sortRatingAsc": "Moins bonne note",
+    "followedOnly": "Suivis",
+    "reset": "Réinitialiser",
+    "loadingMore": "Chargement..."
+  },
   "common": {
     "search": "Rechercher...",
     "save": "Enregistrer",

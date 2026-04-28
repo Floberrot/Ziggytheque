@@ -8,6 +8,7 @@ use App\Collection\Domain\CollectionEntry;
 use App\Collection\Domain\CollectionRepositoryInterface;
 use App\Collection\Domain\ReadingStatusEnum;
 use App\Collection\Domain\VolumeEntry;
+use App\Collection\Domain\VolumeToggleFieldEnum;
 use App\Collection\Shared\Event\ToggleVolumeFailedEvent;
 use App\Collection\Shared\Event\ToggleVolumeStartedEvent;
 use App\Collection\Shared\Event\ToggleVolumeSucceededEvent;
@@ -30,7 +31,7 @@ final readonly class ToggleVolumeHandler
         $started = new ToggleVolumeStartedEvent(
             collectionEntryId: $command->collectionEntryId,
             volumeEntryId: $command->volumeEntryId,
-            field: $command->field,
+            field: $command->field->value,
         );
         $this->eventBus->publish($started);
 
@@ -49,18 +50,18 @@ final readonly class ToggleVolumeHandler
                 throw new NotFoundException('VolumeEntry', $command->volumeEntryId);
             }
 
-            if ($command->field === 'isOwned') {
+            if ($command->field === VolumeToggleFieldEnum::IsOwned) {
                 $volumeEntry->isOwned = !$volumeEntry->isOwned;
                 if ($volumeEntry->isOwned) {
-                    $volumeEntry->isWished = false;
+                    $volumeEntry->isWished    = false;
                     $volumeEntry->isAnnounced = false;
                 }
-            } elseif ($command->field === 'isRead') {
-                $volumeEntry->isRead = !$volumeEntry->isRead;
-            } elseif ($command->field === 'isWished') {
-                $volumeEntry->isWished = !$volumeEntry->isWished;
-            } elseif ($command->field === 'isAnnounced') {
-                $volumeEntry->isAnnounced = !$volumeEntry->isAnnounced;
+            } else {
+                match ($command->field) {
+                    VolumeToggleFieldEnum::IsRead      => $volumeEntry->isRead      = !$volumeEntry->isRead,
+                    VolumeToggleFieldEnum::IsWished    => $volumeEntry->isWished    = !$volumeEntry->isWished,
+                    VolumeToggleFieldEnum::IsAnnounced => $volumeEntry->isAnnounced = !$volumeEntry->isAnnounced,
+                };
             }
 
             $this->autoUpdateReadingStatus($entry);
@@ -71,14 +72,14 @@ final readonly class ToggleVolumeHandler
                 correlationId: $started->correlationId,
                 collectionEntryId: $entry->id,
                 volumeEntryId: $volumeEntry->id,
-                field: $command->field,
+                field: $command->field->value,
             ));
         } catch (Throwable $e) {
             $this->eventBus->publish(new ToggleVolumeFailedEvent(
                 correlationId: $started->correlationId,
                 collectionEntryId: $command->collectionEntryId,
                 volumeEntryId: $command->volumeEntryId,
-                field: $command->field,
+                field: $command->field->value,
                 error: $e->getMessage(),
                 exceptionClass: $e::class,
             ));
@@ -103,9 +104,9 @@ final readonly class ToggleVolumeHandler
         $readCount  = $entry->volumeEntries->filter(fn (VolumeEntry $ve) => $ve->isRead)->count();
 
         $entry->readingStatus = match (true) {
-            $readCount === $total            => ReadingStatusEnum::Completed,
+            $readCount === $total              => ReadingStatusEnum::Completed,
             $readCount > 0 || $ownedCount > 0 => ReadingStatusEnum::InProgress,
-            default                          => ReadingStatusEnum::NotStarted,
+            default                            => ReadingStatusEnum::NotStarted,
         };
     }
 }

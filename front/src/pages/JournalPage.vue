@@ -16,7 +16,7 @@ const status    = ref<LogStatus | ''>('')
 const ceId      = ref<string>('')
 const searched  = ref(false)
 
-const { data: collection } = useQuery({ queryKey: ['collection'], queryFn: getCollection })
+const { data: collection } = useQuery({ queryKey: ['collection'], queryFn: () => getCollection() })
 
 const { data, isLoading, isFetching, refetch } = useQuery({
   queryKey: computed(() => ['journal', page.value, eventType.value, status.value, ceId.value]),
@@ -74,7 +74,7 @@ const STATUSES: { value: LogStatus | ''; label: string }[] = [
       </select>
       <select v-model="ceId" class="select select-sm select-bordered">
         <option value="">{{ t('journal.allMangas') }}</option>
-        <option v-for="e in collection" :key="e.id" :value="e.id">{{ e.manga.title }}</option>
+        <option v-for="e in collection?.items" :key="e.id" :value="e.id">{{ e.manga.title }}</option>
       </select>
       <button class="btn btn-sm btn-primary" :class="{ loading: isFetching }" @click="search">
         {{ t('journal.search') }}
