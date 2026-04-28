@@ -14,12 +14,16 @@ final readonly class GetCollectionHandler
     {
     }
 
-    /** @return array<int, array<string, mixed>> */
+    /** @return array{items: list<array<string, mixed>>, total: int, page: int, limit: int} */
     public function __invoke(GetCollectionQuery $query): array
     {
-        return array_map(
-            static fn ($entry) => $entry->toArray(),
-            $this->repository->findAll(),
-        );
+        $result = $this->repository->findFiltered($query);
+
+        return (new CollectionPaginatedResult(
+            items: $result['items'],
+            total: $result['total'],
+            page:  $query->page,
+            limit: $query->limit,
+        ))->toArray();
     }
 }

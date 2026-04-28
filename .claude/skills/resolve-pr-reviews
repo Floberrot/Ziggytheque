@@ -1,0 +1,34 @@
+# Skill: resolve-pr-reviews
+
+Triggered when the user asks to analyse, act on, or resolve open review threads on a PR.
+
+## Workflow
+
+1. **Read the open threads** via `mcp__github__pull_request_read` (method: `get_review_comments`). Note each thread's comment IDs (from `html_url`, e.g. `discussion_r<ID>`) and whether it is already resolved.
+
+2. **Implement the requested changes** locally following the project's normal conventions (CLAUDE.md, backend.md). One commit per PR — always amend the existing branch commit, never add a new one.
+
+3. **PHP syntax-check** every new or modified PHP file: `php -l <file>`.
+
+4. **Amend and force-push**:
+   ```bash
+   git add <files>
+   git commit --amend --no-edit
+   git push --force-with-lease origin <branch>
+   ```
+
+5. **Reply to each thread** with `mcp__github__add_reply_to_pull_request_comment`. Use `commentId` = the numeric ID from the thread's `html_url` (e.g. `discussion_r3161626580` → `3161626580`). The reply must:
+   - Confirm what was done (file path, class or rule name).
+   - Be concise — one short paragraph per thread.
+
+6. **Resolve each thread** with `mcp__github__resolve_review_thread` using the thread's GraphQL node ID.
+   - The node ID format is `PRRT_kwDO…`. Fetch it from `get_review_comments` — it appears as the `id` field at thread level when the MCP server exposes it.
+   - **Known limitation**: the current MCP server response for `get_review_comments` does not include thread node IDs. In that case, threads cannot be resolved programmatically. Inform the user and ask them to resolve the threads manually from the PR page on GitHub. Outdated threads (after a force-push) already show an "Outdated" badge in the UI and will not block merge.
+
+## Rules
+
+- Never create a new commit when one already exists — always amend.
+- Never alter `user.name` / `user.email` or pass `--author`.
+- Reply before resolving — GitHub requires at least one reply for the "Resolve conversation" button to be active in some cases.
+- If a thread is already resolved (`is_resolved: true`) or outdated (`is_outdated: true`), skip it.
+- After resolving all threads, confirm to the user which threads were handled and what code changes were made.

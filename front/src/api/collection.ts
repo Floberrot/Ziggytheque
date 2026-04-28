@@ -1,10 +1,25 @@
 import client from './client'
 import type { CollectionEntry, CollectionEntryDetail, ReadingStatus, VolumeToggleField } from '@/types'
 
-export async function getCollection(): Promise<CollectionEntry[]> {
-  const res = await client.get('/collection')
-  return res.data
+export interface CollectionFilters {
+  search?: string
+  genre?: string
+  edition?: string
+  readingStatus?: string
+  sort?: 'rating_asc' | 'rating_desc'
+  followed?: boolean
+  page?: number
 }
+
+export interface CollectionPage {
+  items: CollectionEntry[]
+  total: number
+  page: number
+  limit: number
+}
+
+export const getCollection = (filters: CollectionFilters = {}): Promise<CollectionPage> =>
+  client.get('/collection', { params: filters }).then((r) => r.data)
 
 export async function getCollectionEntry(id: string): Promise<CollectionEntryDetail> {
   const res = await client.get(`/collection/${id}`)

@@ -44,11 +44,18 @@ final class CollectionControllerTest extends AbstractApiTestCase
         $this->assertSame(401, $response->getStatusCode());
     }
 
-    public function testListReturnsArray(): void
+    public function testListReturnsPaginatedShape(): void
     {
         $response = $this->jsonRequest('GET', '/api/collection');
         $data     = $this->assertJsonStatus(200, $response);
-        $this->assertIsArray($data);
+
+        $this->assertArrayHasKey('items', $data);
+        $this->assertArrayHasKey('total', $data);
+        $this->assertArrayHasKey('page', $data);
+        $this->assertArrayHasKey('limit', $data);
+        $this->assertIsArray($data['items']);
+        $this->assertSame(1, $data['page']);
+        $this->assertSame(20, $data['limit']);
     }
 
     // ── POST /api/collection ─────────────────────────────────────────────────
