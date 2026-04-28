@@ -61,10 +61,7 @@ services:
     build:
       context: ./back
       dockerfile: Dockerfile.dev
-    # --time-limit=3600: worker gracefully restarts every hour to prevent memory leaks.
-    # restart: unless-stopped ensures Docker immediately relaunches it after each cycle.
-    # Both async (user-triggered jobs) and scheduler_default (cron tasks) run in this process.
-    command: php bin/console messenger:consume async scheduler_default --time-limit=3600 -vv
+    command: sh -c 'while true; do php bin/console messenger:consume async scheduler_default --time-limit=3600 -vv; echo "[worker] Restarting messenger consumer..."; done'
     restart: unless-stopped
     env_file:
       - ./back/.env.local
