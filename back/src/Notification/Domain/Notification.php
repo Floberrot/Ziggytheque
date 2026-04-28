@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Notification\Domain;
 
+use DateTimeImmutable;
+use DateTimeInterface;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
@@ -11,7 +13,7 @@ use Doctrine\ORM\Mapping as ORM;
 class Notification
 {
     #[ORM\Column]
-    public \DateTimeImmutable $createdAt;
+    public DateTimeImmutable $createdAt;
 
     public function __construct(
         #[ORM\Id]
@@ -24,7 +26,7 @@ class Notification
         #[ORM\Column]
         public bool $isRead = false,
     ) {
-        $this->createdAt = new \DateTimeImmutable();
+        $this->createdAt = new DateTimeImmutable();
     }
 
     /** @return array<string, mixed> */
@@ -35,7 +37,7 @@ class Notification
             'type' => $this->type,
             'message' => $this->message,
             'isRead' => $this->isRead,
-            'createdAt' => $this->createdAt->format(\DateTimeInterface::ATOM),
+            'createdAt' => $this->createdAt->format(DateTimeInterface::ATOM),
         ];
     }
 }

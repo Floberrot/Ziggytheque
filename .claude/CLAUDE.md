@@ -40,6 +40,51 @@ use DateTimeImmutable;
 $dt = new DateTimeImmutable('2026-04-01');
 ```
 
+## Doctrine Mapping Rules
+
+These rules keep `doctrine:schema:validate` green. A failure means real drift between entity metadata and the DB — it must always pass.
+
+### Enum columns — `length` must match the migration DDL
+
+Doctrine ORM 3 defaults to `VARCHAR(255)` for string-backed PHP enums when no `length` is given. Only add `length:` when the migration intentionally uses a narrower column, and the two must agree exactly.
+
+```php
+// Safe — Doctrine generates VARCHAR(255), migration must also use VARCHAR(255)
+#[ORM\Column(enumType: StatusEnum::class)]
+
+// Explicit size — both entity and migration must agree on 20
+#[ORM\Column(enumType: EventTypeEnum::class, length: 20)]
+```
+
+After adding/changing an enum column, run `make migration` to let Doctrine generate the DDL and verify sizes match.
+
+### Boolean/string columns with a DB-level DEFAULT
+
+If a migration creates a column with `DEFAULT value`, the entity must also declare `options: ['default' => value]`. Without it Doctrine's metadata disagrees with the DB and `schema:validate` fails.
+
+```php
+// Bad — migration has DEFAULT FALSE but entity metadata has no default → drift
+#[ORM\Column]
+public bool $notificationsEnabled = false,
+
+// Good — metadata matches the DB constraint
+#[ORM\Column(options: ['default' => false])]
+public bool $notificationsEnabled = false,
+```
+
+The PHP property default (`= false`) controls the in-memory object value; `options: ['default' => ...]` declares the DB-level DEFAULT. Both are needed when the column carries a DB default.
+
+### FK / index names — always use `make migration`, never write hash names by hand
+
+Doctrine generates names as `strtoupper(PREFIX . '_' . implode('', array_map('dechex', array_map('crc32', $columns))))`. One wrong column or wrong column order silently produces a different hash and causes `schema:validate` to fail.
+
+```bash
+# After any entity change, regenerate the migration to get Doctrine's exact names:
+make migration
+```
+
+Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrine's hash names. Never write them manually in `addSql()`.
+
 ## Key Patterns
 - Hexagonal: Domain → Application → Infrastructure
 - CQRS via Symfony Messenger (command.bus / query.bus / event.bus), default_bus: command.bus

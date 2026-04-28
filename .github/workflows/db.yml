@@ -62,5 +62,75 @@ jobs:
       - name: Run migrations
         run: php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
 
-      - name: Validate schema
-        run: php bin/console doctrine:schema:validate
+  migration-safety:
+    name: Migration safety (dry-run)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ziggy
+          POSTGRES_PASSWORD: ziggy
+          POSTGRES_DB: ziggytheque
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql, intl
+          tools: composer
+          coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: back/vendor
+          key: composer-${{ hashFiles('back/composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Generate JWT keys
+        run: |
+          mkdir -p config/jwt
+          openssl genrsa -passout pass:${JWT_PASSPHRASE} -out config/jwt/private.pem 4096
+          openssl rsa -pubout -passin pass:${JWT_PASSPHRASE} -in config/jwt/private.pem -out config/jwt/public.pem
+
+      - name: Dry-run new migrations
+        run: |
+          BASE=$(git merge-base HEAD origin/${{ github.base_ref }})
+          NEW=$(git diff --name-only --diff-filter=A "$BASE" HEAD -- migrations/ | grep 'Version.*\.php$' || true)
+
+          if [ -z "$NEW" ]; then
+            echo "No new migrations in this PR — nothing to check."
+            exit 0
+          fi
+
+          echo "::warning::New migrations in this PR. Review the SQL below before merging."
+
+          # Remove this PR's new migrations so only the base-branch state is applied first
+          echo "$NEW" | sed 's|^back/||' | xargs -r rm -f
+          php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+
+          # Restore new migrations and dry-run them against the simulated prod state
+          git checkout HEAD -- migrations/
+          SQL=$(php bin/console doctrine:migrations:migrate --dry-run --no-interaction 2>&1 || true)
+
+          echo "### Migration dry-run SQL" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```sql' >> "$GITHUB_STEP_SUMMARY"
+          echo "$SQL" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

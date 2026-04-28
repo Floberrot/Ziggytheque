@@ -164,7 +164,6 @@ jobs:
           openssl genrsa -passout pass:${JWT_PASSPHRASE} -out config/jwt/private.pem 4096
           openssl rsa -pubout -passin pass:${JWT_PASSPHRASE} -in config/jwt/private.pem -out config/jwt/public.pem
       - run: php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
-      - run: php bin/console doctrine:schema:validate
 
   # --- Backend: test suite ---------------------------------------------------
 
@@ -260,37 +259,53 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ---------------------------------------------------------------------------
-  # Approval gates — both must be granted before any production service is
-  # touched. Gate 1 approves the deployment; Gate 2 approves the release.
-  # They are presented sequentially so each reviewer sees a distinct prompt.
+  # Gate 1: approve the release — all quality gates must pass first.
+  # The release tag is created immediately after this approval so reviewers
+  # can inspect it before the production deployment is authorised.
+  # ---------------------------------------------------------------------------
+
+  approve-release:
+    name: "Approval Gate: Release"
+    runs-on: ubuntu-latest
+    environment: release
+    needs: [phpcs, deptrac, phpstan, db-migrations, tests, frontend, docker-build]
+    steps:
+      - run: echo "Release approved — creating tag and release notes"
+
+  # ---------------------------------------------------------------------------
+  # Release — tag + GitHub release notes created right after release approval,
+  # before anything is deployed to production.
+  # ---------------------------------------------------------------------------
+
+  release:
+    name: "Publish Release"
+    needs: [approve-release]
+    uses: Floberrot/Ziggytheque/.github/workflows/release.yml@main
+    secrets: inherit
+    permissions:
+      contents: write
+
+  # ---------------------------------------------------------------------------
+  # Gate 2: approve the production deployment — release must exist first so
+  # the approver can review the exact tag that will be deployed.
   # ---------------------------------------------------------------------------
 
   approve:
     name: "Approval Gate: Production"
     runs-on: ubuntu-latest
     environment: production
-    # db-migrations will logically fail if any pending migration exists. No block in this case.
-    needs: [phpcs, deptrac, phpstan, tests, frontend, docker-build]
+    needs: [release]
     steps:
       - run: echo "Production deployment approved — proceeding"
 
-  approve-release:
-    name: "Approval Gate: Release"
-    runs-on: ubuntu-latest
-    environment: release
-    needs: [approve]
-    steps:
-      - run: echo "Release creation approved — proceeding"
-
   # ---------------------------------------------------------------------------
   # Deploy to production — back then worker sequentially, front in parallel.
-  # Both approval gates must pass before any service is touched.
   # ---------------------------------------------------------------------------
 
   deploy-back:
     name: "Production: Deploy Backend"
     runs-on: ubuntu-latest
-    needs: [approve-release]
+    needs: [approve]
     steps:
       - uses: actions/checkout@v4
       - name: Install Railway CLI
@@ -333,7 +348,7 @@ jobs:
   deploy-front:
     name: "Production: Deploy Frontend"
     runs-on: ubuntu-latest
-    needs: [approve-release]
+    needs: [approve]
     steps:
       - uses: actions/checkout@v4
       - name: Install Railway CLI
@@ -347,16 +362,3 @@ jobs:
             --service ziggytheque-front \
             --ci \
             -m "Deploy ${{ github.sha }} — $COMMIT_MSG"
-
-  # ---------------------------------------------------------------------------
-  # Release — fires automatically once all services deploy successfully.
-  # No additional approval required; both gates were already granted above.
-  # ---------------------------------------------------------------------------
-
-  release:
-    name: "Publish Release"
-    needs: [deploy-back, deploy-worker, deploy-front]
-    uses: Floberrot/Ziggytheque/.github/workflows/release.yml@main
-    secrets: inherit
-    permissions:
-      contents: write

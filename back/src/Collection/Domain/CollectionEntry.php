@@ -41,7 +41,7 @@ class CollectionEntry
         public ?string $review = null,
         #[ORM\Column(nullable: true)]
         public ?int $rating = null,
-        #[ORM\Column]
+        #[ORM\Column(options: ['default' => false])]
         public bool $notificationsEnabled = false,
         #[ORM\Column(nullable: true)]
         public ?DateTimeImmutable $lastNotifiedAt = null,

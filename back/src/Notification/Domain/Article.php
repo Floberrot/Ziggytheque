@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Notification\Domain;
 
 use App\Collection\Domain\CollectionEntry;
+use DateTimeImmutable;
+use DateTimeInterface;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
@@ -13,7 +15,7 @@ use Doctrine\ORM\Mapping as ORM;
 class Article
 {
     #[ORM\Column]
-    public \DateTimeImmutable $createdAt;
+    public DateTimeImmutable $createdAt;
 
     public function __construct(
         #[ORM\Id]
@@ -33,11 +35,11 @@ class Article
         #[ORM\Column(type: 'text', nullable: true)]
         public readonly ?string $imageUrl,
         #[ORM\Column(nullable: true)]
-        public readonly ?\DateTimeImmutable $publishedAt,
+        public readonly ?DateTimeImmutable $publishedAt,
         #[ORM\Column(type: 'text', nullable: true)]
         public readonly ?string $snippet = null,
     ) {
-        $this->createdAt = new \DateTimeImmutable();
+        $this->createdAt = new DateTimeImmutable();
     }
 
     /** @return array<string, mixed> */
@@ -59,8 +61,8 @@ class Article
             'author'      => $this->author,
             'imageUrl'    => $this->imageUrl,
             'snippet'     => $this->snippet,
-            'publishedAt' => $this->publishedAt?->format(\DateTimeInterface::ATOM),
-            'createdAt'   => $this->createdAt->format(\DateTimeInterface::ATOM),
+            'publishedAt' => $this->publishedAt?->format(DateTimeInterface::ATOM),
+            'createdAt'   => $this->createdAt->format(DateTimeInterface::ATOM),
         ];
     }
 }
