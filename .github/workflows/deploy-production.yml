@@ -317,10 +317,14 @@ jobs:
         env:
           COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
-          railway up \
-            --service ziggytheque-back \
-            --ci \
-            -m "Deploy ${{ github.sha }} — $COMMIT_MSG"
+          for attempt in 1 2; do
+            railway up \
+              --service ziggytheque-back \
+              --ci \
+              -m "Deploy ${{ github.sha }} — $COMMIT_MSG" && break
+            echo "Attempt $attempt failed — retrying in 30s..."
+            sleep 30
+          done
 
   deploy-worker:
     name: "Production: Deploy Worker"
@@ -340,10 +344,14 @@ jobs:
           COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           cp worker/railway.json railway.json
-          railway up \
-            --service ziggytheque-worker \
-            --ci \
-            -m "Deploy ${{ github.sha }} — $COMMIT_MSG"
+          for attempt in 1 2; do
+            railway up \
+              --service ziggytheque-worker \
+              --ci \
+              -m "Deploy ${{ github.sha }} — $COMMIT_MSG" && break
+            echo "Attempt $attempt failed — retrying in 30s..."
+            sleep 30
+          done
 
   deploy-front:
     name: "Production: Deploy Frontend"
@@ -358,7 +366,11 @@ jobs:
         env:
           COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
-          railway up \
-            --service ziggytheque-front \
-            --ci \
-            -m "Deploy ${{ github.sha }} — $COMMIT_MSG"
+          for attempt in 1 2; do
+            railway up \
+              --service ziggytheque-front \
+              --ci \
+              -m "Deploy ${{ github.sha }} — $COMMIT_MSG" && break
+            echo "Attempt $attempt failed — retrying in 30s..."
+            sleep 30
+          done
