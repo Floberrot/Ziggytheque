@@ -1,4 +1,4 @@
-# ── Stage 1: Frontend build ───────────────────────────────────────────────────
+# ── Stage 1: Frontend build ────────────────────────────────────────────────────
 FROM node:22-alpine AS frontend
 
 WORKDIR /app
@@ -22,10 +22,10 @@ RUN install-php-extensions \
     opcache \
     apcu
 
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
 
-# ── Stage 3: Production ───────────────────────────────────────────────────────
-FROM base AS prod
+# ── Stage 3: PHP application code (shared by server and worker) ───────────────
+FROM base AS app
 
 ENV APP_ENV=prod
 ENV APP_DEBUG=0
@@ -41,6 +41,9 @@ RUN composer install \
     --optimize \
     --classmap-authoritative
 
+# ── Stage 4: Production server (app + SPA + FrankenPHP/Caddy) ─────────────────
+FROM app AS prod
+
 # Copy built Vue SPA into Symfony public directory (served by FrankenPHP as static files)
 COPY --from=frontend /app/dist /app/public/spa
 
@@ -52,3 +55,13 @@ EXPOSE 80
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+
+# ── Stage 5: Messenger worker (no SPA, no Caddy — pure PHP consumer) ──────────
+FROM app AS worker
+
+COPY back/worker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["php", "bin/console", "messenger:consume", "async", "scheduler_default", \
+     "--time-limit=3600", "--memory-limit=128M", "-vv"]
