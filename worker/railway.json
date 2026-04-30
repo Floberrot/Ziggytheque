@@ -2,11 +2,10 @@
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
     "builder": "DOCKERFILE",
-    "dockerfilePath": "Dockerfile"
+    "dockerfilePath": "Dockerfile",
+    "dockerBuildTarget": "worker"
   },
   "deploy": {
-    "startCommand": "php bin/console messenger:consume async scheduler_default --time-limit=3600 -vv",
-    "restartPolicyType": "ALWAYS",
-    "restartPolicyMaxRetries": 5
+    "restartPolicyType": "ALWAYS"
   }
 }

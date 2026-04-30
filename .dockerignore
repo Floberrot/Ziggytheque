@@ -1,0 +1,40 @@
+# Version control
+.git
+.github
+.gitignore
+
+# Claude / tooling
+.claude
+
+# PHP dependencies and generated files
+back/vendor/
+back/var/cache/
+back/var/log/
+back/.env.local
+back/.env.*.local
+
+# JWT keys — generated at container startup by the entrypoint
+back/config/jwt/
+
+# Node dependencies and build output (rebuilt inside Docker)
+front/node_modules/
+front/dist/
+
+# Test / QA artefacts (not needed in production image)
+back/tests/
+back/phpunit.xml
+back/phpunit.xml.dist
+back/.phpunit.result.cache
+back/phpstan.neon
+back/phpcs.xml
+back/deptrac.yaml
+
+# Dev Docker files
+docker-compose.yml
+back/Dockerfile.dev
+back/compose.yaml
+back/compose.override.yaml
+
+# Documentation and misc
+*.md
+Makefile
