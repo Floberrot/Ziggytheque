@@ -29,6 +29,9 @@ FROM base AS app
 
 ENV APP_ENV=prod
 ENV APP_DEBUG=0
+# FrankenPHP runs as root; without this Composer silently disables all plugins,
+# including symfony/runtime, so vendor/autoload_runtime.php is never generated.
+ENV COMPOSER_ALLOW_SUPERUSER=1
 # PORT is injected by Railway at runtime; Caddyfile binds to :{$PORT:80}
 
 COPY back/ .
