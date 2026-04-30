@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import {
-  ArrowLeft, Star, RefreshCw, Book, BookOpen, Check, CheckSquare, Pencil, Trash2, Eye, Tag, Megaphone, Package, Info,
+  ArrowLeft, Star, RefreshCw, Book, BookOpen, Check, CheckSquare, Pencil, Trash2, Eye, Tag, Megaphone, Package, Info, Bell, BellOff,
 } from 'lucide-vue-next'
 import {
   getCollectionEntry,
@@ -182,6 +182,9 @@ function selectOwned() {
 function selectUnread() {
   selectedIds.value = new Set(sortedVolumes.value.filter((v) => v.isOwned && !v.isRead).map((v) => v.id))
 }
+function selectAnnounced() {
+  selectedIds.value = new Set(sortedVolumes.value.filter((v) => v.isAnnounced && !v.isOwned).map((v) => v.id))
+}
 
 // ── Context menu ──
 const contextMenu = ref<{ ve: VolumeEntry; x: number; y: number } | null>(null)
@@ -284,7 +287,7 @@ const ratingMutation = useMutation({
 // ── Batch operations ──
 const isBatchProcessing = ref(false)
 
-async function batchToggle(field: 'isOwned' | 'isRead' | 'isWished') {
+async function batchToggle(field: 'isOwned' | 'isRead' | 'isWished' | 'isAnnounced') {
   if (selectedIds.value.size === 0) return
   const count = selectedIds.value.size
   const ids = [...selectedIds.value]
@@ -631,6 +634,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
           <button class="btn btn-xs btn-ghost" @click="selectAll">Tout</button>
           <button class="btn btn-xs btn-ghost" @click="selectOwned">Possédés</button>
           <button class="btn btn-xs btn-ghost" @click="selectUnread">Non lus</button>
+          <button class="btn btn-xs btn-ghost" @click="selectAnnounced">Annoncés</button>
           <button class="btn btn-xs btn-ghost text-base-content/30" @click="selectedIds = new Set()">Vider</button>
         </div>
 
@@ -890,6 +894,24 @@ function volumeOpacityClass(ve: VolumeEntry): string {
             >
               <Star class="h-4 w-4" />
               Wishlist
+            </button>
+            <button
+              v-if="selectedVolumes.some((v) => !v.isOwned && !v.isAnnounced)"
+              class="btn btn-secondary btn-sm btn-outline gap-1.5"
+              :disabled="isBatchProcessing"
+              @click="batchToggle('isAnnounced')"
+            >
+              <Bell class="h-4 w-4" />
+              Marquer annoncés
+            </button>
+            <button
+              v-if="selectedVolumes.some((v) => !v.isOwned && v.isAnnounced)"
+              class="btn btn-secondary btn-sm gap-1.5"
+              :disabled="isBatchProcessing"
+              @click="batchToggle('isAnnounced')"
+            >
+              <BellOff class="h-4 w-4" />
+              Retirer annoncés
             </button>
           </div>
           <button class="btn btn-ghost btn-sm shrink-0" @click="selectedIds = new Set()">
