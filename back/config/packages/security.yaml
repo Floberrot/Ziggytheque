@@ -12,6 +12,10 @@ security:
             pattern: ^/(_profiler|_wdt|assets|build)/
             security: false
 
+        health:
+            pattern: ^/health$
+            security: false
+
         messenger_monitor:
             pattern: ^/messenger
             http_basic:
