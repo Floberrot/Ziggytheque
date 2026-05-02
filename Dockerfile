@@ -66,4 +66,4 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["php", "bin/console", "messenger:consume", "async", "scheduler_default", \
-     "--time-limit=3600", "--memory-limit=128M", "-vv"]
+     "--time-limit=3600", "--memory-limit=128M"]
