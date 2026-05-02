@@ -299,54 +299,39 @@ jobs:
       - run: echo "Production deployment approved — proceeding"
 
   # ---------------------------------------------------------------------------
-  # Deploy to production — back then worker sequentially, front in parallel.
+  # Deploy to production — single API job: worker first (messenger:consume),
+  # then backend (frankenphp run).  Front deploys in parallel.
   # ---------------------------------------------------------------------------
 
-  deploy-back:
-    name: "Production: Deploy Backend"
+  deploy-api:
+    name: "Production: Deploy API (worker → backend)"
     runs-on: ubuntu-latest
     needs: [approve]
+    env:
+      COMMIT_MSG: ${{ github.event.head_commit.message }}
     steps:
       - uses: actions/checkout@v4
       - name: Install Railway CLI
         run: npm install -g @railway/cli
-      - name: Deploy backend service
-        # Run from repo root — railway.json targets the prod stage (FrankenPHP).
-        # COMMIT_MSG is set as env var to prevent backticks in the message
-        # from being interpreted as shell command substitution.
-        env:
-          COMMIT_MSG: ${{ github.event.head_commit.message }}
-        run: |
-          for attempt in 1 2; do
-            railway up \
-              --service ziggytheque-back \
-              --ci \
-              -m "Deploy ${{ github.sha }} — $COMMIT_MSG" && break
-            echo "Attempt $attempt failed — retrying in 30s..."
-            sleep 30
-          done
-
-  deploy-worker:
-    name: "Production: Deploy Worker"
-    runs-on: ubuntu-latest
-    needs: [deploy-back]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-      - name: Deploy worker service
-        # Must run from root (full build context: back/ front/ available for multi-stage build).
-        # Copy worker/railway.json over railway.json so Railway picks up the worker
-        # build target instead of the prod target defined in the root railway.json.
-        # worker/railway.json uses dockerfilePath: "Dockerfile" (root-relative) and
-        # dockerBuildTarget: "worker".
-        env:
-          COMMIT_MSG: ${{ github.event.head_commit.message }}
+      - name: Deploy worker service (messenger:consume)
+        # Swap in worker/railway.json so Railway uses dockerBuildTarget: "worker".
+        # Restore the original railway.json afterwards for the backend step.
         run: |
           cp worker/railway.json railway.json
           for attempt in 1 2; do
             railway up \
               --service ziggytheque-worker \
+              --ci \
+              -m "Deploy ${{ github.sha }} — $COMMIT_MSG" && break
+            echo "Attempt $attempt failed — retrying in 30s..."
+            sleep 30
+          done
+          git checkout railway.json
+      - name: Deploy backend service (frankenphp run)
+        run: |
+          for attempt in 1 2; do
+            railway up \
+              --service ziggytheque-back \
               --ci \
               -m "Deploy ${{ github.sha }} — $COMMIT_MSG" && break
             echo "Attempt $attempt failed — retrying in 30s..."
