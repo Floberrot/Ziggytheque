@@ -35,8 +35,7 @@ COPY back/ .
 
 RUN composer install \
     --no-dev \
-    --no-interaction \
-    --no-scripts && \
+    --no-interaction && \
     composer dump-autoload \
     --optimize \
     --classmap-authoritative
