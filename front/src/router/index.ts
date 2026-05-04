@@ -58,6 +58,12 @@ const router = createRouter({
           component: () => import('@/pages/JournalPage.vue'),
           meta: { title: 'Journal' },
         },
+        {
+          path: 'shelf',
+          name: 'shelf',
+          component: () => import('@/pages/ShelfPage.vue'),
+          meta: { title: 'Bibliothèque 3D' },
+        },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },
