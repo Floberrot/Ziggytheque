@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 export const THEMES = [
+  'ziggy-dark',
+  'ziggy-light',
   'light',
   'dark',
   'cupcake',
@@ -40,7 +42,7 @@ export type Theme = (typeof THEMES)[number]
 
 export const useThemeStore = defineStore('theme', () => {
   const stored = localStorage.getItem('theme') as Theme | null
-  const theme = ref<Theme>(stored && (THEMES as readonly string[]).includes(stored) ? stored : 'dark')
+  const theme = ref<Theme>(stored && (THEMES as readonly string[]).includes(stored) ? stored : 'ziggy-dark')
 
   function setTheme(t: Theme) {
     theme.value = t

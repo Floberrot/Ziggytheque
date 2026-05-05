@@ -3,6 +3,78 @@
   themes: all;
 }
 
+/* ── Ziggytheque brand themes ──────────────────────────────────────────── */
+
+[data-theme=ziggy-light] {
+  color-scheme: light;
+
+  --color-base-100: oklch(91% 0.006 29);
+  --color-base-200: oklch(85% 0.009 29);
+  --color-base-300: oklch(80% 0.012 29);
+  --color-base-content: oklch(22% 0.01 29);
+
+  --color-primary: oklch(71% 0.076 213);
+  --color-primary-content: oklch(98% 0 0);
+
+  --color-secondary: oklch(40% 0.012 29);
+  --color-secondary-content: oklch(91% 0.006 29);
+
+  --color-accent: oklch(71% 0.076 213);
+  --color-accent-content: oklch(98% 0 0);
+
+  --color-neutral: oklch(22% 0.01 29);
+  --color-neutral-content: oklch(91% 0.006 29);
+
+  --color-info: oklch(72% 0.11 225);
+  --color-info-content: oklch(15% 0.01 225);
+  --color-success: oklch(72% 0.15 145);
+  --color-success-content: oklch(15% 0.01 145);
+  --color-warning: oklch(82% 0.15 85);
+  --color-warning-content: oklch(20% 0.01 85);
+  --color-error: oklch(62% 0.21 25);
+  --color-error-content: oklch(98% 0 0);
+
+  --rounded-box: 0.5rem;
+  --rounded-btn: 0.375rem;
+  --rounded-badge: 1rem;
+}
+
+[data-theme=ziggy-dark] {
+  color-scheme: dark;
+
+  --color-base-100: oklch(22% 0.01 29);
+  --color-base-200: oklch(19% 0.01 29);
+  --color-base-300: oklch(16% 0.01 29);
+  --color-base-content: oklch(91% 0.006 29);
+
+  --color-primary: oklch(71% 0.076 213);
+  --color-primary-content: oklch(22% 0.01 29);
+
+  --color-secondary: oklch(62% 0.012 29);
+  --color-secondary-content: oklch(22% 0.01 29);
+
+  --color-accent: oklch(71% 0.076 213);
+  --color-accent-content: oklch(22% 0.01 29);
+
+  --color-neutral: oklch(30% 0.01 29);
+  --color-neutral-content: oklch(91% 0.006 29);
+
+  --color-info: oklch(72% 0.11 225);
+  --color-info-content: oklch(15% 0.01 225);
+  --color-success: oklch(72% 0.15 145);
+  --color-success-content: oklch(15% 0.01 145);
+  --color-warning: oklch(82% 0.15 85);
+  --color-warning-content: oklch(20% 0.01 85);
+  --color-error: oklch(62% 0.21 25);
+  --color-error-content: oklch(98% 0 0);
+
+  --rounded-box: 0.5rem;
+  --rounded-btn: 0.375rem;
+  --rounded-badge: 1rem;
+}
+
+/* ── Global ─────────────────────────────────────────────────────────────── */
+
 @layer base {
   :root {
     --transition-speed: 200ms;

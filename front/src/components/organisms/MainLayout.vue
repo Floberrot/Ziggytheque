@@ -7,6 +7,7 @@ import { useThemeStore, THEMES } from '@/stores/useThemeStore'
 import { useI18n } from 'vue-i18n'
 import { Menu, Settings, LogOut, Globe, Palette, LayoutDashboard, Library, ShoppingCart, PlusCircle, Bell, ClipboardList, BookOpen } from 'lucide-vue-next'
 import BaseToast from '@/components/atoms/BaseToast.vue'
+import BaseLogo from '@/components/atoms/BaseLogo.vue'
 
 const auth = useAuthStore()
 const ui = useUiStore()
@@ -63,7 +64,8 @@ const navItems: NavItem[] = [
       <Menu class="w-5 h-5" stroke-width="1.5" />
     </button>
 
-    <span class="font-bold tracking-tight flex-1">Ziggytheque</span>
+    <!-- Mobile header: icon only -->
+    <BaseLogo size="sm" class="flex-1" />
 
     <button
       class="flex items-center justify-center w-10 h-10 rounded-lg text-base-content/60 hover:bg-base-200 hover:text-base-content transition-colors"
@@ -88,7 +90,8 @@ const navItems: NavItem[] = [
       <label for="drawer" class="drawer-overlay" />
       <aside class="w-64 min-h-screen bg-base-100 flex flex-col">
         <div class="p-4 border-b border-base-200">
-          <h1 class="text-xl font-bold tracking-tight">Ziggytheque</h1>
+          <!-- Desktop sidebar: full logo with text -->
+          <BaseLogo show-text size="md" />
         </div>
 
         <nav class="flex-1 p-3 space-y-1">
