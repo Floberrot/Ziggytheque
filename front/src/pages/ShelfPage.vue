@@ -293,207 +293,64 @@ function buildShelf(sceneObj: THREE.Scene): void {
   })
 }
 
-// ── Plants ────────────────────────────────────────────────────────────────────
+// ── Plants (curated, logically placed) ───────────────────────────────────────
 
 function buildPlants(sceneObj: THREE.Scene): void {
-  const potMat   = new THREE.MeshLambertMaterial({ color: 0xc1440e })
-  const potMat2  = new THREE.MeshLambertMaterial({ color: 0xb5895a })
-  const potMat3  = new THREE.MeshLambertMaterial({ color: 0x7a5c3a })
-  const soilMat  = new THREE.MeshLambertMaterial({ color: 0x3a200a })
-  const leafA    = new THREE.MeshLambertMaterial({ color: 0x2d5016 })
-  const leafB    = new THREE.MeshLambertMaterial({ color: 0x3d6e22 })
-  const leafC    = new THREE.MeshLambertMaterial({ color: 0x1e4510 })
-  const vineLeaf  = new THREE.MeshLambertMaterial({ color: 0x2a7a18 })
-  const vineLeaf2 = new THREE.MeshLambertMaterial({ color: 0x4a9e28 })
+  const potMat2 = new THREE.MeshLambertMaterial({ color: 0xb5895a })
+  const potMat3 = new THREE.MeshLambertMaterial({ color: 0x7a5c3a })
+  const soilMat = new THREE.MeshLambertMaterial({ color: 0x3a200a })
+  const leafA   = new THREE.MeshLambertMaterial({ color: 0x2d5016 })
+  const leafB   = new THREE.MeshLambertMaterial({ color: 0x3d6e22 })
 
-  function addPlant(x: number, z: number, scale: number, count: number, mat: THREE.Material = potMat): void {
-    const h = 0.7 * scale
-    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.45 * scale, 0.32 * scale, h, 10), mat)
-    pot.position.set(x, h / 2, z)
-    pot.castShadow = true
-    sceneObj.add(pot)
-    const soil = new THREE.Mesh(new THREE.CylinderGeometry(0.43 * scale, 0.43 * scale, 0.05, 10), soilMat)
-    soil.position.set(x, h, z)
-    sceneObj.add(soil)
-    for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2
-      const rLeaf = (0.25 + (i % 3) * 0.08) * scale
-      const size  = (0.5  + (i % 3) * 0.15) * scale
-      const lMat  = i % 3 === 0 ? leafA : i % 3 === 1 ? leafB : leafC
-      const leaf  = new THREE.Mesh(new THREE.SphereGeometry(size, 7, 5), lMat)
-      leaf.scale.set(0.9, 0.65 + (i % 2) * 0.3, 0.9)
-      leaf.position.set(x + Math.cos(angle) * rLeaf, h + size * 0.5 + i * 0.12 * scale, z + Math.sin(angle) * rLeaf)
-      leaf.castShadow = true
-      sceneObj.add(leaf)
-    }
+  // Fiddle leaf fig — back-left corner, tall statement plant
+  const flfX = -11.5
+  const flfZ = -5.5
+  const flfPot = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.40, 0.68, 14), potMat3)
+  flfPot.position.set(flfX, 0.34, flfZ)
+  flfPot.castShadow = true
+  sceneObj.add(flfPot)
+  const flfSoil = new THREE.Mesh(new THREE.CylinderGeometry(0.50, 0.50, 0.05, 10), soilMat)
+  flfSoil.position.set(flfX, 0.68, flfZ)
+  sceneObj.add(flfSoil)
+  const flfTrunk = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.075, 0.105, 3.1, 8),
+    new THREE.MeshLambertMaterial({ color: 0x5c3a1e }),
+  )
+  flfTrunk.position.set(flfX, 0.68 + 1.55, flfZ)
+  sceneObj.add(flfTrunk)
+  for (let leafIdx = 0; leafIdx < 9; leafIdx++) {
+    const angle = (leafIdx / 9) * Math.PI * 2 + 0.3
+    const leafRadius = 0.28 + (leafIdx % 3) * 0.14
+    const leafH = 3.0 + (leafIdx % 5) * 0.38
+    const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), leafIdx % 2 === 0 ? leafA : leafB)
+    leaf.scale.set(0.55, 0.9, 0.72)
+    leaf.position.set(flfX + Math.cos(angle) * leafRadius, leafH, flfZ + Math.sin(angle) * leafRadius)
+    leaf.castShadow = true
+    sceneObj.add(leaf)
   }
 
-  // Tall snake-plant style (narrow leaves pointing up)
-  function addSnakePlant(x: number, z: number, scale: number): void {
-    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.38 * scale, 0.28 * scale, 0.55 * scale, 10), potMat3)
-    pot.position.set(x, 0.275 * scale, z)
-    pot.castShadow = true
-    sceneObj.add(pot)
-    const soil = new THREE.Mesh(new THREE.CylinderGeometry(0.36 * scale, 0.36 * scale, 0.05, 10), soilMat)
-    soil.position.set(x, 0.55 * scale, z)
-    sceneObj.add(soil)
-    const leafCount = 6
-    for (let i = 0; i < leafCount; i++) {
-      const angle = (i / leafCount) * Math.PI * 2 + 0.2
-      const lean  = 0.12 + (i % 3) * 0.06
-      const height = (1.4 + (i % 2) * 0.5) * scale
-      const leaf = new THREE.Mesh(
-        new THREE.BoxGeometry(0.08 * scale, height, 0.22 * scale),
-        i % 2 === 0 ? leafA : leafB,
-      )
-      leaf.position.set(
-        x + Math.cos(angle) * lean * scale,
-        0.55 * scale + height / 2,
-        z + Math.sin(angle) * lean * scale,
-      )
-      leaf.rotation.z = Math.cos(angle) * 0.15
-      leaf.rotation.x = Math.sin(angle) * 0.15
-      sceneObj.add(leaf)
-    }
+  // Snake plant — right side of bookshelf, grounding the composition
+  const snakeX = 8.4
+  const snakeZ = -3.2
+  const snakePot = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.31, 0.60, 10), potMat3)
+  snakePot.position.set(snakeX, 0.30, snakeZ)
+  snakePot.castShadow = true
+  sceneObj.add(snakePot)
+  const snakeSoil = new THREE.Mesh(new THREE.CylinderGeometry(0.40, 0.40, 0.05, 10), soilMat)
+  snakeSoil.position.set(snakeX, 0.60, snakeZ)
+  sceneObj.add(snakeSoil)
+  for (let snakeI = 0; snakeI < 6; snakeI++) {
+    const angle = (snakeI / 6) * Math.PI * 2 + 0.2
+    const lean = 0.13 + (snakeI % 3) * 0.06
+    const height = 1.5 + (snakeI % 2) * 0.55
+    const leaf = new THREE.Mesh(new THREE.BoxGeometry(0.09, height, 0.24), snakeI % 2 === 0 ? leafA : leafB)
+    leaf.position.set(snakeX + Math.cos(angle) * lean, 0.60 + height / 2, snakeZ + Math.sin(angle) * lean)
+    leaf.rotation.z = Math.cos(angle) * 0.15
+    leaf.rotation.x = Math.sin(angle) * 0.15
+    sceneObj.add(leaf)
   }
 
-  // Hanging plant suspended from ceiling
-  function addHangingPlant(x: number, ceilY: number, z: number, scale: number): void {
-    const ropeMat = new THREE.MeshLambertMaterial({ color: 0x8b7050 })
-    const potY = ceilY - 2.5 * scale
-    // Three rope strands
-    for (let i = 0; i < 3; i++) {
-      const angle = (i / 3) * Math.PI * 2
-      const rx = Math.cos(angle) * 0.18 * scale
-      const rz = Math.sin(angle) * 0.18 * scale
-      const ropeLen = ceilY - potY - 0.1
-      const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, ropeLen, 4), ropeMat)
-      rope.position.set(x + rx, potY + 0.1 + ropeLen / 2, z + rz)
-      sceneObj.add(rope)
-    }
-    // Pot
-    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.38 * scale, 0.28 * scale, 0.5 * scale, 10), potMat2)
-    pot.position.set(x, potY, z)
-    sceneObj.add(pot)
-    // Overflowing foliage + draping tendrils
-    for (let i = 0; i < 9; i++) {
-      const angle  = (i / 9) * Math.PI * 2
-      const radius = (0.28 + (i % 3) * 0.06) * scale
-      const foliage = new THREE.Mesh(new THREE.SphereGeometry(0.22 * scale, 7, 5), i % 2 === 0 ? leafA : leafB)
-      foliage.scale.set(1.0, 0.6, 1.0)
-      foliage.position.set(x + Math.cos(angle) * radius, potY - 0.05, z + Math.sin(angle) * radius)
-      sceneObj.add(foliage)
-      // Tendril draping down from each foliage cluster
-      for (let j = 0; j < 4; j++) {
-        const drapeX = x + Math.cos(angle) * (radius + j * 0.07 * scale)
-        const drapeY = potY - 0.15 - j * 0.25 * scale
-        const drapeZ = z + Math.sin(angle) * (radius + j * 0.07 * scale)
-        const bead = new THREE.Mesh(
-          new THREE.SphereGeometry(Math.max(0.09 * scale - j * 0.01 * scale, 0.03), 6, 4),
-          j % 2 === 0 ? vineLeaf : vineLeaf2,
-        )
-        bead.scale.set(1.5, 0.42, 1.0)
-        bead.position.set(drapeX, drapeY, drapeZ)
-        sceneObj.add(bead)
-      }
-    }
-  }
-
-  // Trailing vine on wall corner — starts high, falls down
-  function addWallVine(x: number, startY: number, z: number, dx: number, segments: number): void {
-    for (let i = 0; i < segments; i++) {
-      const t = i / segments
-      const yPos = startY - i * 0.3
-      const xOff = dx * Math.sin(i * 1.2) * 0.12
-      const zOff = Math.cos(i * 0.9) * 0.05
-      const size = Math.max(0.12 - t * 0.04, 0.04)
-      const bead = new THREE.Mesh(new THREE.SphereGeometry(size, 6, 4), i % 2 === 0 ? vineLeaf : vineLeaf2)
-      bead.scale.set(1.6, 0.42, 1.1)
-      bead.position.set(x + xOff, yPos, z + zOff)
-      sceneObj.add(bead)
-      if (i < segments - 1) {
-        const stem = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.016, 0.016, 0.3, 4),
-          new THREE.MeshLambertMaterial({ color: 0x3a5820 }),
-        )
-        stem.position.set(x + xOff, yPos - 0.15, z + zOff)
-        sceneObj.add(stem)
-      }
-    }
-  }
-
-  // ── Floor & corner plants ───────────────────────────────────────────────────
-  addPlant(-11, -1.0, 1.4, 8)                      // large left-corner monstera
-  addPlant(10.5, -2.0, 1.0, 6)                      // right near back
-  addPlant(-10, 3.5, 0.75, 5, potMat2)              // left mid-wall
-  addPlant(12, 5.5, 0.7, 4, potMat2)                // right mid-wall
-  addPlant(-5, 7.5, 0.6, 4, potMat3)               // back-left corner of room
-  addPlant(4, 7.5, 0.55, 3, potMat)                 // back-right zone
-  addPlant(-12.5, 1.5, 1.05, 6, potMat2)            // near window/left wall
-  addSnakePlant(11.5, -3.0, 1.2)                     // tall snake plant back-right
-  addSnakePlant(-13.0, 6.0, 0.85)                    // snake plant left corner
-
-  // ── Hanging plants from ceiling ─────────────────────────────────────────────
-  addHangingPlant(4.5, 11.5, 3.5, 1.0)
-  addHangingPlant(-3.0, 11.5, 5.5, 0.9)
-
-  // ── Trailing wall vines from corners ────────────────────────────────────────
-  addWallVine(-13.0, 10, 5.0, 1,  14)   // left wall, falls down
-  addWallVine(13.0,  9,  5.5, -1, 12)   // right wall, falls down
-  addWallVine(-13.0, 8,  -2.0, 1, 10)   // left wall near window
-
-  // ── Fiddle leaf fig (tall MCM favourite) — right back corner ────────────────
-  function addFiddleLeafFig(x: number, z: number, scale: number): void {
-    const flfPot = new THREE.Mesh(new THREE.CylinderGeometry(0.52 * scale, 0.40 * scale, 0.68 * scale, 14), potMat3)
-    flfPot.position.set(x, 0.34 * scale, z)
-    flfPot.castShadow = true
-    sceneObj.add(flfPot)
-    const flfSoil = new THREE.Mesh(new THREE.CylinderGeometry(0.50 * scale, 0.50 * scale, 0.05, 10), soilMat)
-    flfSoil.position.set(x, 0.68 * scale, z)
-    sceneObj.add(flfSoil)
-    const trunkMat = new THREE.MeshLambertMaterial({ color: 0x5c3a1e })
-    const trunkH = 2.6 * scale
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.075 * scale, 0.105 * scale, trunkH, 8), trunkMat)
-    trunk.position.set(x, 0.68 * scale + trunkH / 2, z)
-    sceneObj.add(trunk)
-    const leafCount = 9
-    for (let flfI = 0; flfI < leafCount; flfI++) {
-      const flfAngle = (flfI / leafCount) * Math.PI * 2 + 0.3
-      const flfR    = (0.28 + (flfI % 3) * 0.14) * scale
-      const flfH    = (3.0 + (flfI % 5) * 0.38) * scale
-      const flfLeaf = new THREE.Mesh(new THREE.SphereGeometry(0.42 * scale, 8, 6), flfI % 2 === 0 ? leafA : leafB)
-      flfLeaf.scale.set(0.55, 0.9, 0.72)
-      flfLeaf.position.set(x + Math.cos(flfAngle) * flfR, flfH, z + Math.sin(flfAngle) * flfR)
-      flfLeaf.castShadow = true
-      sceneObj.add(flfLeaf)
-    }
-  }
-
-  addFiddleLeafFig(12.0, -1.5, 1.15)   // back right corner, tall statement plant
-  addFiddleLeafFig(-4.5,  7.2, 0.82)   // back left zone, shorter one
-
-  // ── Rubber plant — dark glossy leaves, left mid area ────────────────────────
-  const rubberLeafMat = new THREE.MeshPhongMaterial({ color: 0x1a3808, shininess: 60 })
-  const rubberLeafMat2 = new THREE.MeshPhongMaterial({ color: 0x2a4e12, shininess: 50 })
-  const rubberPot = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 0.55, 12), potMat2)
-  rubberPot.position.set(-9.0, 0.275, 2.0)
-  rubberPot.castShadow = true
-  sceneObj.add(rubberPot)
-  const rubberSoil = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.05, 10), soilMat)
-  rubberSoil.position.set(-9.0, 0.55, 2.0)
-  sceneObj.add(rubberSoil)
-  for (let rubberI = 0; rubberI < 8; rubberI++) {
-    const rubberAngle = (rubberI / 8) * Math.PI * 2
-    const rubberR = 0.18 + (rubberI % 3) * 0.08
-    const rubberH = 0.7 + rubberI * 0.22
-    const rubberLeaf = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), rubberI % 2 === 0 ? rubberLeafMat : rubberLeafMat2)
-    rubberLeaf.scale.set(0.5, 1.4, 0.7)
-    rubberLeaf.position.set(-9.0 + Math.cos(rubberAngle) * rubberR, rubberH, 2.0 + Math.sin(rubberAngle) * rubberR)
-    rubberLeaf.castShadow = true
-    sceneObj.add(rubberLeaf)
-  }
-
-  // ── Small succulents on shelf planks ────────────────────────────────────────
+  // Small succulents on shelf planks — only on shelves that have empty space
   const succMat  = new THREE.MeshLambertMaterial({ color: 0x5a9e44 })
   const succMat2 = new THREE.MeshLambertMaterial({ color: 0x88b44a })
   const tinyPot  = new THREE.MeshLambertMaterial({ color: 0xd4845a })
@@ -503,35 +360,92 @@ function buildPlants(sceneObj: THREE.Scene): void {
     pot.position.set(x, y + 0.07, z)
     sceneObj.add(pot)
     for (let succI = 0; succI < 5; succI++) {
-      const succAngle = (succI / 5) * Math.PI * 2
+      const angle = (succI / 5) * Math.PI * 2
       const petal = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 4), succI % 2 === 0 ? succMat : succMat2)
       petal.scale.set(0.7, 0.55, 0.7)
-      petal.position.set(x + Math.cos(succAngle) * 0.07, y + 0.18, z + Math.sin(succAngle) * 0.07)
+      petal.position.set(x + Math.cos(angle) * 0.07, y + 0.18, z + Math.sin(angle) * 0.07)
       sceneObj.add(petal)
     }
-    const centerPetal = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 4), succMat2)
-    centerPetal.scale.set(0.6, 0.8, 0.6)
-    centerPetal.position.set(x, y + 0.22, z)
-    sceneObj.add(centerPetal)
+    const center = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 4), succMat2)
+    center.scale.set(0.6, 0.8, 0.6)
+    center.position.set(x, y + 0.22, z)
+    sceneObj.add(center)
   }
 
-  // Place succulents on shelf planks (y values match SHELF_ROW_BOTTOMS + plank thickness)
   addSucculent( 4.5, 2.28, SHELF_Z - 0.25)
   addSucculent(-2.8, 4.38, SHELF_Z - 0.25)
   addSucculent( 1.2, 6.48, SHELF_Z - 0.22)
-  addSucculent(-5.5, 6.48, SHELF_Z - 0.22)
-  addSucculent( 6.2, 4.38, SHELF_Z - 0.25)
+
+  // ── Plants flanking the bookshelf ───────────────────────────────────────────
+  // Large monstera — left side of shelf
+  const monsteraX = -9.2
+  const monsteraZ = SHELF_Z + 0.3
+  const monsteraPot = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.42, 0.78, 12), potMat3)
+  monsteraPot.position.set(monsteraX, 0.39, monsteraZ)
+  monsteraPot.castShadow = true
+  sceneObj.add(monsteraPot)
+  const monsteraSoil = new THREE.Mesh(new THREE.CylinderGeometry(0.56, 0.56, 0.05, 12), soilMat)
+  monsteraSoil.position.set(monsteraX, 0.78, monsteraZ)
+  sceneObj.add(monsteraSoil)
+  for (let mIdx = 0; mIdx < 10; mIdx++) {
+    const angle = (mIdx / 10) * Math.PI * 2 + 0.4
+    const radius = (0.30 + (mIdx % 3) * 0.12)
+    const height = 1.1 + (mIdx % 5) * 0.28
+    const mLeaf = new THREE.Mesh(new THREE.SphereGeometry(0.38 + (mIdx % 3) * 0.08, 8, 6), mIdx % 2 === 0 ? leafA : leafB)
+    mLeaf.scale.set(0.75, 0.58, 0.75)
+    mLeaf.position.set(monsteraX + Math.cos(angle) * radius, 0.78 + height, monsteraZ + Math.sin(angle) * radius)
+    mLeaf.castShadow = true
+    sceneObj.add(mLeaf)
+  }
+
+  // Medium round plant — right side of shelf (behind snake plant)
+  const roundX = 9.2
+  const roundZ = SHELF_Z + 0.5
+  const roundPot = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.32, 0.60, 12), potMat2)
+  roundPot.position.set(roundX, 0.30, roundZ)
+  roundPot.castShadow = true
+  sceneObj.add(roundPot)
+  const roundSoil = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.05, 12), soilMat)
+  roundSoil.position.set(roundX, 0.60, roundZ)
+  sceneObj.add(roundSoil)
+  for (let rIdx = 0; rIdx < 7; rIdx++) {
+    const angle = (rIdx / 7) * Math.PI * 2 + 0.2
+    const radius = 0.22 + (rIdx % 3) * 0.09
+    const height = 0.72 + (rIdx % 4) * 0.18
+    const rLeaf = new THREE.Mesh(new THREE.SphereGeometry(0.28 + (rIdx % 2) * 0.07, 7, 5), rIdx % 2 === 0 ? leafA : leafB)
+    rLeaf.scale.set(0.8, 0.62, 0.8)
+    rLeaf.position.set(roundX + Math.cos(angle) * radius, 0.60 + height, roundZ + Math.sin(angle) * radius)
+    rLeaf.castShadow = true
+    sceneObj.add(rLeaf)
+  }
+
+  // Small pot — left side of shelf, lower (adds layering)
+  const smallPotX = -8.4
+  const smallPotZ = SHELF_Z + 0.25
+  const smallPot = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.16, 0.30, 10), potMat2)
+  smallPot.position.set(smallPotX, 0.15, smallPotZ)
+  sceneObj.add(smallPot)
+  const smallSoil = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.21, 0.04, 10), soilMat)
+  smallSoil.position.set(smallPotX, 0.30, smallPotZ)
+  sceneObj.add(smallSoil)
+  for (let sIdx = 0; sIdx < 5; sIdx++) {
+    const angle = (sIdx / 5) * Math.PI * 2
+    const sLeaf = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 4), sIdx % 2 === 0 ? leafA : leafB)
+    sLeaf.scale.set(0.7, 0.55, 0.7)
+    sLeaf.position.set(smallPotX + Math.cos(angle) * 0.14, 0.40 + sIdx * 0.06, smallPotZ + Math.sin(angle) * 0.14)
+    sceneObj.add(sLeaf)
+  }
 
   // Small pot on desk
   const deskPot = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.13, 0.22, 9), potMat2)
   deskPot.position.set(8.2, 2.315, 3.1)
   sceneObj.add(deskPot)
-  for (let i = 0; i < 4; i++) {
-    const angle = (i / 4) * Math.PI * 2
-    const l = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 4), leafB)
-    l.scale.set(0.7, 1.3, 0.7)
-    l.position.set(8.2 + Math.cos(angle) * 0.14, 2.52, 3.1 + Math.sin(angle) * 0.14)
-    sceneObj.add(l)
+  for (let deskLeafI = 0; deskLeafI < 4; deskLeafI++) {
+    const angle = (deskLeafI / 4) * Math.PI * 2
+    const deskLeaf = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 4), leafB)
+    deskLeaf.scale.set(0.7, 1.3, 0.7)
+    deskLeaf.position.set(8.2 + Math.cos(angle) * 0.14, 2.52, 3.1 + Math.sin(angle) * 0.14)
+    sceneObj.add(deskLeaf)
   }
 }
 
@@ -555,11 +469,15 @@ function buildDesk(sceneObj: THREE.Scene): void {
   })
 
   // Mug
-  const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.15, 0.35, 10), new THREE.MeshPhongMaterial({ color: 0xd4956a, shininess: 60 }))
+  const mug = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.18, 0.15, 0.35, 10),
+    new THREE.MeshPhongMaterial({ color: 0xd4956a, shininess: 60 }),
+  )
   mug.position.set(8.5, 2.44, 1.5)
   mug.castShadow = true
   sceneObj.add(mug)
 
+  // Stacked books
   const b1 = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.18, 0.7), new THREE.MeshPhongMaterial({ color: 0x8e7cc3 }))
   b1.position.set(11.5, 2.35, 1.8)
   b1.castShadow = true
@@ -570,8 +488,8 @@ function buildDesk(sceneObj: THREE.Scene): void {
   b2.castShadow = true
   sceneObj.add(b2)
 
-  // Desk lamp
-  const metalMat = new THREE.MeshPhongMaterial({ color: 0x2c2c2c, shininess: 100 })
+  // Desk lamp — brass MCM style
+  const metalMat = new THREE.MeshPhongMaterial({ color: 0x9a7c38, shininess: 110 })
   const shadeMat = new THREE.MeshPhongMaterial({ color: 0xc8a828, shininess: 40, side: THREE.DoubleSide })
   const lampBase = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 0.07, 12), metalMat)
   lampBase.position.set(9.6, 2.275, 2.9)
@@ -585,7 +503,10 @@ function buildDesk(sceneObj: THREE.Scene): void {
   lampShade.position.set(9.6, 3.52, 2.9)
   lampShade.castShadow = true
   sceneObj.add(lampShade)
-  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffeeaa }))
+  const bulb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.07, 8, 6),
+    new THREE.MeshBasicMaterial({ color: 0xffeeaa }),
+  )
   bulb.position.set(9.6, 3.4, 2.9)
   sceneObj.add(bulb)
   const lampLight = new THREE.PointLight(0xffd966, 3.0, 8)
@@ -593,13 +514,199 @@ function buildDesk(sceneObj: THREE.Scene): void {
   lampLight.castShadow = true
   lampLight.shadow.mapSize.set(512, 512)
   sceneObj.add(lampLight)
+
+  // Lava lamp on desk — orange/red blobs, right-back corner
+  const LX = 12.2
+  const LY = 2.26   // desk surface
+  const LZ = 3.1
+  const metalShiny = new THREE.MeshPhongMaterial({ color: 0xaaaaaa, shininess: 140 })
+  const glassMat   = new THREE.MeshPhongMaterial({ color: 0xffffff, transparent: true, opacity: 0.28, shininess: 120 })
+  const blobMat    = new THREE.MeshPhongMaterial({ color: 0xff4c1a, shininess: 60 })
+
+  const llBase = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.20, 0.20, 14), metalShiny)
+  llBase.position.set(LX, LY + 0.10, LZ)
+  sceneObj.add(llBase)
+
+  const llGlass = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 1.0, 18), glassMat)
+  llGlass.position.set(LX, LY + 0.20 + 0.50, LZ)
+  sceneObj.add(llGlass)
+
+  const llCap = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.12, 0.16, 14), metalShiny)
+  llCap.position.set(LX, LY + 0.20 + 1.0 + 0.08, LZ)
+  sceneObj.add(llCap)
+
+  ;([
+    [0.04,  0.28, -0.02, 0.10, 0.9, 1.4, 0.9],
+    [-0.03, 0.62,  0.03, 0.08, 1.0, 0.9, 1.0],
+    [0.00,  0.90,  0.00, 0.07, 0.8, 1.2, 0.8],
+  ] as [number, number, number, number, number, number, number][]).forEach(([bx, by, bz, r, sx, sy, sz]) => {
+    const blob = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), blobMat)
+    blob.scale.set(sx, sy, sz)
+    blob.position.set(LX + bx, LY + 0.20 + by, LZ + bz)
+    sceneObj.add(blob)
+  })
+
+  const llLight = new THREE.PointLight(0xff4400, 1.6, 6)
+  llLight.position.set(LX, LY + 0.70, LZ)
+  sceneObj.add(llLight)
+}
+
+// ── Seating (MCM sofa, armchair, coffee table, side table) ───────────────────
+
+function buildSeating(sceneObj: THREE.Scene): void {
+  const woodMat  = new THREE.MeshPhongMaterial({ color: 0x3d1c02, shininess: 40 })
+  const legMat   = new THREE.MeshPhongMaterial({ color: 0x2a1200, shininess: 80 })
+  const sofaMat  = new THREE.MeshLambertMaterial({ color: 0xb84a22 }) // burnt orange
+  const chairMat = new THREE.MeshLambertMaterial({ color: 0x3d6e8a }) // slate teal
+
+  const SOFA_X = 0.5
+  const SOFA_Z = 7.6
+  const SEAT_H = 0.44   // height of seat cushion
+
+  // ── Three-seater sofa facing the bookshelf ──────────────────────────────────
+  const SOFA_W = 5.4    // width
+  const SOFA_D = 2.2    // depth
+
+  const sofaSeat = new THREE.Mesh(new THREE.BoxGeometry(SOFA_W, SEAT_H, SOFA_D), sofaMat)
+  sofaSeat.position.set(SOFA_X, SEAT_H / 2 + 0.22, SOFA_Z)
+  sofaSeat.castShadow = true
+  sceneObj.add(sofaSeat)
+
+  // Backrest
+  const sofaBack = new THREE.Mesh(new THREE.BoxGeometry(SOFA_W, 0.96, 0.28), sofaMat)
+  sofaBack.position.set(SOFA_X, SEAT_H + 0.22 + 0.50, SOFA_Z + SOFA_D / 2 - 0.14)
+  sofaBack.rotation.x = 0.10
+  sofaBack.castShadow = true
+  sceneObj.add(sofaBack)
+
+  // Armrests
+  ;([-(SOFA_W / 2 + 0.14), SOFA_W / 2 + 0.14] as const).forEach((dx) => {
+    const armrest = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.62, SOFA_D), sofaMat)
+    armrest.position.set(SOFA_X + dx, SEAT_H / 2 + 0.26, SOFA_Z)
+    sceneObj.add(armrest)
+  })
+
+  // Low walnut plinth base
+  const sofaBase = new THREE.Mesh(new THREE.BoxGeometry(SOFA_W, 0.10, SOFA_D), woodMat)
+  sofaBase.position.set(SOFA_X, 0.05, SOFA_Z)
+  sceneObj.add(sofaBase)
+
+  // Tapered legs (4)
+  ;([[-SOFA_W / 2 + 0.3, -SOFA_D / 2 + 0.3], [SOFA_W / 2 - 0.3, -SOFA_D / 2 + 0.3],
+    [-SOFA_W / 2 + 0.3,  SOFA_D / 2 - 0.3], [SOFA_W / 2 - 0.3,  SOFA_D / 2 - 0.3]] as [number, number][]).forEach(
+    ([dx, dz]) => {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.032, 0.22, 6), legMat)
+      leg.position.set(SOFA_X + dx, 0.11, SOFA_Z + dz)
+      sceneObj.add(leg)
+    },
+  )
+
+  // Throw pillows on sofa
+  const pillowMat = new THREE.MeshLambertMaterial({ color: 0xe8c86a }) // mustard
+  ;([1.6, -1.6] as const).forEach((dx) => {
+    const pillow = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.34, 0.20), pillowMat)
+    pillow.position.set(SOFA_X + dx, SEAT_H + 0.22 + 0.18, SOFA_Z + SOFA_D / 2 - 0.22)
+    pillow.rotation.x = 0.08
+    sceneObj.add(pillow)
+  })
+
+  // ── MCM armchair — left of sofa, angled toward center ──────────────────────
+  const CHAIR_X = -5.4
+  const CHAIR_Z = 6.2
+  const CHAIR_W = 2.2   // width
+  const CHAIR_D = 1.95  // depth
+  const chairGroup = new THREE.Group()
+  chairGroup.position.set(CHAIR_X, 0, CHAIR_Z)
+  chairGroup.rotation.y = -0.42
+
+  const chairSeat = new THREE.Mesh(new THREE.BoxGeometry(CHAIR_W, 0.42, CHAIR_D), chairMat)
+  chairSeat.position.set(0, SEAT_H / 2 + 0.22, 0)
+  chairSeat.castShadow = true
+  chairGroup.add(chairSeat)
+
+  const chairBack = new THREE.Mesh(new THREE.BoxGeometry(CHAIR_W, 0.90, 0.24), chairMat)
+  chairBack.position.set(0, SEAT_H + 0.22 + 0.48, CHAIR_D / 2 - 0.12)
+  chairBack.rotation.x = 0.12
+  chairGroup.add(chairBack)
+
+  ;([-(CHAIR_W / 2 + 0.11), CHAIR_W / 2 + 0.11] as const).forEach((dx) => {
+    const armrest = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.55, CHAIR_D), chairMat)
+    armrest.position.set(dx, SEAT_H / 2 + 0.22, 0)
+    chairGroup.add(armrest)
+  })
+
+  const chairBase = new THREE.Mesh(new THREE.BoxGeometry(CHAIR_W, 0.10, CHAIR_D), woodMat)
+  chairBase.position.set(0, 0.05, 0)
+  chairGroup.add(chairBase)
+
+  ;([[-CHAIR_W / 2 + 0.28, -CHAIR_D / 2 + 0.28], [CHAIR_W / 2 - 0.28, -CHAIR_D / 2 + 0.28],
+    [-CHAIR_W / 2 + 0.28,  CHAIR_D / 2 - 0.28], [CHAIR_W / 2 - 0.28,  CHAIR_D / 2 - 0.28]] as [number, number][]).forEach(
+    ([dx, dz]) => {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.026, 0.22, 6), legMat)
+      leg.position.set(dx, 0.11, dz)
+      chairGroup.add(leg)
+    },
+  )
+
+  sceneObj.add(chairGroup)
+
+  // ── Round coffee table with tripod legs (MCM icon) ──────────────────────────
+  const CT_X = 0.5
+  const CT_Z = 5.0
+  const coffeeMat = new THREE.MeshPhongMaterial({ color: 0x5c3210, shininess: 55 })
+
+  const ctTop = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.05, 0.06, 28), coffeeMat)
+  ctTop.position.set(CT_X, 0.44, CT_Z)
+  ctTop.castShadow = true
+  ctTop.receiveShadow = true
+  sceneObj.add(ctTop)
+
+  for (let legIdx = 0; legIdx < 3; legIdx++) {
+    const angle = (legIdx / 3) * Math.PI * 2
+    const ctLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.018, 0.46, 6), legMat)
+    ctLeg.position.set(CT_X + Math.cos(angle) * 0.72, 0.23, CT_Z + Math.sin(angle) * 0.72)
+    ctLeg.rotation.z =  Math.cos(angle) * 0.20
+    ctLeg.rotation.x =  Math.sin(angle) * 0.20
+    sceneObj.add(ctLeg)
+  }
+
+  // Book on coffee table
+  const ctBook = new THREE.Mesh(
+    new THREE.BoxGeometry(0.65, 0.07, 0.45),
+    new THREE.MeshPhongMaterial({ color: 0x6b3a4e }),
+  )
+  ctBook.position.set(CT_X - 0.22, 0.485, CT_Z + 0.08)
+  ctBook.rotation.y = 0.22
+  sceneObj.add(ctBook)
+
+  // Decorative bowl on coffee table
+  const bowl = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.16, 0.10, 0.09, 18),
+    new THREE.MeshPhongMaterial({ color: 0xd4a030, shininess: 100 }),
+  )
+  bowl.position.set(CT_X + 0.38, 0.485, CT_Z - 0.22)
+  sceneObj.add(bowl)
+
+  // ── Side table next to armchair ─────────────────────────────────────────────
+  const ST_X = -7.4
+  const ST_Z = 7.0
+  const stTop = new THREE.Mesh(new THREE.CylinderGeometry(0.40, 0.40, 0.05, 18), coffeeMat)
+  stTop.position.set(ST_X, 0.65, ST_Z)
+  stTop.castShadow = true
+  sceneObj.add(stTop)
+  const stStem = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.58, 8), legMat)
+  stStem.position.set(ST_X, 0.325, ST_Z)
+  sceneObj.add(stStem)
+  const stBase = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.33, 0.05, 18), coffeeMat)
+  stBase.position.set(ST_X, 0.025, ST_Z)
+  sceneObj.add(stBase)
 }
 
 // ── Decorations ───────────────────────────────────────────────────────────────
 
 function buildDecorations(sceneObj: THREE.Scene): void {
 
-  // ── Candles ─────────────────────────────────────────────────────────────────
+  // ── Candles on shelf ────────────────────────────────────────────────────────
   const candleMat = new THREE.MeshLambertMaterial({ color: 0xf0e0c8 })
   const flameMat  = new THREE.MeshBasicMaterial({ color: 0xff9922 })
   const innerMat  = new THREE.MeshBasicMaterial({ color: 0xffdd55 })
@@ -623,8 +730,8 @@ function buildDecorations(sceneObj: THREE.Scene): void {
   }
 
   addCandle(-3.8, 8.15, SHELF_Z - 0.15)
-  addCandle(3.2,  8.15, SHELF_Z - 0.05)
-  addCandle(5.8,  4.28, SHELF_Z - 0.1)
+  addCandle( 3.2, 8.15, SHELF_Z - 0.05)
+  addCandle( 5.8, 4.28, SHELF_Z - 0.10)
 
   // ── Figurine on shelf ───────────────────────────────────────────────────────
   const figurineMat = new THREE.MeshPhongMaterial({ color: 0x9b6e4a, shininess: 80 })
@@ -636,20 +743,6 @@ function buildDecorations(sceneObj: THREE.Scene): void {
   const figurineBase = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.08, 10), figurineMat)
   figurineBase.position.set(-4.5, 2.22, SHELF_Z - 0.1)
   sceneObj.add(figurineBase)
-
-  // ── Floor book stack ────────────────────────────────────────────────────────
-  const stackColors = [0x8b4513, 0x2e5e8b, 0x6b2d5e, 0x3a6e3a]
-  stackColors.forEach((color, i) => {
-    const sb = new THREE.Mesh(
-      new THREE.BoxGeometry(1.1 - i * 0.05, 0.12, 0.85),
-      new THREE.MeshPhongMaterial({ color }),
-    )
-    sb.position.set(-5.5, 0.06 + i * 0.13, 2.5)
-    sb.rotation.y = (i - 1.5) * 0.18
-    sb.castShadow = true
-    sb.receiveShadow = true
-    sceneObj.add(sb)
-  })
 
   // ── Clock on right wall ─────────────────────────────────────────────────────
   const clockRim = new THREE.Mesh(
@@ -667,192 +760,44 @@ function buildDecorations(sceneObj: THREE.Scene): void {
   clockFace.position.set(13.82, 8, -3)
   sceneObj.add(clockFace)
 
-  // ── Lava lamps ──────────────────────────────────────────────────────────────
-  const metalShiny = new THREE.MeshPhongMaterial({ color: 0xaaaaaa, shininess: 140 })
+  // ── Table lamp on side table (next to armchair) ─────────────────────────────
+  const brassLampMat = new THREE.MeshPhongMaterial({ color: 0x9a7c38, shininess: 110 })
+  const shadeMat     = new THREE.MeshPhongMaterial({ color: 0xe0c880, shininess: 20, side: THREE.DoubleSide })
+  const ST_X = -7.4
+  const ST_Z = 7.0
 
-  function addSideTable(x: number, z: number): void {
-    const tTop = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.06, 16), new THREE.MeshPhongMaterial({ color: 0x5a2d0c, shininess: 30 }))
-    tTop.position.set(x, 0.82, z)
-    tTop.castShadow = true
-    sceneObj.add(tTop)
-    const tStem = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.76, 8), new THREE.MeshPhongMaterial({ color: 0x3d1c02 }))
-    tStem.position.set(x, 0.42, z)
-    sceneObj.add(tStem)
-    const tBase = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.44, 0.06, 16), new THREE.MeshPhongMaterial({ color: 0x5a2d0c, shininess: 30 }))
-    tBase.position.set(x, 0.03, z)
-    sceneObj.add(tBase)
-  }
+  const tlBase = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.06, 12), brassLampMat)
+  tlBase.position.set(ST_X, 0.70, ST_Z)
+  sceneObj.add(tlBase)
+  const tlStem = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.88, 8), brassLampMat)
+  tlStem.position.set(ST_X, 1.14, ST_Z)
+  sceneObj.add(tlStem)
+  const tlShade = new THREE.Mesh(new THREE.ConeGeometry(0.30, 0.38, 14, 1, true), shadeMat)
+  tlShade.rotation.x = Math.PI
+  tlShade.position.set(ST_X, 1.67, ST_Z)
+  sceneObj.add(tlShade)
+  const tlBulb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.05, 8, 6),
+    new THREE.MeshBasicMaterial({ color: 0xffeeaa }),
+  )
+  tlBulb.position.set(ST_X, 1.60, ST_Z)
+  sceneObj.add(tlBulb)
+  const tlLight = new THREE.PointLight(0xffd966, 2.6, 9)
+  tlLight.position.set(ST_X, 1.58, ST_Z)
+  sceneObj.add(tlLight)
 
-  function addLavaLamp(x: number, baseY: number, z: number, blobColor: number, glowColor: number): void {
-    const glassMat = new THREE.MeshPhongMaterial({ color: 0xffffff, transparent: true, opacity: 0.28, shininess: 120 })
-    const blobMat  = new THREE.MeshPhongMaterial({ color: blobColor, shininess: 60 })
-
-    // Base cap
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 0.28, 14), metalShiny)
-    base.position.set(x, baseY + 0.14, z)
-    sceneObj.add(base)
-    // Glass body
-    const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 1.4, 18), glassMat)
-    glass.position.set(x, baseY + 0.28 + 0.7, z)
-    sceneObj.add(glass)
-    // Top cap
-    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.17, 0.22, 14), metalShiny)
-    top.position.set(x, baseY + 0.28 + 1.4 + 0.11, z)
-    sceneObj.add(top)
-
-    // Lava blobs
-    ;([
-      [0.05,  0.4,  -0.03, 0.14, 0.9, 1.5, 0.9],
-      [-0.04, 0.85,  0.04, 0.11, 1.0, 0.8, 1.0],
-      [0.0,   1.28,  0.0,  0.09, 0.8, 1.2, 0.8],
-    ] as [number, number, number, number, number, number, number][]).forEach(([bx, by, bz, r, sx, sy, sz]) => {
-      const blob = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), blobMat)
-      blob.scale.set(sx, sy, sz)
-      blob.position.set(x + bx, baseY + 0.28 + by, z + bz)
-      sceneObj.add(blob)
-    })
-
-    // Glow
-    const lavaLight = new THREE.PointLight(glowColor, 1.8, 7)
-    lavaLight.position.set(x, baseY + 0.28 + 0.7, z)
-    sceneObj.add(lavaLight)
-  }
-
-  // Left side table + purple lava lamp
-  addSideTable(-10.5, 4.5)
-  addLavaLamp(-10.5, 0.85, 4.5, 0x9b34cc, 0xcc44ff)
-
-  // Right side table + orange/red lava lamp
-  addSideTable(11.5, 5.5)
-  addLavaLamp(11.5, 0.85, 5.5, 0xff5c1a, 0xff8822)
-
-  // Extra small lava lamp on desk corner (warm amber)
-  addLavaLamp(12.8, 2.2, 0.8, 0xdd3366, 0xff3366)
-
-  // ── Floor lamp (torchiere arc) ───────────────────────────────────────────────
-  const poleMat  = new THREE.MeshPhongMaterial({ color: 0x444444, shininess: 100 })
-  const shadeLampMat = new THREE.MeshPhongMaterial({ color: 0xe8d4a0, shininess: 20, side: THREE.DoubleSide })
-
-  // Arc floor lamp near left of scene
-  const flBase = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.42, 0.07, 16), poleMat)
-  flBase.position.set(-4.0, 0.035, 4.5)
-  flBase.castShadow = true
-  sceneObj.add(flBase)
-
-  // Vertical pole
-  const flPole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 5.2, 8), poleMat)
-  flPole.position.set(-4.0, 2.6, 4.5)
-  flPole.castShadow = true
-  sceneObj.add(flPole)
-
-  // Arc arm (angled cylinder leaning over room)
-  const flArm = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.5, 8), poleMat)
-  flArm.rotation.z = 0.45
-  flArm.position.set(-3.0, 5.7, 4.5)
-  sceneObj.add(flArm)
-
-  // Shade — open bell pointing down
-  const flShade = new THREE.Mesh(new THREE.ConeGeometry(0.52, 0.6, 16, 1, true), shadeLampMat)
-  flShade.rotation.x = Math.PI
-  flShade.position.set(-1.8, 6.3, 4.5)
-  flShade.castShadow = true
-  sceneObj.add(flShade)
-
-  // Bulb glow
-  const flBulb = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfffce0 }))
-  flBulb.position.set(-1.8, 6.1, 4.5)
-  sceneObj.add(flBulb)
-
-  // Floor lamp light (soft downward cone)
-  const flLight = new THREE.SpotLight(0xffe0aa, 3.2, 14, Math.PI / 4.5, 0.6, 1.5)
-  flLight.position.set(-1.8, 6.1, 4.5)
-  flLight.target.position.set(-1.8, 0, 4.5)
-  flLight.castShadow = true
-  flLight.shadow.mapSize.set(512, 512)
-  sceneObj.add(flLight)
-  sceneObj.add(flLight.target)
-
-  // ── Tripod floor lamp (MCM) — right side ────────────────────────────────────
-  const tripodMat      = new THREE.MeshPhongMaterial({ color: 0x1a1208, shininess: 120 })
-  const tripodShadeMat = new THREE.MeshPhongMaterial({ color: 0xd4a030, shininess: 30, side: THREE.DoubleSide })
-  const tripodX = 8.5
-  const tripodZ = 7.5
-  const tripodTop = 5.6
-
-  const tripodShade = new THREE.Mesh(new THREE.ConeGeometry(0.62, 0.7, 16, 1, true), tripodShadeMat)
-  tripodShade.rotation.x = Math.PI
-  tripodShade.position.set(tripodX, tripodTop + 0.35, tripodZ)
-  sceneObj.add(tripodShade)
-
-  for (let legIdx = 0; legIdx < 3; legIdx++) {
-    const legAngle = (legIdx / 3) * Math.PI * 2
-    const legLen   = 6.1
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, legLen, 6), tripodMat)
-    leg.position.set(
-      tripodX + Math.cos(legAngle) * 0.42,
-      tripodTop - legLen / 2 + 0.2,
-      tripodZ + Math.sin(legAngle) * 0.42,
-    )
-    leg.rotation.z =  Math.cos(legAngle) * 0.36
-    leg.rotation.x =  Math.sin(legAngle) * 0.36
-    sceneObj.add(leg)
-  }
-
-  const tripodBulb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfffce0 }))
-  tripodBulb.position.set(tripodX, tripodTop + 0.05, tripodZ)
-  sceneObj.add(tripodBulb)
-
-  const tripodLight = new THREE.SpotLight(0xffd580, 2.8, 13, Math.PI / 4, 0.5, 1.4)
-  tripodLight.position.set(tripodX, tripodTop + 0.2, tripodZ)
-  tripodLight.target.position.set(tripodX, 0, tripodZ)
-  tripodLight.castShadow = true
-  tripodLight.shadow.mapSize.set(512, 512)
-  sceneObj.add(tripodLight)
-  sceneObj.add(tripodLight.target)
-
-  // ── Second arc floor lamp — left front, warm teal shade ─────────────────────
-  const arc2PoleMat  = new THREE.MeshPhongMaterial({ color: 0x2a1800, shininess: 80 })
-  const arc2ShadeMat = new THREE.MeshPhongMaterial({ color: 0x3d7a6a, shininess: 20, side: THREE.DoubleSide })
-
-  const arc2Base = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.40, 0.07, 14), arc2PoleMat)
-  arc2Base.position.set(-8.5, 0.035, 6.8)
-  sceneObj.add(arc2Base)
-
-  const arc2Pole = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 4.8, 8), arc2PoleMat)
-  arc2Pole.position.set(-8.5, 2.44, 6.8)
-  sceneObj.add(arc2Pole)
-
-  const arc2Arm = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 2.2, 8), arc2PoleMat)
-  arc2Arm.rotation.z = -0.42
-  arc2Arm.position.set(-7.6, 5.3, 6.8)
-  sceneObj.add(arc2Arm)
-
-  const arc2Shade = new THREE.Mesh(new THREE.ConeGeometry(0.48, 0.55, 14, 1, true), arc2ShadeMat)
-  arc2Shade.rotation.x = Math.PI
-  arc2Shade.position.set(-6.5, 5.85, 6.8)
-  sceneObj.add(arc2Shade)
-
-  const arc2Bulb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffeecc }))
-  arc2Bulb.position.set(-6.5, 5.65, 6.8)
-  sceneObj.add(arc2Bulb)
-
-  const arc2Light = new THREE.SpotLight(0xffc87a, 2.6, 13, Math.PI / 4.2, 0.55, 1.4)
-  arc2Light.position.set(-6.5, 5.65, 6.8)
-  arc2Light.target.position.set(-6.5, 0, 6.8)
-  arc2Light.castShadow = true
-  arc2Light.shadow.mapSize.set(512, 512)
-  sceneObj.add(arc2Light)
-  sceneObj.add(arc2Light.target)
-
-  // ── Sputnik pendant (MCM) — above center of room ────────────────────────────
+  // ── Sputnik pendant chandelier — MCM icon, center of room ──────────────────
   const sputnikMat = new THREE.MeshPhongMaterial({ color: 0xc8b08a, shininess: 130 })
 
-  const sputnikWire = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.6, 5), new THREE.MeshBasicMaterial({ color: 0x222222 }))
-  sputnikWire.position.set(1.5, 11.2, 1.5)
+  const sputnikWire = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.012, 0.012, 1.6, 5),
+    new THREE.MeshBasicMaterial({ color: 0x222222 }),
+  )
+  sputnikWire.position.set(1.0, 11.2, 1.5)
   sceneObj.add(sputnikWire)
 
   const sputnikBody = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), sputnikMat)
-  sputnikBody.position.set(1.5, 10.4, 1.5)
+  sputnikBody.position.set(1.0, 10.4, 1.5)
   sceneObj.add(sputnikBody)
 
   const spokeDirections: [number, number, number][] = [
@@ -860,56 +805,47 @@ function buildDecorations(sceneObj: THREE.Scene): void {
     [0.7,0.7,0],[-0.7,0.7,0],[0.7,-0.7,0],[-0.7,-0.7,0],
     [0.7,0,0.7],[0.7,0,-0.7],[-0.7,0,0.7],[-0.7,0,-0.7],
   ]
-
   spokeDirections.forEach(([sx, sy, sz]) => {
     const spokeLen = 0.95
     const spoke = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, spokeLen, 5), sputnikMat)
-    spoke.position.set(1.5 + sx * spokeLen / 2, 10.4 + sy * spokeLen / 2, 1.5 + sz * spokeLen / 2)
+    spoke.position.set(1.0 + sx * spokeLen / 2, 10.4 + sy * spokeLen / 2, 1.5 + sz * spokeLen / 2)
     const dir = new THREE.Vector3(sx, sy, sz).normalize()
     spoke.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir)
     sceneObj.add(spoke)
-    const tipBulb = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 4), new THREE.MeshBasicMaterial({ color: 0xfff2aa }))
-    tipBulb.position.set(1.5 + sx * spokeLen, 10.4 + sy * spokeLen, 1.5 + sz * spokeLen)
+    const tipBulb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.045, 6, 4),
+      new THREE.MeshBasicMaterial({ color: 0xfff2aa }),
+    )
+    tipBulb.position.set(1.0 + sx * spokeLen, 10.4 + sy * spokeLen, 1.5 + sz * spokeLen)
     sceneObj.add(tipBulb)
   })
-
   const sputnikLight = new THREE.PointLight(0xffeebb, 2.2, 18)
-  sputnikLight.position.set(1.5, 10.4, 1.5)
+  sputnikLight.position.set(1.0, 10.4, 1.5)
   sceneObj.add(sputnikLight)
 
-  // ── String lights ────────────────────────────────────────────────────────────
+  // ── String lights along back wall — warm ambiance ───────────────────────────
   const stringBulbMat = new THREE.MeshBasicMaterial({ color: 0xffe8aa })
   const wireMat = new THREE.MeshBasicMaterial({ color: 0x221100 })
 
-  function addStringLights(x1: number, x2: number, y: number, z: number, count: number): void {
-    for (let i = 0; i < count; i++) {
-      const t = i / (count - 1)
-      const droop = Math.sin(t * Math.PI) * 0.5
-      const bulbMesh = new THREE.Mesh(new THREE.SphereGeometry(0.055, 6, 4), stringBulbMat)
-      bulbMesh.position.set(x1 + t * (x2 - x1), y - droop, z)
-      sceneObj.add(bulbMesh)
-      // Short wire between bulbs
-      if (i < count - 1) {
-        const wx = x1 + (t + 0.5 / (count - 1)) * (x2 - x1)
-        const wd = Math.sin((t + 0.5 / (count - 1)) * Math.PI) * 0.5
-        const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, (x2 - x1) / (count - 1) * 1.1, 4), wireMat)
-        wire.rotation.z = Math.PI / 2
-        wire.position.set(wx, y - wd, z)
-        sceneObj.add(wire)
-      }
+  for (let bulbI = 0; bulbI < 18; bulbI++) {
+    const t = bulbI / 17
+    const bulbX = -8 + t * 16
+    const droop = Math.sin(t * Math.PI) * 0.48
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.055, 6, 4), stringBulbMat)
+    bulb.position.set(bulbX, 11.4 - droop, -7.0)
+    sceneObj.add(bulb)
+    if (bulbI < 17) {
+      const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, (16 / 17) * 1.05, 4), wireMat)
+      wire.rotation.z = Math.PI / 2
+      wire.position.set(bulbX + 8 / 17, 11.4 - Math.sin((t + 0.5 / 17) * Math.PI) * 0.48, -7.0)
+      sceneObj.add(wire)
     }
-    // One ambient glow per string
-    const sl = new THREE.PointLight(0xffe0aa, 0.6, 14)
-    sl.position.set((x1 + x2) / 2, y, z)
-    sceneObj.add(sl)
   }
+  const stringLight = new THREE.PointLight(0xffe0aa, 0.55, 14)
+  stringLight.position.set(0, 11.4, -7.0)
+  sceneObj.add(stringLight)
 
-  // String lights draped along back wall near ceiling
-  addStringLights(-8, 8, 11.4, -7.0, 18)
-  // String lights across room above viewing area
-  addStringLights(-7, 7, 11.0, 7.0, 16)
-
-  // ── Paintings (tableaux) ────────────────────────────────────────────────────
+  // ── Paintings ───────────────────────────────────────────────────────────────
 
   function addPainting(
     cx: number, cy: number, cz: number,
@@ -928,17 +864,17 @@ function buildDecorations(sceneObj: THREE.Scene): void {
     frame.castShadow = true
     group.add(frame)
 
-    const canvas = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), new THREE.MeshBasicMaterial({ color: bgColor }))
+    const canvas = new THREE.Mesh(
+      new THREE.PlaneGeometry(pw, ph),
+      new THREE.MeshBasicMaterial({ color: bgColor }),
+    )
     canvas.position.z = 0.063
     group.add(canvas)
 
     shapes.forEach((sh) => {
-      let geo: THREE.BufferGeometry
-      if (sh.type === 'circle') {
-        geo = new THREE.CircleGeometry(sh.w / 2, 14)
-      } else {
-        geo = new THREE.PlaneGeometry(sh.w, sh.h)
-      }
+      const geo = sh.type === 'circle'
+        ? new THREE.CircleGeometry(sh.w / 2, 14)
+        : new THREE.PlaneGeometry(sh.w, sh.h)
       const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: sh.color }))
       mesh.position.set(sh.x, sh.y, 0.065)
       group.add(mesh)
@@ -947,86 +883,79 @@ function buildDecorations(sceneObj: THREE.Scene): void {
     sceneObj.add(group)
   }
 
-  // Back wall paintings (rotY = 0, facing camera)
+  // Back wall
   addPainting(-9,  8.5, -7.9, 0, 2.4, 1.6, 0x1a3a1a, [
-    { type: 'rect',   color: 0x0d220d, x: 0,    y: -0.25, w: 2.4,  h: 0.55 },
-    { type: 'circle', color: 0x2a6e1a, x: -0.5, y: 0.1,   w: 0.9,  h: 0.9 },
-    { type: 'circle', color: 0x3d8c28, x: 0.4,  y: 0.2,   w: 0.65, h: 0.65 },
-    { type: 'circle', color: 0x1e4c10, x: 0.0,  y: -0.05, w: 0.5,  h: 0.5 },
-  ], 0x6b3a10)  // forest scene
+    { type: 'rect',   color: 0x0d220d, x:  0,    y: -0.25, w: 2.4,  h: 0.55 },
+    { type: 'circle', color: 0x2a6e1a, x: -0.5,  y:  0.1,  w: 0.9,  h: 0.9 },
+    { type: 'circle', color: 0x3d8c28, x:  0.4,  y:  0.2,  w: 0.65, h: 0.65 },
+    { type: 'circle', color: 0x1e4c10, x:  0.0,  y: -0.05, w: 0.5,  h: 0.5 },
+  ], 0x6b3a10)
 
-  addPainting(5.5, 8.0, -7.9, 0, 2.8, 1.9, 0x7fa8b0, [
-    { type: 'circle', color: 0xd97c28, x: -0.3, y: 0.3,  w: 0.9, h: 0.9 },
-    { type: 'rect',   color: 0x5c8aa0, x: 0,    y: -0.2, w: 2.8, h: 0.7 },
-    { type: 'circle', color: 0xf5d080, x: -0.3, y: 0.3,  w: 0.55, h: 0.55 },
-  ], 0x2a1200)  // sunset over water
+  addPainting( 0,   7.5, -7.9, 0, 3.0, 2.0, 0xb5411a, [
+    { type: 'rect', color: 0xd4601e, x: 0, y:  0.55, w: 2.7, h: 0.75 },
+    { type: 'rect', color: 0x8a1c08, x: 0, y: -0.45, w: 2.7, h: 0.65 },
+    { type: 'rect', color: 0xc94c14, x: 0, y:  0.05, w: 2.7, h: 0.35 },
+  ], 0x2a1200)
 
-  addPainting(-2, 6.2, -7.9, 0, 1.4, 1.4, 0x1a0d2e, [
-    { type: 'circle', color: 0xffffff, x: -0.3, y: 0.2,  w: 0.15, h: 0.15 },
-    { type: 'circle', color: 0xffffff, x: 0.2,  y: 0.4,  w: 0.08, h: 0.08 },
-    { type: 'circle', color: 0xffffff, x: 0.4,  y: -0.1, w: 0.12, h: 0.12 },
-    { type: 'circle', color: 0xaaccff, x: -0.1, y: -0.3, w: 0.4,  h: 0.4 },
-    { type: 'circle', color: 0x88aaee, x: 0.1,  y: -0.3, w: 0.28, h: 0.28 },
-  ], 0x4a3010)  // night sky / moon
+  addPainting( 5.5, 8.0, -7.9, 0, 2.8, 1.9, 0x7fa8b0, [
+    { type: 'circle', color: 0xd97c28, x: -0.3, y:  0.3,  w: 0.9,  h: 0.9 },
+    { type: 'rect',   color: 0x5c8aa0, x:  0,   y: -0.2,  w: 2.8,  h: 0.7 },
+    { type: 'circle', color: 0xf5d080, x: -0.3, y:  0.3,  w: 0.55, h: 0.55 },
+  ], 0x2a1200)
 
-  // Right wall painting (rotY = -π/2)
-  addPainting(13.88, 6.5, 1.5, -Math.PI / 2, 1.6, 2.8, 0x2a1a0a, [
-    { type: 'rect',   color: 0x7a4520, x: 0,    y: 0.6,  w: 1.6,  h: 0.4 },
-    { type: 'circle', color: 0xd4956a, x: 0,    y: 0.1,  w: 0.6,  h: 0.6 },
-    { type: 'rect',   color: 0x4a2a08, x: 0,    y: -0.8, w: 1.6,  h: 1.2 },
-  ], 0x5a3010)  // portrait style
+  addPainting(-2,   6.2, -7.9, 0, 1.4, 1.4, 0x1a0d2e, [
+    { type: 'circle', color: 0xffffff, x: -0.3, y:  0.2,  w: 0.15, h: 0.15 },
+    { type: 'circle', color: 0xffffff, x:  0.2, y:  0.4,  w: 0.08, h: 0.08 },
+    { type: 'circle', color: 0xffffff, x:  0.4, y: -0.1,  w: 0.12, h: 0.12 },
+    { type: 'circle', color: 0xaaccff, x: -0.1, y: -0.3,  w: 0.4,  h: 0.4 },
+    { type: 'circle', color: 0x88aaee, x:  0.1, y: -0.3,  w: 0.28, h: 0.28 },
+  ], 0x4a3010)
 
-  addPainting(13.88, 9.5, -4.5, -Math.PI / 2, 2.2, 1.5, 0x2255aa, [
-    { type: 'rect',   color: 0x1a4488, x: 0,    y: -0.1, w: 2.2,  h: 0.8 },
-    { type: 'circle', color: 0xffffff, x: 0.3,  y: 0.3,  w: 0.35, h: 0.35 },
-    { type: 'rect',   color: 0xffa040, x: -0.4, y: -0.2, w: 0.8,  h: 0.12 },
-  ], 0x2a1200)  // abstract seascape
+  addPainting( 8.5, 5.5, -7.9, 0, 1.5, 2.0, 0x0d3d3a, [
+    { type: 'circle', color: 0x1a7a6e, x:  0.1,  y:  0.4, w: 1.1,  h: 1.1 },
+    { type: 'rect',   color: 0x0a2e2c, x:  0.0,  y: -0.5, w: 1.5,  h: 0.7 },
+    { type: 'circle', color: 0xd4a030, x:  0.35, y:  0.5, w: 0.3,  h: 0.3 },
+  ], 0x3d2008)
 
-  // Left wall painting above window
-  addPainting(-13.88, 10.2, 3.5, Math.PI / 2, 2.0, 1.4, 0x3a1a2a, [
-    { type: 'circle', color: 0xcc44aa, x: -0.3, y: 0.1,  w: 0.7, h: 0.7 },
-    { type: 'circle', color: 0x8822cc, x: 0.3,  y: -0.1, w: 0.5, h: 0.5 },
-    { type: 'rect',   color: 0x220a30, x: 0,    y: 0,    w: 2.0, h: 0.2 },
-  ], 0x8b5c2a)  // abstract purple
-
-  // ── MCM additions ──────────────────────────────────────────────────────────
-
-  // Rothko-style color-field — back wall center, warm ochre/burnt sienna stacked bands
-  addPainting(0, 7.5, -7.9, 0, 3.0, 2.0, 0xb5411a, [
-    { type: 'rect', color: 0xd4601e, x: 0,  y: 0.55,  w: 2.7, h: 0.75 },
-    { type: 'rect', color: 0x8a1c08, x: 0,  y: -0.45, w: 2.7, h: 0.65 },
-    { type: 'rect', color: 0xc94c14, x: 0,  y:  0.05, w: 2.7, h: 0.35 },
-  ], 0x2a1200)  // Rothko warm
-
-  // Mondrian-inspired grid — right wall, taller narrow panel
-  addPainting(13.88, 7.5, 3.0, -Math.PI / 2, 1.8, 2.6, 0xf5f0e0, [
-    { type: 'rect', color: 0x1a3a80, x: -0.45, y:  0.6, w: 0.82, h: 0.85 },
-    { type: 'rect', color: 0xc82020, x:  0.45, y: -0.5, w: 0.82, h: 0.85 },
-    { type: 'rect', color: 0xe8b820, x: -0.45, y: -0.5, w: 0.82, h: 0.6  },
-    { type: 'rect', color: 0x111111, x:  0,    y:  0,   w: 1.8,  h: 0.06 },
-    { type: 'rect', color: 0x111111, x: -0.01, y:  0,   w: 0.06, h: 2.6  },
-  ], 0x1a1208)  // Mondrian
-
-  // Teal abstract geometry — back wall far right
-  addPainting(8.5, 5.5, -7.9, 0, 1.5, 2.0, 0x0d3d3a, [
-    { type: 'circle', color: 0x1a7a6e, x:  0.1,  y:  0.4, w: 1.1, h: 1.1 },
-    { type: 'rect',   color: 0x0a2e2c, x:  0.0,  y: -0.5, w: 1.5, h: 0.7 },
-    { type: 'circle', color: 0xd4a030, x:  0.35, y:  0.5, w: 0.3, h: 0.3 },
-  ], 0x3d2008)  // teal MCM
-
-  // Mustard-and-charcoal abstract — back wall far left lower
   addPainting(-7.0, 5.0, -7.9, 0, 1.6, 1.2, 0x2a2012, [
-    { type: 'rect',   color: 0xc89820, x: -0.2, y:  0.15, w: 0.9, h: 0.75 },
+    { type: 'rect',   color: 0xc89820, x: -0.2, y:  0.15, w: 0.9,  h: 0.75 },
     { type: 'rect',   color: 0x3a2c10, x:  0.4, y: -0.15, w: 0.55, h: 0.6 },
     { type: 'circle', color: 0xe0b030, x: -0.4, y: -0.25, w: 0.35, h: 0.35 },
-  ], 0x5c3a10)  // mustard
+  ], 0x5c3a10)
 
-  // Thin tall MCM print — left wall lower
+  // Right wall
+  addPainting(13.88, 6.5,  1.5, -Math.PI / 2, 1.6, 2.8, 0x2a1a0a, [
+    { type: 'rect',   color: 0x7a4520, x: 0, y:  0.6,  w: 1.6, h: 0.4 },
+    { type: 'circle', color: 0xd4956a, x: 0, y:  0.1,  w: 0.6, h: 0.6 },
+    { type: 'rect',   color: 0x4a2a08, x: 0, y: -0.8,  w: 1.6, h: 1.2 },
+  ], 0x5a3010)
+
+  addPainting(13.88, 7.5,  3.0, -Math.PI / 2, 1.8, 2.6, 0xf5f0e0, [
+    { type: 'rect', color: 0x1a3a80, x: -0.45, y:  0.6,  w: 0.82, h: 0.85 },
+    { type: 'rect', color: 0xc82020, x:  0.45, y: -0.5,  w: 0.82, h: 0.85 },
+    { type: 'rect', color: 0xe8b820, x: -0.45, y: -0.5,  w: 0.82, h: 0.6  },
+    { type: 'rect', color: 0x111111, x:  0,    y:  0,    w: 1.8,  h: 0.06 },
+    { type: 'rect', color: 0x111111, x: -0.01, y:  0,    w: 0.06, h: 2.6  },
+  ], 0x1a1208)
+
+  addPainting(13.88, 9.5, -4.5, -Math.PI / 2, 2.2, 1.5, 0x2255aa, [
+    { type: 'rect',   color: 0x1a4488, x:  0,   y: -0.1,  w: 2.2,  h: 0.8 },
+    { type: 'circle', color: 0xffffff, x:  0.3, y:  0.3,  w: 0.35, h: 0.35 },
+    { type: 'rect',   color: 0xffa040, x: -0.4, y: -0.2,  w: 0.8,  h: 0.12 },
+  ], 0x2a1200)
+
+  // Left wall
+  addPainting(-13.88, 10.2, 3.5, Math.PI / 2, 2.0, 1.4, 0x3a1a2a, [
+    { type: 'circle', color: 0xcc44aa, x: -0.3, y:  0.1,  w: 0.7,  h: 0.7 },
+    { type: 'circle', color: 0x8822cc, x:  0.3, y: -0.1,  w: 0.5,  h: 0.5 },
+    { type: 'rect',   color: 0x220a30, x:  0,   y:  0,    w: 2.0,  h: 0.2 },
+  ], 0x8b5c2a)
+
   addPainting(-13.88, 5.5, 5.5, Math.PI / 2, 1.2, 2.2, 0xf0e8d8, [
-    { type: 'rect',   color: 0x2a3a5c, x:  0,    y:  0.5, w: 1.0, h: 0.85 },
-    { type: 'circle', color: 0xc84020, x: -0.1,  y: -0.3, w: 0.65, h: 0.65 },
-    { type: 'rect',   color: 0xe8c030, x:  0.3,  y: -0.6, w: 0.5, h: 0.38 },
-  ], 0x4a2c08)  // primary MCM
+    { type: 'rect',   color: 0x2a3a5c, x:  0,   y:  0.5,  w: 1.0,  h: 0.85 },
+    { type: 'circle', color: 0xc84020, x: -0.1, y: -0.3,  w: 0.65, h: 0.65 },
+    { type: 'rect',   color: 0xe8c030, x:  0.3, y: -0.6,  w: 0.5,  h: 0.38 },
+  ], 0x4a2c08)
 }
 
 // ── Books ─────────────────────────────────────────────────────────────────────
@@ -1118,7 +1047,7 @@ function initScene(collections: ShelfCollection[]): void {
   camera.position.set(0, 5.5, 16)
   camera.lookAt(0, 3.5, -4)
 
-  // Very dim ambient — lights do the work
+  // Very dim ambient — lamps do the work
   scene.add(new THREE.AmbientLight(0xffddbb, 0.28))
 
   // Window sunlight — afternoon angle from left
@@ -1164,6 +1093,7 @@ function initScene(collections: ShelfCollection[]): void {
   buildShelf(scene)
   buildPlants(scene)
   buildDesk(scene)
+  buildSeating(scene)
   buildDecorations(scene)
   buildBooks(scene, collections)
 
