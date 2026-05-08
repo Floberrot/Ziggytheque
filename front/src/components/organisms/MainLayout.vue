@@ -7,7 +7,7 @@ import { useThemeStore, THEMES } from '@/stores/useThemeStore'
 import { useI18n } from 'vue-i18n'
 import { Menu, Settings, LogOut, Globe, Palette, LayoutDashboard, Library, ShoppingCart, PlusCircle, Bell, ClipboardList, BookOpen } from 'lucide-vue-next'
 import BaseToast from '@/components/atoms/BaseToast.vue'
-import BaseLogo from '@/components/atoms/BaseLogo.vue'
+import AppLogo from '@/components/atoms/AppLogo.vue'
 
 const auth = useAuthStore()
 const ui = useUiStore()
@@ -64,8 +64,9 @@ const navItems: NavItem[] = [
       <Menu class="w-5 h-5" stroke-width="1.5" />
     </button>
 
-    <!-- Mobile header: icon only -->
-    <BaseLogo size="sm" class="flex-1" />
+    <div class="flex-1 flex justify-center">
+      <AppLogo />
+    </div>
 
     <button
       class="flex items-center justify-center w-10 h-10 rounded-lg text-base-content/60 hover:bg-base-200 hover:text-base-content transition-colors"
@@ -89,9 +90,8 @@ const navItems: NavItem[] = [
     <div class="drawer-side z-20">
       <label for="drawer" class="drawer-overlay" />
       <aside class="w-64 min-h-screen bg-base-100 flex flex-col">
-        <div class="p-4 border-b border-base-200">
-          <!-- Desktop sidebar: full logo with text -->
-          <BaseLogo show-text size="md" />
+        <div class="px-4 py-2 border-b border-base-200">
+          <AppLogo :full="true" />
         </div>
 
         <nav class="flex-1 p-3 space-y-1">
@@ -182,6 +182,10 @@ const navItems: NavItem[] = [
           leave-to-class="-translate-x-full"
         >
           <nav v-if="mobileNavOpen" class="relative flex flex-col w-20 min-h-screen bg-base-100 shadow-2xl">
+            <!-- Logo mark -->
+            <div class="flex items-center justify-center h-14 border-b border-base-200">
+              <AppLogo :full="false" />
+            </div>
             <!-- Nav items -->
             <div class="flex-1 flex flex-col items-center pt-4 gap-1">
               <template v-for="item in navItems" :key="item.name">
