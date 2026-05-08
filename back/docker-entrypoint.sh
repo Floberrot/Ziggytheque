@@ -14,6 +14,11 @@ echo "[entrypoint] Warming up Symfony cache..."
 php bin/console cache:warmup --env=prod \
     || echo "[entrypoint] Warning: cache warmup failed, continuing..."
 
+if [ "${WORKER_MODE:-0}" = "1" ]; then
+    echo "[entrypoint] Starting Messenger consumer..."
+    exec php bin/console messenger:consume async scheduler_default --time-limit=3600 --memory-limit=128M
+fi
+
 echo "[entrypoint] Running database migrations..."
 php bin/console doctrine:migrations:migrate --no-interaction --env=prod \
     || echo "[entrypoint] Warning: migrations failed, continuing..."
