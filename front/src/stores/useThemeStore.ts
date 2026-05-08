@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 export const THEMES = [
   'ziggy-dark',
@@ -36,18 +36,27 @@ export const THEMES = [
   'dim',
   'nord',
   'sunset',
+  'abyss',
 ] as const
 
 export type Theme = (typeof THEMES)[number]
 
+const DARK_THEMES = new Set<string>([
+  'ziggy-dark',
+  'dark', 'synthwave', 'halloween', 'forest', 'aqua', 'black',
+  'luxury', 'dracula', 'business', 'night', 'coffee', 'dim', 'sunset', 'abyss',
+])
+
 export const useThemeStore = defineStore('theme', () => {
   const stored = localStorage.getItem('theme') as Theme | null
   const theme = ref<Theme>(stored && (THEMES as readonly string[]).includes(stored) ? stored : 'ziggy-dark')
+
+  const isDark = computed(() => DARK_THEMES.has(theme.value))
 
   function setTheme(t: Theme) {
     theme.value = t
     localStorage.setItem('theme', t)
   }
 
-  return { theme, setTheme }
+  return { theme, isDark, setTheme }
 })
