@@ -114,6 +114,9 @@ jobs:
       - name: Run migrations
         run: php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
 
+      - name: Validate Doctrine schema
+        run: php bin/console doctrine:schema:validate
+
       - name: Warm up Symfony container
         run: php bin/console cache:warmup --env=dev
 
