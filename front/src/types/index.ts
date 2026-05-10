@@ -4,6 +4,8 @@ export interface Volume {
   coverUrl: string | null
   price: number | null
   releaseDate: string | null
+  isbn: string | null
+  spineUrl: string | null
 }
 
 export interface Manga {
@@ -39,6 +41,8 @@ export interface VolumeEntry {
   isAnnounced: boolean
   review: string | null
   rating: number | null
+  isbn: string | null
+  spineUrl: string | null
 }
 
 export interface CollectionEntry {

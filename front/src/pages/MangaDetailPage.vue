@@ -16,7 +16,8 @@ import {
   updateCollectionRating,
   toggleFollow,
 } from '@/api/collection'
-import { updateManga } from '@/api/manga'
+import { updateManga, autoFillCovers } from '@/api/manga'
+import { useCoverBatchProgress } from '@/composables/useCoverBatchProgress'
 import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
 import EnrichVolumeModal from '@/components/organisms/EnrichVolumeModal.vue'
@@ -284,6 +285,45 @@ const ratingMutation = useMutation({
   onError: () => ui.addToast(t('rating.error'), 'error'),
 })
 
+const batchProgress = useCoverBatchProgress()
+
+const autoFillMutation = useMutation({
+  mutationFn: () => autoFillCovers(entry.value!.manga.id),
+  onSuccess: (response) => {
+    const toastId = ui.addProgressToast('Démarrage…', 0)
+    batchProgress.start(response, {
+      onUpdate: (p) => {
+        const active = p.resolved + p.failed
+        let line: string
+        if (p.lastType === 'batch_started') {
+          line = `${p.total} tome(s) à traiter…`
+        } else if (p.lastType === 'volume_resolved') {
+          line = `Tome ${p.volumeNumber} — trouvée · ${p.resolved} ok · ${p.failed} raté(s) (${active}/${p.total})`
+        } else if (p.lastType === 'volume_failed') {
+          line = `Tome ${p.volumeNumber} — introuvable · ${p.resolved} ok · ${p.failed} raté(s) (${active}/${p.total})`
+        } else {
+          line = `${active}/${p.total} traité(s)`
+        }
+        ui.updateProgressToast(toastId, line, active, p.total)
+      },
+      onDone: (p) => {
+        const parts: string[] = []
+        if (p.resolved > 0) parts.push(`${p.resolved} trouvée(s)`)
+        if (p.failed > 0) parts.push(`${p.failed} introuvable(s)`)
+        if (p.skipped > 0) parts.push(`${p.skipped} ignorée(s)`)
+        ui.closeProgressToast(
+          toastId,
+          parts.length > 0 ? parts.join(' · ') : 'Terminé',
+          p.failed > 0 && p.resolved === 0 ? 'error' : 'success',
+        )
+        qc.invalidateQueries({ queryKey: ['collection', id] })
+        qc.invalidateQueries({ queryKey: ['collection'] })
+      },
+    })
+  },
+  onError: () => ui.addToast('Erreur lors de la complétion automatique des couvertures', 'error'),
+})
+
 // ── Batch operations ──
 const isBatchProcessing = ref(false)
 
@@ -510,6 +550,16 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                 >
                   <Star class="h-4 w-4" />
                   Souhaiter les {{ missingVolumes.length }} manquants
+                </button>
+
+                <button
+                  class="btn btn-ghost btn-sm gap-1"
+                  :class="{ loading: autoFillMutation.isPending.value }"
+                  :disabled="autoFillMutation.isPending.value || (batchProgress.progress.value !== null && !batchProgress.progress.value.done)"
+                  @click="autoFillMutation.mutate()"
+                >
+                  <RefreshCw v-if="!autoFillMutation.isPending.value" class="h-4 w-4" />
+                  Compléter les couvertures
                 </button>
 
                 <button

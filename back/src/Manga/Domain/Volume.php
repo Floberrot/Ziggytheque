@@ -28,6 +28,10 @@ class Volume
         public ?float $price = null,
         #[ORM\Column(nullable: true)]
         public ?DateTimeImmutable $releaseDate = null,
+        #[ORM\Column(type: 'isbn', length: 20, nullable: true)]
+        public ?Isbn $isbn = null,
+        #[ORM\Column(nullable: true)]
+        public ?string $spineUrl = null,
     ) {
     }
 
@@ -40,6 +44,8 @@ class Volume
             'coverUrl' => $this->coverUrl,
             'price' => $this->price,
             'releaseDate' => $this->releaseDate?->format(DateTimeInterface::ATOM),
+            'isbn' => $this->isbn?->value,
+            'spineUrl' => $this->spineUrl,
         ];
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Manga\Infrastructure\Http;
 
 use App\Manga\Application\AddVolume\AddVolumeCommand;
+use App\Manga\Application\AutoCovers\StartCoverBatchCommand;
 use App\Manga\Application\Get\GetMangaQuery;
 use App\Manga\Application\Import\ImportMangaCommand;
 use App\Manga\Application\Search\SearchMangaQuery;
@@ -47,14 +48,25 @@ final readonly class MangaController
         return new JsonResponse($this->queryBus->ask(new SearchExternalMangaQuery($query, $type, $page)));
     }
 
-    /** Google Books search for individual volume covers/metadata */
+    /** Composite cover search for individual volume covers/metadata */
     #[Route('/volume-search', methods: ['GET'])]
     public function searchVolumeExternal(Request $request): JsonResponse
     {
-        $query = $request->query->get('q', '');
-        $page  = max(1, (int) $request->query->get('page', 1));
+        $query        = $request->query->get('q', '');
+        $page         = max(1, (int) $request->query->get('page', 1));
+        $volumeNumber = $request->query->get('volumeNumber') !== null
+            ? (int) $request->query->get('volumeNumber')
+            : null;
+        $edition      = $request->query->get('edition');
+        $provider     = $request->query->get('provider', 'composite');
 
-        return new JsonResponse($this->queryBus->ask(new SearchVolumeExternalQuery($query, $page)));
+        return new JsonResponse($this->queryBus->ask(new SearchVolumeExternalQuery(
+            search: $query,
+            page: $page,
+            volumeNumber: $volumeNumber,
+            edition: $edition,
+            provider: $provider,
+        )));
     }
 
     #[Route('/{id}', methods: ['GET'])]
@@ -119,8 +131,21 @@ final readonly class MangaController
             coverUrl: $request->coverUrl,
             releaseDate: $request->releaseDate,
             price: $request->price,
+            spineUrl: $request->spineUrl,
         ));
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    #[Route('/{id}/auto-covers', methods: ['POST'])]
+    public function autoCovers(string $id, #[MapRequestPayload] AutoCoversRequest $request): JsonResponse
+    {
+        $result = $this->commandBus->dispatch(new StartCoverBatchCommand(
+            mangaId: $id,
+            force: $request->force,
+            volumeIds: $request->volumeIds,
+        ));
+
+        return new JsonResponse($result->toArray(), Response::HTTP_ACCEPTED);
     }
 }

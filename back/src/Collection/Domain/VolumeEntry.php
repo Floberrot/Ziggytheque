@@ -52,6 +52,8 @@ class VolumeEntry
             'isAnnounced' => $this->isAnnounced,
             'review' => $this->review,
             'rating' => $this->rating,
+            'isbn' => $this->volume->isbn?->value,
+            'spineUrl' => $this->volume->spineUrl,
         ];
     }
 }

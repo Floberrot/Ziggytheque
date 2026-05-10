@@ -50,19 +50,44 @@ services:
     App\Manga\Domain\MangaRepositoryInterface:
         alias: App\Manga\Infrastructure\Doctrine\DoctrineMangaRepository
 
-    # Jikan (MyAnimeList) for collection search
+    # Jikan (MyAnimeList) for series search (AddManga flow)
     App\Manga\Domain\ExternalApiClientInterface:
         alias: App\Manga\Infrastructure\ExternalApi\JikanMangaApiClient
 
-    # Google Books: kept separately for per-volume cover enrichment
+    # Cover provider composite — used for per-volume cover resolution
+    App\Manga\Domain\MangaCoverProviderInterface:
+        alias: App\Manga\Infrastructure\ExternalApi\CompositeMangaCoverApiClient
+
+    # Service locator so SearchVolumeExternalHandler can target a specific provider
+    App\Manga\Application\SearchVolumeExternal\SearchVolumeExternalHandler:
+        arguments:
+            $providerLocator: !service_locator
+                mangadex: '@App\Manga\Infrastructure\ExternalApi\MangaDexMangaApiClient'
+                openlibrary: '@App\Manga\Infrastructure\ExternalApi\OpenLibraryCoversApiClient'
+                googlebooks: '@App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient'
+
+    App\Manga\Infrastructure\ExternalApi\CompositeMangaCoverApiClient:
+        arguments:
+            $providers: !tagged_iterator { tag: app.manga_cover_provider }
+
+    # Cover providers ordered by priority (highest tried first)
+    App\Manga\Infrastructure\ExternalApi\MangaDexMangaApiClient:
+        arguments:
+            $baseUrl: '%env(MANGADEX_BASE_URL)%'
+        tags:
+            - { name: app.manga_cover_provider, priority: 100 }
+
+    App\Manga\Infrastructure\ExternalApi\OpenLibraryCoversApiClient:
+        arguments:
+            $baseUrl: '%env(OPEN_LIBRARY_COVERS_BASE_URL)%'
+        tags:
+            - { name: app.manga_cover_provider, priority: 50 }
+
     App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient:
         arguments:
             $apiKey: '%env(GOOGLE_BOOKS_API_KEY)%'
-
-    # Cover search handler explicitly receives the Google Books client
-    App\Manga\Application\SearchVolumeExternal\SearchVolumeExternalHandler:
-        arguments:
-            $googleBooks: '@App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient'
+        tags:
+            - { name: app.manga_cover_provider, priority: 10 }
 
     App\Collection\Domain\CollectionRepositoryInterface:
         alias: App\Collection\Infrastructure\Doctrine\DoctrineCollectionRepository
@@ -111,7 +136,42 @@ services:
     App\Stats\Domain\StatsRepositoryInterface:
         alias: App\Stats\Infrastructure\Doctrine\DoctrineStatsRepository
 
+    App\Manga\Domain\CoverBatchProgressPublisherInterface:
+        alias: App\Manga\Infrastructure\Mercure\MercureCoverBatchProgressPublisher
+
+    App\Manga\Infrastructure\Mercure\MercureCoverBatchProgressPublisher:
+        arguments:
+            $hubUrl: '%env(MERCURE_URL)%'
+            $publisherJwtKey: '%env(MERCURE_PUBLISHER_JWT_KEY)%'
+            $logger: '@logger'
+
+    App\Manga\Domain\CoverBatchSubscriberAuthorizerInterface:
+        alias: App\Manga\Infrastructure\Mercure\MercureCoverBatchSubscriberAuthorizer
+
+    App\Manga\Infrastructure\Mercure\MercureCoverBatchSubscriberAuthorizer:
+        arguments:
+            $subscriberJwtKey: '%env(MERCURE_SUBSCRIBER_JWT_KEY)%'
+            $publicHubUrlValue: '%env(MERCURE_PUBLIC_URL)%'
+
 when@test:
     services:
         App\Manga\Domain\ExternalApiClientInterface:
             alias: App\Manga\Infrastructure\ExternalApi\NullMangaApiClient
+        App\Manga\Domain\MangaCoverProviderInterface:
+            alias: App\Manga\Infrastructure\ExternalApi\NullMangaCoverApiClient
+        App\Manga\Application\SearchVolumeExternal\SearchVolumeExternalHandler:
+            autowire: true
+            autoconfigure: true
+            arguments:
+                $providerLocator: !service_locator
+                    mangadex: '@App\Manga\Infrastructure\ExternalApi\NullMangaCoverApiClient'
+                    openlibrary: '@App\Manga\Infrastructure\ExternalApi\NullMangaCoverApiClient'
+                    googlebooks: '@App\Manga\Infrastructure\ExternalApi\NullMangaCoverApiClient'
+        App\Manga\Domain\CoverBatchProgressPublisherInterface:
+            alias: App\Tests\Doubles\Manga\InMemoryCoverBatchProgressPublisher
+        App\Tests\Doubles\Manga\InMemoryCoverBatchProgressPublisher:
+            public: true
+        App\Manga\Domain\CoverBatchSubscriberAuthorizerInterface:
+            alias: App\Tests\Doubles\Manga\StubCoverBatchSubscriberAuthorizer
+        App\Tests\Doubles\Manga\StubCoverBatchSubscriberAuthorizer:
+            public: true

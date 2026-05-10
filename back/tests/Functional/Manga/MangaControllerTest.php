@@ -207,8 +207,78 @@ final class MangaControllerTest extends AbstractApiTestCase
 
     public function testVolumeSearchReturnsEmpty(): void
     {
+        // NullMangaCoverApiClient is active in test env — always returns []
         $response = $this->jsonRequest('GET', '/api/manga/volume-search?q=test');
         $data     = $this->assertJsonStatus(200, $response);
         $this->assertSame([], $data);
+    }
+
+    // ── POST /api/manga/{id}/auto-covers ─────────────────────────────────────
+
+    public function testAutoCoversRequiresAuth(): void
+    {
+        $id = $this->importManga();
+
+        $response = $this->jsonRequest('POST', '/api/manga/' . $id . '/auto-covers', [], auth: false);
+        $this->assertSame(401, $response->getStatusCode());
+    }
+
+    public function testAutoCoversNotFound(): void
+    {
+        $response = $this->jsonRequest('POST', '/api/manga/nonexistent-id/auto-covers', ['force' => false]);
+        $this->assertJsonStatus(404, $response);
+    }
+
+    public function testAutoCoversReturns202AndDispatchesAsyncMessage(): void
+    {
+        $id = $this->importManga(['title' => 'Stub Manga', 'totalVolumes' => 3]);
+
+        $response = $this->jsonRequest('POST', '/api/manga/' . $id . '/auto-covers', ['force' => false]);
+        $data = $this->assertJsonStatus(202, $response);
+
+        $this->assertArrayHasKey('batchId', $data);
+        $this->assertArrayHasKey('mercureUrl', $data);
+        $this->assertArrayHasKey('subscriberToken', $data);
+        $this->assertArrayHasKey('topic', $data);
+        $this->assertStringContainsString($data['batchId'], $data['topic']);
+
+        /** @var \Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport $transport */
+        $transport = static::getContainer()->get('messenger.transport.async');
+        $messages = $transport->getSent();
+        $this->assertCount(1, $messages);
+        $message = $messages[0]->getMessage();
+        $this->assertInstanceOf(\App\Manga\Application\AutoCovers\AutoCoversBatchMessage::class, $message);
+        $this->assertSame($id, $message->mangaId);
+        $this->assertSame($data['batchId'], $message->batchId);
+    }
+
+    public function testAutoCoversAsyncHandlerPublishesProgressEvents(): void
+    {
+        $id = $this->importManga(['title' => 'Progress Manga', 'totalVolumes' => 2]);
+
+        $this->jsonRequest('POST', '/api/manga/' . $id . '/auto-covers', ['force' => false]);
+
+        /** @var \Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport $transport */
+        $transport = static::getContainer()->get('messenger.transport.async');
+        /** @var \Symfony\Component\Messenger\MessageBusInterface $messageBus */
+        $messageBus = static::getContainer()->get(\Symfony\Component\Messenger\MessageBusInterface::class);
+
+        foreach ($transport->getSent() as $envelope) {
+            $messageBus->dispatch($envelope->getMessage(), [
+                new \Symfony\Component\Messenger\Stamp\ReceivedStamp('async'),
+                new \Symfony\Component\Messenger\Stamp\ConsumedByWorkerStamp(),
+            ]);
+        }
+
+        /** @var \App\Tests\Doubles\Manga\InMemoryCoverBatchProgressPublisher $publisher */
+        $publisher = static::getContainer()->get(\App\Tests\Doubles\Manga\InMemoryCoverBatchProgressPublisher::class);
+        $types = array_map(static fn ($event) => $event->type, $publisher->events);
+
+        $this->assertSame('batch_started', $types[0]);
+        $this->assertSame('batch_completed', end($types));
+
+        $completedEvent = $publisher->events[count($publisher->events) - 1];
+        $this->assertSame(2, $completedEvent->failed);
+        $this->assertSame(0, $completedEvent->resolved);
     }
 }

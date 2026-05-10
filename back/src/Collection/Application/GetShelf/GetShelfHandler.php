@@ -48,6 +48,7 @@ final readonly class GetShelfHandler
                         'id'       => $volumeEntry->id,
                         'number'   => $volumeEntry->volume->number,
                         'coverUrl' => $volumeEntry->volume->coverUrl,
+                        'spineUrl' => $volumeEntry->volume->spineUrl,
                     ],
                     $ownedVolumes,
                 ),

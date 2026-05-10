@@ -26,16 +26,29 @@ export async function importManga(payload: {
   return res.data
 }
 
-/** Google Books search for individual volume covers/metadata */
-export async function searchVolumeExternal(q: string, page = 1): Promise<{
-  externalId: string
+export type CoverProvider = 'composite' | 'mangadex' | 'openlibrary' | 'googlebooks'
+
+export async function searchVolumeExternal(
+  q: string,
+  page = 1,
+  volumeNumber?: number | null,
+  edition?: string | null,
+  provider: CoverProvider = 'composite',
+): Promise<{
+  externalId: string | null
   title: string
   edition: string | null
   coverUrl: string | null
+  spineUrl: string | null
+  isbn: string | null
   language: string
   totalVolumes: number | null
+  source: string | null
 }[]> {
-  const res = await client.get('/manga/volume-search', { params: { q, page } })
+  const params: Record<string, string | number> = { q, page, provider }
+  if (volumeNumber != null) params.volumeNumber = volumeNumber
+  if (edition != null) params.edition = edition
+  const res = await client.get('/manga/volume-search', { params })
   return res.data
 }
 
@@ -49,7 +62,7 @@ export async function updateManga(
 export async function updateVolume(
   mangaId: string,
   volumeId: string,
-  payload: { coverUrl?: string; releaseDate?: string; price?: number | null },
+  payload: { coverUrl?: string; releaseDate?: string; price?: number | null; spineUrl?: string },
 ): Promise<void> {
   await client.patch(`/manga/${mangaId}/volumes/${volumeId}`, payload)
 }
@@ -63,5 +76,20 @@ export async function addVolume(
   },
 ): Promise<{ id: string }> {
   const res = await client.post(`/manga/${mangaId}/volumes`, payload)
+  return res.data
+}
+
+export interface CoverBatchStartResponse {
+  batchId: string
+  mercureUrl: string
+  subscriberToken: string
+  topic: string
+}
+
+export async function autoFillCovers(
+  mangaId: string,
+  payload: { force?: boolean; volumeIds?: string[] | null } = {},
+): Promise<CoverBatchStartResponse> {
+  const res = await client.post(`/manga/${mangaId}/auto-covers`, payload)
   return res.data
 }

@@ -8,7 +8,15 @@
 
 	encode zstd br gzip
 
-	# FrankenPHP serves PHP via the front controller (Symfony's public/index.php).
-	# php_server automatically routes unknown paths to index.php.
-	php_server
+	route {
+		mercure {
+			publisher_jwt {env.MERCURE_PUBLISHER_JWT_KEY} HS256
+			subscriber_jwt {env.MERCURE_SUBSCRIBER_JWT_KEY} HS256
+			cors_origins http://localhost:5173 http://localhost:8000
+		}
+
+		# FrankenPHP serves PHP via the front controller (Symfony's public/index.php).
+		# php_server automatically routes unknown paths to index.php.
+		php_server
+	}
 }

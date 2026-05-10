@@ -1000,9 +1000,10 @@ function buildBooks(sceneObj: THREE.Scene, collections: ShelfCollection[]): void
         ? new THREE.MeshLambertMaterial({ map: loader.load(volCoverUrl) })
         : coverFaceMat
 
-      const spineMat = new THREE.MeshLambertMaterial({
-        map: createSpineTexture(collection.manga.edition, collection.manga.title, volume.number, colorInt),
-      })
+      const spineMap = volume.spineUrl
+        ? loader.load(coverUrl(volume.spineUrl)!)
+        : createSpineTexture(collection.manga.edition, collection.manga.title, volume.number, colorInt)
+      const spineMat = new THREE.MeshLambertMaterial({ map: spineMap })
       const backMat = new THREE.MeshLambertMaterial({ color: colorInt })
 
       // BoxGeometry face order: +x (cover), -x (pages), +y (top), -y (bottom), +z (spine→camera), -z (back)

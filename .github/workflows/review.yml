@@ -1,0 +1,316 @@
+name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  review:
+    name: Claude Review
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR diff
+        run: |
+          git fetch origin "${{ github.base_ref }}"
+          git diff "origin/${{ github.base_ref }}...HEAD" > /tmp/pr.diff
+
+          DIFF_SIZE=$(wc -c < /tmp/pr.diff)
+          echo "Diff size: ${DIFF_SIZE} bytes"
+
+          if [ "$DIFF_SIZE" -eq 0 ]; then
+            echo "Empty diff — nothing to review."
+            exit 0
+          fi
+
+          # Truncate to 100 KB to stay within model context
+          if [ "$DIFF_SIZE" -gt 102400 ]; then
+            head -c 102400 /tmp/pr.diff > /tmp/pr_trunc.diff
+            printf '\n\n... [diff truncated at 100 KB — remaining files not shown] ...\n' >> /tmp/pr_trunc.diff
+            mv /tmp/pr_trunc.diff /tmp/pr.diff
+            echo "::warning::Diff truncated to 100 KB for AI review"
+          fi
+
+      - name: Write review system prompt
+        run: |
+          cat > /tmp/system.txt <<'SYSTEM_EOF'
+You are a senior software architect reviewing pull requests for Ziggytheque, a manga library management application.
+
+## Project Stack
+- Backend: Symfony 8 + PHP 8.4 + FrankenPHP + PostgreSQL 17 (in back/)
+- Frontend: Vue 3 + TypeScript + Vite + DaisyUI (in front/)
+- Architecture: Hexagonal (Domain → Application → Infrastructure), CQRS via Symfony Messenger, DDD bounded contexts
+
+## Your Mission
+Find REAL issues visible in the diff. Do NOT hallucinate issues. Do NOT flag things you cannot see. Be precise and cite file paths + line numbers when possible.
+
+---
+
+## RULES TO ENFORCE
+
+### ARCHITECTURE
+
+**R1 — Domain Events for ALL side effects**
+Handlers must NEVER directly call: loggers, mailers, notifiers, Discord senders, ActivityLog repositories, or any cross-cutting service.
+Every side effect is triggered by dispatching a semantic domain event. Infrastructure listeners react to it.
+❌ `$this->activityLogRepository->save($log)` in a handler
+❌ `$this->discord->send(...)` in a handler
+✅ `$this->eventBus->dispatch(new SomethingHappenedEvent(...))`
+
+**R2 — Module Shared SDK (interfaces + DTOs only)**
+Modules expose an `App\{Module}\Shared\` namespace containing ONLY interfaces and DTOs — zero business logic.
+Other modules import from Shared, never from Domain or Application of another module.
+
+**R3 — Handlers are pure orchestrators (ZERO business logic)**
+A handler does EXACTLY three things: load aggregates, call a Domain service/method, dispatch domain events.
+❌ `if`, `foreach`, `array_map`, string manipulation, computations inside a handler
+✅ load → call Domain service → dispatch event
+
+**R4 — Application never imports Infrastructure**
+`use App\...\Infrastructure\...` is FORBIDDEN inside any `Application\` class.
+
+**R5 — One event, many independent listeners**
+Adding a new side effect = new listener file, zero changes to existing handlers or listeners.
+
+**R6 — Inter-module imports only via Shared**
+Module A must never import Module B's Domain or Application classes.
+❌ `use App\Collection\Domain\CollectionEntry` inside `App\Notification\...`
+✅ `use App\Collection\Shared\CollectionReaderInterface`
+
+**R7 — ActivityLog via 3 generic listeners only**
+NEVER create `ActivityLog*Listener` files per domain event.
+Events implement StartedEventInterface / SucceededEventInterface / FailedEventInterface.
+The generic listeners (ActivityLogStartedEventListener etc.) handle all automatically.
+❌ New class named `ActivityLogSomethingListener`
+✅ New event implementing `StartedEventInterface`
+
+**R10 — Descriptive variable names — no abbreviations, no single letters**
+FORBIDDEN everywhere (closures, loops, array_map callbacks, match arms):
+- Single letters: $e, $v, $q, $r, $i, $k, $m, $n, $p, $s, $t, $x, $y
+- Short abbreviations: $ve, $ce, $qb, $cmd, $dt, $ctx, $cfg, $req, $res, $err, $ex
+✅ Full domain names: $collectionEntry, $volumeEntry, $queryBuilder, $command, $dateTime
+
+**R11 — Paginated queries use Shared base classes**
+- Query must extend `App\Shared\Application\Pagination\AbstractPaginatedQuery` (pass $page, $limit to parent::__construct)
+- Result must extend `App\Shared\Application\Pagination\PaginatedResult<T>` (implement serializeItems())
+❌ Raw `['items' => ..., 'total' => ..., 'page' => ..., 'limit' => ...]` returned from handler
+
+---
+
+### CODE STYLE
+
+**final readonly on all non-extended classes**
+Every new concrete class that is not abstract and not designed to be extended must be `final readonly`.
+
+**No FQCN for PHP built-ins**
+❌ `new \DateTimeImmutable(...)`, `catch (\Throwable $e)`, `throw new \RuntimeException(...)`
+✅ Add `use DateTimeImmutable;` at top, then `new DateTimeImmutable(...)`
+Applies to: DateTimeImmutable, DateTimeInterface, Throwable, RuntimeException, InvalidArgumentException, SimpleXMLElement, etc.
+
+**No try/catch in controllers**
+Controllers must have ZERO try/catch blocks. ExceptionListener (Shared/Infrastructure) handles all DomainExceptions automatically.
+
+**#[MapRequestPayload] on every controller reading the request body**
+Any controller action reading POST/PUT/PATCH body must declare `#[MapRequestPayload] SomeDto $dto`.
+❌ `$request->request->get(...)`, `json_decode($request->getContent(), ...)`
+
+---
+
+### TESTING
+
+**New HTTP endpoint → functional test required**
+Diff adds `#[Route(...)]` to a controller → there MUST be a corresponding new/updated test in `back/tests/Functional/`.
+Cover every HTTP status code the endpoint can return (success + all error paths).
+
+**New Domain entity / VO / enum → unit test required**
+Diff adds a class in `Domain/` → there MUST be a corresponding new/updated test in `back/tests/Unit/`.
+
+**No real HTTP calls in tests**
+Tests must never reach the real internet. Use `NullMangaApiClient` or `when@test:` service overrides in config/services.yaml.
+
+---
+
+### SECURITY
+
+**No raw SQL with string interpolation**
+❌ `->executeQuery("SELECT * FROM manga WHERE id = " . $id)`
+✅ Parameterized queries with `?` or named placeholders.
+
+**No hardcoded secrets**
+No passwords, API keys, JWT secrets, or private keys in source code (except obvious test placeholder strings like `ci-secret-not-used`).
+
+**JWT auth on all /api/* routes**
+Every new route under `/api/` must be covered by the JWT firewall (security.yaml) or `#[IsGranted]`.
+Exception: `/api/auth/gate` is public by design.
+
+**Input validation**
+User-supplied data must be validated via `#[MapRequestPayload]` DTOs with Symfony constraints — never accessed raw.
+
+---
+
+### BREAKING CHANGES
+
+**API response field removed or renamed**
+If an existing endpoint removes or renames a JSON key in its response, that is a BC break. Flag it.
+
+**HTTP status code changed on existing endpoint**
+Changing 200→201, 204→200, etc. on an existing endpoint is a BC break.
+
+**Route removed**
+Deleting an existing route is a BC break.
+
+---
+
+### DESTRUCTIVE MIGRATIONS
+
+Flag any migration containing:
+- `DROP TABLE` — permanent data loss
+- `DROP COLUMN` — permanent data loss
+- `TRUNCATE` — permanent data loss, non-rollbackable
+- `ALTER TABLE ... DROP CONSTRAINT` — may break referential integrity
+- `ALTER COLUMN ... NOT NULL` without a DEFAULT on a non-empty table — will fail instantly in production
+- Column type change (`ALTER COLUMN ... TYPE`) — may truncate or corrupt values
+
+For each destructive operation: state the specific risk and the safe migration path (add nullable → backfill → add constraint → drop old column, across separate deploys).
+
+---
+
+### DOCTRINE MAPPING
+
+**Enum column length must match migration DDL**
+`#[ORM\Column(enumType: SomeEnum::class, length: N)]` in entity must match `VARCHAR(N)` in migration DDL.
+Without explicit `length:`, Doctrine generates VARCHAR(255) — migration must also use 255.
+
+**Missing options: ['default' => ...] when migration has a DEFAULT**
+If a migration adds `DEFAULT value` to a column, the entity must also declare `options: ['default' => value]`.
+Without it, `doctrine:schema:validate` fails (metadata drift).
+
+**No human-readable FK/index names in migrations**
+Doctrine generates hash-based names (e.g. `FK_8A64DE14A9250DF5`). Human-readable names like `fk_volumes_manga` will conflict.
+❌ `addForeignKeyConstraint(..., 'fk_volumes_manga')`
+✅ Let Doctrine generate the name via `make migration`
+
+---
+
+## OUTPUT FORMAT
+
+Write your review in this exact structure. Omit any section that has no findings.
+
+### Summary
+One paragraph: what this PR does, overall quality, and whether it is ready to merge.
+
+### Blockers 🔴
+Must fix before merge. Each item:
+> **[Category]** `path/to/File.php` — What is wrong + what the correct pattern is.
+
+### Warnings ⚠️
+Should fix but not merge-blocking. Same format.
+
+### Suggestions 💡
+Optional improvements. Same format.
+
+### Missing Tests
+List any endpoints or domain classes added/changed without corresponding test coverage.
+
+### Verdict
+Exactly one of:
+- ✅ **APPROVED** — no issues found
+- ⚠️ **APPROVED WITH SUGGESTIONS** — minor issues only
+- 🔴 **CHANGES REQUIRED** — one or more blockers must be addressed
+SYSTEM_EOF
+
+      - name: Call Claude API and generate review
+        id: claude
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::warning::ANTHROPIC_API_KEY secret not set — skipping AI review"
+            echo "⚠️ AI review skipped: \`ANTHROPIC_API_KEY\` secret is not configured in this repository." > /tmp/review.md
+            exit 0
+          fi
+
+          if [ ! -s /tmp/pr.diff ]; then
+            echo "Empty diff — skipping review." > /tmp/review.md
+            exit 0
+          fi
+
+          # Build JSON payload using jq --rawfile to handle all escaping safely
+          jq -n \
+            --rawfile system /tmp/system.txt \
+            --rawfile diff /tmp/pr.diff \
+            --arg title "${{ github.event.pull_request.title }}" \
+            '{
+              model: "claude-opus-4-7",
+              max_tokens: 4096,
+              system: $system,
+              messages: [{
+                role: "user",
+                content: ("Please review this pull request.\n\nTitle: " + $title + "\n\n```diff\n" + $diff + "\n```")
+              }]
+            }' > /tmp/payload.json
+
+          HTTP_STATUS=$(curl -s -o /tmp/api_response.json -w "%{http_code}" \
+            https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d @/tmp/payload.json)
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            ERROR=$(jq -r '.error.message // "Unknown error"' /tmp/api_response.json 2>/dev/null || echo "Unknown error")
+            echo "::error::Claude API returned HTTP $HTTP_STATUS: $ERROR"
+            echo "⚠️ AI review failed: Claude API returned HTTP $HTTP_STATUS. See workflow logs for details." > /tmp/review.md
+            exit 0
+          fi
+
+          jq -r '.content[0].text' /tmp/api_response.json > /tmp/review.md
+
+          if [ ! -s /tmp/review.md ]; then
+            echo "::error::Claude returned an empty response"
+            echo "⚠️ AI review failed: Claude returned an empty response." > /tmp/review.md
+          fi
+
+      - name: Post review as PR comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ ! -f /tmp/review.md ]; then
+            echo "No review file found — nothing to post."
+            exit 0
+          fi
+
+          REVIEW=$(cat /tmp/review.md)
+
+          HEADER="## 🤖 Claude Code Review
+
+> Automated review by [Claude claude-opus-4-7](https://claude.ai) — checks architecture, security, BC breaks, and destructive migrations against [project conventions](.claude/CLAUDE.md).
+
+---
+
+"
+
+          FULL_BODY="${HEADER}${REVIEW}"
+
+          # Delete any previous AI review comment on this PR to avoid accumulating duplicates
+          EXISTING_COMMENT_ID=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            --jq '.[] | select(.body | startswith("## 🤖 Claude Code Review")) | .id' \
+            2>/dev/null | head -1 || true)
+
+          if [ -n "$EXISTING_COMMENT_ID" ]; then
+            gh api "repos/${REPO}/issues/comments/${EXISTING_COMMENT_ID}" \
+              --method DELETE 2>/dev/null || true
+          fi
+
+          # Post the new review comment
+          gh pr comment "$PR_NUMBER" --body "$FULL_BODY"

@@ -4,6 +4,10 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+permissions:
+  pull-requests: write
+  contents: read
+
 defaults:
   run:
     working-directory: back
@@ -15,11 +19,11 @@ env:
 
 jobs:
   migrations:
-    name: Database migrations
+    name: Migrations + Schema Validate
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17
+        image: postgres:17-alpine
         env:
           POSTGRES_USER: ziggy
           POSTGRES_PASSWORD: ziggy
@@ -62,12 +66,15 @@ jobs:
       - name: Run migrations
         run: php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
 
+      - name: Validate Doctrine schema
+        run: php bin/console doctrine:schema:validate
+
   migration-safety:
-    name: Migration safety (dry-run)
+    name: Migration safety (dry-run + destructive detection)
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17
+        image: postgres:17-alpine
         env:
           POSTGRES_USER: ziggy
           POSTGRES_PASSWORD: ziggy
@@ -109,9 +116,62 @@ jobs:
           openssl genrsa -passout pass:${JWT_PASSPHRASE} -out config/jwt/private.pem 4096
           openssl rsa -pubout -passin pass:${JWT_PASSPHRASE} -in config/jwt/private.pem -out config/jwt/public.pem
 
-      - name: Dry-run new migrations
+      - name: Detect destructive SQL in new migrations
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          BASE=$(git merge-base HEAD origin/${{ github.base_ref }})
+          BASE=$(git merge-base HEAD "origin/${{ github.base_ref }}")
+          NEW=$(git diff --name-only --diff-filter=A "$BASE" HEAD -- migrations/ | grep 'Version.*\.php$' || true)
+
+          if [ -z "$NEW" ]; then
+            echo "No new migrations — skipping destructive check."
+            exit 0
+          fi
+
+          # Patterns that cause data loss or long table locks in production
+          DESTRUCTIVE_PATTERN='(DROP TABLE|DROP COLUMN|TRUNCATE|DROP CONSTRAINT|ALTER COLUMN.+NOT NULL|ALTER COLUMN.+TYPE )'
+
+          REPORT=""
+          while IFS= read -r migrationFile; do
+            [ -z "$migrationFile" ] && continue
+            # Strip back/ prefix: git diff shows paths from repo root, we run in back/
+            localFile=$(echo "$migrationFile" | sed 's|^back/||')
+            [ -f "$localFile" ] || continue
+            HITS=$(grep -nEi "$DESTRUCTIVE_PATTERN" "$localFile" 2>/dev/null || true)
+            if [ -n "$HITS" ]; then
+              REPORT="$REPORT"$'\n'"**\`$localFile\`**"$'\n'"$(echo "$HITS" | while IFS= read -r line; do echo "> \`$line\`"; done)"$'\n'
+            fi
+          done <<< "$NEW"
+
+          if [ -n "$REPORT" ]; then
+            gh pr comment "$PR_NUMBER" --body "## ⚠️ Destructive Migration Detected
+
+This PR adds migration(s) with potentially **destructive SQL operations** that can cause data loss or long table locks in production.
+
+$REPORT
+
+### Risk reference
+| Pattern | Risk |
+|---|---|
+| \`DROP TABLE\` / \`DROP COLUMN\` | Permanent data loss |
+| \`TRUNCATE\` | Empties the table — cannot be rolled back |
+| \`DROP CONSTRAINT\` | Breaks referential integrity |
+| \`ALTER COLUMN ... NOT NULL\` without DEFAULT | Fails instantly on non-empty tables |
+| \`ALTER COLUMN ... TYPE\` | May truncate or corrupt existing values |
+
+### Safe migration path
+1. Add the column as **nullable** first → deploy
+2. **Backfill** existing rows in a background job
+3. Add the NOT NULL constraint → deploy
+4. Drop the old column in a **separate** deploy (after verifying nothing reads it)
+
+Please confirm this migration is safe before merging. 🙏"
+          fi
+
+      - name: Dry-run new migrations against simulated prod state
+        run: |
+          BASE=$(git merge-base HEAD "origin/${{ github.base_ref }}")
           NEW=$(git diff --name-only --diff-filter=A "$BASE" HEAD -- migrations/ | grep 'Version.*\.php$' || true)
 
           if [ -z "$NEW" ]; then
@@ -121,11 +181,11 @@ jobs:
 
           echo "::warning::New migrations in this PR. Review the SQL below before merging."
 
-          # Remove this PR's new migrations so only the base-branch state is applied first
+          # Remove new migrations → simulate the production baseline
           echo "$NEW" | sed 's|^back/||' | xargs -r rm -f
           php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
 
-          # Restore new migrations and dry-run them against the simulated prod state
+          # Restore and dry-run against the simulated baseline
           git checkout HEAD -- migrations/
           SQL=$(php bin/console doctrine:migrations:migrate --dry-run --no-interaction 2>&1 || true)
 
