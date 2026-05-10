@@ -9,10 +9,13 @@
 	encode zstd br gzip
 
 	route {
+		@mercure path /.well-known/mercure*
+		header @mercure Access-Control-Allow-Origin "{env.MERCURE_CORS_ORIGINS}"
+		header @mercure Access-Control-Allow-Credentials "true"
+
 		mercure {
 			publisher_jwt {env.MERCURE_PUBLISHER_JWT_KEY} HS256
 			subscriber_jwt {env.MERCURE_SUBSCRIBER_JWT_KEY} HS256
-			cors_origins http://localhost:5173 http://localhost:8000
 		}
 
 		# FrankenPHP serves PHP via the front controller (Symfony's public/index.php).
