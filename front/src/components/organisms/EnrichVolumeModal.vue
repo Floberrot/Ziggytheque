@@ -2,7 +2,7 @@
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { X, Search, RefreshCw, Book, ImageOff, Megaphone, Package, Star, BookOpen } from 'lucide-vue-next'
-import { searchVolumeExternal, updateVolume } from '@/api/manga'
+import { searchVolumeExternal, updateVolume, type CoverProvider } from '@/api/manga'
 import { toggleVolume } from '@/api/collection'
 import { useUiStore } from '@/stores/useUiStore'
 import type { VolumeEntry, VolumeToggleField } from '@/types'
@@ -37,46 +37,65 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 // ── Search state ──
 const searchQuery = ref('')
 const manualCoverUrl = ref('')
-const searchResults = ref<{ externalId: string; title: string; edition: string | null; coverUrl: string | null }[]>([])
+const provider = ref<CoverProvider>('composite')
+const searchResults = ref<{ externalId: string | null; title: string; edition: string | null; coverUrl: string | null; spineUrl: string | null; isbn: string | null; source: string | null }[]>([])
 const isSearching = ref(false)
 const isLoadingMore = ref(false)
 const hasMore = ref(false)
 const PAGE_SIZE = 20
 let currentPage = 1
 let lastQuery = ''
+let lastVolumeNumber: number | null = null
+let lastEdition: string | null = null
 let searchTimer: ReturnType<typeof setTimeout> | null = null
-let skipNextSearch = false
+
+const PROVIDERS: { key: CoverProvider; label: string }[] = [
+  { key: 'composite', label: 'Tout' },
+  { key: 'mangadex', label: 'MangaDex' },
+  { key: 'openlibrary', label: 'Open Library' },
+  { key: 'googlebooks', label: 'Google Books' },
+]
+
+function buildContextQuery(title: string, volumeNumber: number, edition: string | null): string {
+  return `${title} tome ${volumeNumber}${edition ? ' ' + edition : ''}`.trim()
+}
 
 watch(() => [props.open, props.volume] as const, ([open, vol], prev) => {
   const wasOpen = prev?.[0] ?? false
   const justOpened = open && !wasOpen
 
-  if (justOpened && vol) {
-    skipNextSearch = true
-    searchQuery.value = `${props.mangaTitle} tome ${vol.number} ${props.mangaEdition ?? ''}`.trim()
-    if (!vol.coverUrl) {
-      runSearch(searchQuery.value)
-    }
+  if (justOpened && vol && !vol.coverUrl) {
+    lastVolumeNumber = vol.number
+    lastEdition = props.mangaEdition
+    runSearch(buildContextQuery(props.mangaTitle, vol.number, props.mangaEdition))
   }
   if (!open) {
     searchResults.value = []
-    skipNextSearch = false
+    searchQuery.value = ''
     manualCoverUrl.value = ''
+    provider.value = 'composite'
     lightboxOpen.value = false
     hasMore.value = false
     currentPage = 1
     lastQuery = ''
+    lastVolumeNumber = null
+    lastEdition = null
   }
 })
 
+watch(provider, () => {
+  if (lastQuery) runSearch(lastQuery)
+})
+
 watch(searchQuery, (val) => {
-  if (skipNextSearch) {
-    skipNextSearch = false
-    if (searchTimer) clearTimeout(searchTimer)
-    return
-  }
   if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => runSearch(val), 500)
+  searchTimer = setTimeout(() => {
+    if (val.trim().length >= 2) {
+      lastVolumeNumber = null
+      lastEdition = null
+      runSearch(val)
+    }
+  }, 500)
 })
 
 async function runSearch(q: string) {
@@ -85,7 +104,7 @@ async function runSearch(q: string) {
   currentPage = 1
   isSearching.value = true
   try {
-    const data = await searchVolumeExternal(lastQuery, 1)
+    const data = await searchVolumeExternal(lastQuery, 1, lastVolumeNumber, lastEdition, provider.value)
     searchResults.value = data
     hasMore.value = data.length >= PAGE_SIZE
   } catch {
@@ -101,7 +120,7 @@ async function loadMore() {
   if (!hasMore.value || isLoadingMore.value || !lastQuery) return
   isLoadingMore.value = true
   try {
-    const data = await searchVolumeExternal(lastQuery, currentPage + 1)
+    const data = await searchVolumeExternal(lastQuery, currentPage + 1, null, null, provider.value)
     if (data.length > 0) {
       currentPage++
       searchResults.value = [...searchResults.value, ...data]
@@ -282,6 +301,18 @@ const volumeStatus = computed(() => {
                 <p class="text-xs text-base-content/50 mb-2 font-semibold uppercase tracking-wide">
                   Chercher une couverture
                 </p>
+                <!-- Provider tabs -->
+                <div class="flex gap-1 mb-2 flex-wrap">
+                  <button
+                    v-for="p in PROVIDERS"
+                    :key="p.key"
+                    class="btn btn-xs"
+                    :class="provider === p.key ? 'btn-primary' : 'btn-ghost'"
+                    @click="provider = p.key"
+                  >
+                    {{ p.label }}
+                  </button>
+                </div>
                 <div class="flex gap-2 items-center">
                   <label class="input input-bordered input-sm flex items-center gap-2 flex-1">
                     <Search class="h-4 w-4 opacity-40 shrink-0" />
@@ -289,7 +320,7 @@ const volumeStatus = computed(() => {
                       v-model="searchQuery"
                       type="text"
                       class="grow text-sm"
-                      placeholder="ex: GTO tome 1 Pika"
+                      placeholder="Affiner si nécessaire — sinon, laissez vide"
                     />
                     <span v-if="isSearching" class="loading loading-spinner loading-xs opacity-40" />
                   </label>
@@ -308,13 +339,13 @@ const volumeStatus = computed(() => {
               <!-- Results (scrollable) -->
               <div class="flex-1 overflow-y-auto p-3" @scroll="onResultsScroll">
                 <p v-if="!searchResults.length && !isSearching" class="text-sm text-base-content/30 text-center py-8">
-                  Résultats Google Books — appuyez sur une couverture pour l'appliquer
+                  Suggestions de couvertures — appuyez sur une couverture pour l'appliquer
                 </p>
 
                 <div class="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
                   <button
-                    v-for="result in searchResults"
-                    :key="result.externalId"
+                    v-for="(result, idx) in searchResults"
+                    :key="result.externalId ?? result.coverUrl ?? idx"
                     class="group flex flex-col gap-1 text-left"
                     :disabled="!result.coverUrl"
                     @click="result.coverUrl && enrichMutation.mutate({ coverUrl: result.coverUrl })"

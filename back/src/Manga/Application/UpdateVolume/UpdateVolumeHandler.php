@@ -51,6 +51,10 @@ final readonly class UpdateVolumeHandler
                 $volume->price = $command->price;
             }
 
+            if ($command->spineUrl !== null) {
+                $volume->spineUrl = $command->spineUrl;
+            }
+
             $this->mangaRepository->save($manga);
 
             $this->eventBus->publish(new UpdateVolumeSucceededEvent(

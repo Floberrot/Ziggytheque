@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Manga\Domain;
 
+use App\Manga\Domain\Isbn;
 use App\Manga\Domain\Manga;
 use App\Manga\Domain\Volume;
 use DateTimeImmutable;
@@ -48,5 +49,25 @@ final class VolumeTest extends TestCase
         $this->assertNull($arr['coverUrl']);
         $this->assertNull($arr['price']);
         $this->assertNull($arr['releaseDate']);
+        $this->assertNull($arr['isbn']);
+        $this->assertNull($arr['spineUrl']);
+    }
+
+    public function testToArrayExposesIsbnAsCanonicalString(): void
+    {
+        $manga = $this->makeManga();
+        $isbn = Isbn::fromString('9782123456780');
+        $volume = new Volume(
+            id: 'vol-isbn',
+            manga: $manga,
+            number: 2,
+            isbn: $isbn,
+            spineUrl: 'https://example.com/spine.jpg',
+        );
+
+        $arr = $volume->toArray();
+
+        $this->assertSame('9782123456780', $arr['isbn']);
+        $this->assertSame('https://example.com/spine.jpg', $arr['spineUrl']);
     }
 }

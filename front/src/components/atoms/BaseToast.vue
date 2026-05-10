@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import type { Toast } from '@/stores/useUiStore'
+
 defineProps<{
-  message: string
-  type: 'success' | 'error' | 'info'
+  toast: Toast
 }>()
 </script>
 
@@ -9,11 +10,23 @@ defineProps<{
   <div
     class="alert text-sm"
     :class="{
-      'alert-success': type === 'success',
-      'alert-error': type === 'error',
-      'alert-info': type === 'info',
+      'alert-success': toast.type === 'success',
+      'alert-error': toast.type === 'error',
+      'alert-info': toast.type === 'info' || toast.type === 'progress',
     }"
   >
-    <span>{{ message }}</span>
+    <template v-if="toast.type === 'progress'">
+      <span class="loading loading-spinner loading-xs" />
+      <div class="flex flex-col gap-0.5 min-w-0">
+        <span>{{ toast.message }}</span>
+        <progress
+          v-if="toast.progress && toast.progress.total > 0"
+          class="progress progress-primary w-full h-1.5"
+          :value="toast.progress.current"
+          :max="toast.progress.total"
+        />
+      </div>
+    </template>
+    <span v-else>{{ toast.message }}</span>
   </div>
 </template>

@@ -286,8 +286,7 @@ const navItems: NavItem[] = [
       <BaseToast
         v-for="toast in ui.toasts"
         :key="toast.id"
-        :message="toast.message"
-        :type="toast.type"
+        :toast="toast"
       />
     </div>
   </Teleport>

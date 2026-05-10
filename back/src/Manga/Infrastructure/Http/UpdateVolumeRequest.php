@@ -13,6 +13,7 @@ final readonly class UpdateVolumeRequest
         public ?string $releaseDate = null,
         #[Assert\PositiveOrZero]
         public ?float $price = null,
+        public ?string $spineUrl = null,
     ) {
     }
 }

@@ -6,11 +6,14 @@ namespace App\Manga\Infrastructure\ExternalApi;
 
 use App\Manga\Domain\ExternalApiClientInterface;
 use App\Manga\Domain\ExternalMangaDto;
+use App\Manga\Domain\Isbn;
+use App\Manga\Domain\MangaCoverProviderInterface;
+use App\Manga\Domain\MangaVolumeCoverDto;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Throwable;
 
-final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInterface
+final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInterface, MangaCoverProviderInterface
 {
     private const string BASE_URL = 'https://www.googleapis.com/books/v1';
     private const string PREFIX_LOGGER = 'GOOGLE_BOOKS : ';
@@ -96,6 +99,77 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
         $data = $response->toArray();
 
         return $this->mapToDto($data);
+    }
+
+    public function findByIsbn(Isbn $isbn): ?MangaVolumeCoverDto
+    {
+        // Google Books supports ISBN search via the `q` parameter
+        $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; BEGIN.', ['isbn' => $isbn->value]);
+
+        try {
+            $response = $this->httpClient->request('GET', self::BASE_URL . '/volumes', [
+                'query' => [
+                    'q' => 'isbn:' . $isbn->value,
+                    'key' => $this->apiKey,
+                ],
+            ]);
+            $data = $response->toArray();
+
+            if (empty($data['items'])) {
+                return null;
+            }
+
+            $coverUrl = $this->extractCoverUrl($data['items'][0]['volumeInfo'] ?? []);
+            if ($coverUrl === null) {
+                return null;
+            }
+
+            return new MangaVolumeCoverDto(
+                coverUrl: $coverUrl,
+                spineUrl: null,
+                isbn: $isbn,
+                source: 'google_books',
+            );
+        } catch (Throwable $exception) {
+            $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; ERROR.', [
+                'isbn' => $isbn->value,
+                'error' => $exception->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    public function findByContext(
+        string $mangaTitle,
+        ?string $edition,
+        int $volumeNumber,
+        string $language = 'fr',
+    ): ?MangaVolumeCoverDto {
+        $query = sprintf('%s tome %d%s', $mangaTitle, $volumeNumber, $edition ? ' ' . $edition : '');
+        $this->logger->info(self::PREFIX_LOGGER . 'find by context; BEGIN.', ['query' => $query]);
+
+        try {
+            $results = $this->searchByTitle($query, page: 1);
+
+            foreach ($results as $dto) {
+                if ($dto->coverUrl !== null) {
+                    return new MangaVolumeCoverDto(
+                        coverUrl: $dto->coverUrl,
+                        spineUrl: null,
+                        isbn: null,
+                        source: 'google_books',
+                    );
+                }
+            }
+
+            return null;
+        } catch (Throwable $exception) {
+            $this->logger->info(self::PREFIX_LOGGER . 'find by context; ERROR.', [
+                'query' => $query,
+                'error' => $exception->getMessage(),
+            ]);
+            return null;
+        }
     }
 
     /**

@@ -40,12 +40,38 @@ jobs:
       - name: Run PHP_CodeSniffer
         run: vendor/bin/phpcs
 
+  deptrac:
+    name: Deptrac (Architecture)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer
+          coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: back/vendor
+          key: composer-${{ hashFiles('back/composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Run Deptrac
+        run: vendor/bin/deptrac analyse --no-progress
+
   phpstan:
     name: PHPStan
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17
+        image: postgres:17-alpine
         env:
           POSTGRES_USER: ziggy
           POSTGRES_PASSWORD: ziggy

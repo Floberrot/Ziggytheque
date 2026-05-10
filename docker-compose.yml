@@ -3,6 +3,8 @@ services:
     build:
       context: ./back
       dockerfile: Dockerfile.dev
+    # Use project Caddyfile so the Mercure hub directive is loaded
+    command: frankenphp run --config /app/Caddyfile
     ports:
       - "8000:80"
     env_file:
@@ -12,12 +14,15 @@ services:
       - back_vendor:/app/vendor
     environment:
       APP_ENV: dev
-      SERVER_NAME: "http://:80"
       DATABASE_URL: postgresql://ziggy:ziggy@db:5432/ziggytheque?serverVersion=17&charset=utf8
       MESSENGER_TRANSPORT_DSN: doctrine://default?auto_setup=0
       CORS_ALLOW_ORIGIN: "^https?://(localhost|127\\.0\\.0\\.1)(:[0-9]+)?$"
       MAILER_DSN: smtp://mailer:1025
       NOTIFICATION_EMAIL: you@example.com
+      MERCURE_PUBLISHER_JWT_KEY: "!ChangeThisLocalMercurePublisherKey!"
+      MERCURE_SUBSCRIBER_JWT_KEY: "!ChangeThisLocalMercureSubscriberKey!"
+      MERCURE_URL: http://back:80/.well-known/mercure
+      MERCURE_PUBLIC_URL: http://localhost:8000/.well-known/mercure
     depends_on:
       db:
         condition: service_healthy
@@ -74,6 +79,12 @@ services:
       MESSENGER_TRANSPORT_DSN: doctrine://default?auto_setup=0
       MAILER_DSN: smtp://mailer:1025
       NOTIFICATION_EMAIL: you@example.com
+      MERCURE_PUBLISHER_JWT_KEY: "!ChangeThisLocalMercurePublisherKey!"
+      MERCURE_SUBSCRIBER_JWT_KEY: "!ChangeThisLocalMercureSubscriberKey!"
+      MERCURE_URL: http://back:80/.well-known/mercure
+      MERCURE_PUBLIC_URL: http://localhost:8000/.well-known/mercure
+      NO_PROXY: "back,db,mailer,localhost,127.0.0.1"
+      no_proxy: "back,db,mailer,localhost,127.0.0.1"
     depends_on:
       db:
         condition: service_healthy

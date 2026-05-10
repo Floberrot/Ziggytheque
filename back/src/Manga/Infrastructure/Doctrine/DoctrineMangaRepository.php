@@ -34,6 +34,27 @@ final readonly class DoctrineMangaRepository implements MangaRepositoryInterface
             ->getResult();
     }
 
+    public function findAllPaginated(int $offset, int $limit): array
+    {
+        return $this->em->createQueryBuilder()
+            ->select('m')
+            ->from(Manga::class, 'm')
+            ->orderBy('m.createdAt', 'ASC')
+            ->setFirstResult($offset)
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function countAll(): int
+    {
+        return (int) $this->em->createQueryBuilder()
+            ->select('COUNT(m.id)')
+            ->from(Manga::class, 'm')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     public function save(Manga $manga): void
     {
         $this->em->persist($manga);
