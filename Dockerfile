@@ -50,7 +50,7 @@ COPY back/worker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["sh", "-c", "while true; do php bin/console messenger:consume async scheduler_default --time-limit=3600 --memory-limit=128M; echo '[worker] Restarting messenger consumer...'; done"]
+CMD ["sh", "-c", "while true; do timeout 4200 php bin/console messenger:consume async scheduler_default --time-limit=3600 --memory-limit=128M; echo \"[worker] Restarting messenger consumer at $(date -u +%Y-%m-%dT%H:%M:%SZ)...\"; sleep 2; done"]
 
 # ── Stage 5: Production server (app + SPA + FrankenPHP/Caddy) — DEFAULT TARGET ─
 FROM app AS prod
