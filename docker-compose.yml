@@ -66,7 +66,7 @@ services:
     build:
       context: ./back
       dockerfile: Dockerfile.dev
-    command: sh -c 'while true; do timeout 4200 php bin/console messenger:consume async scheduler_default --time-limit=3600 -vv; echo "[worker] Restarting messenger consumer at $(date -u +%Y-%m-%dT%H:%M:%SZ)..."; sleep 2; done'
+    command: ["sh", "/app/worker-supervisor.sh"]
     restart: unless-stopped
     env_file:
       - ./back/.env.local
