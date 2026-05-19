@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Auth\Application\Gate;
 
 use App\Auth\Domain\Exception\InvalidGatePasswordException;
-use App\Auth\Domain\GateUser;
+use App\Auth\Domain\User;
 use App\Auth\Shared\Event\GateFailedEvent;
 use App\Auth\Shared\Event\GateStartedEvent;
 use App\Auth\Shared\Event\GateSucceededEvent;
@@ -34,7 +34,7 @@ final readonly class GateHandler
                 throw new InvalidGatePasswordException();
             }
 
-            $token = $this->jwtManager->create(new GateUser());
+            $token = $this->jwtManager->createFromPayload($command->user, ['adminUnlocked' => true]);
 
             $this->eventBus->publish(new GateSucceededEvent(
                 correlationId: $started->correlationId,
@@ -42,13 +42,13 @@ final readonly class GateHandler
             ));
 
             return $token;
-        } catch (Throwable $e) {
+        } catch (Throwable $exception) {
             $this->eventBus->publish(new GateFailedEvent(
                 correlationId: $started->correlationId,
-                error: $e->getMessage(),
-                exceptionClass: $e::class,
+                error: $exception->getMessage(),
+                exceptionClass: $exception::class,
             ));
-            throw $e;
+            throw $exception;
         }
     }
 }

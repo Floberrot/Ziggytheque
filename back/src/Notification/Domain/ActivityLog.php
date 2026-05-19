@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notification\Domain;
 
+use App\Auth\Domain\User;
 use App\Collection\Domain\CollectionEntry;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -27,6 +28,9 @@ class ActivityLog
         public readonly EventTypeEnum $eventType,
         #[ORM\Column(length: 100)]
         public readonly string $sourceName,
+        #[ORM\ManyToOne(targetEntity: User::class)]
+        #[ORM\JoinColumn(name: 'owner_id', nullable: true, onDelete: 'SET NULL')]
+        public ?User $owner = null,
         #[ORM\ManyToOne(targetEntity: CollectionEntry::class)]
         #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
         public ?CollectionEntry $collectionEntry = null,

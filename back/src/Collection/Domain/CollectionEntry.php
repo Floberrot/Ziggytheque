@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Collection\Domain;
 
+use App\Auth\Domain\User;
 use App\Manga\Domain\Manga;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -13,7 +14,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'collection_entries')]
-#[ORM\UniqueConstraint(columns: ['manga_id'])]
+#[ORM\UniqueConstraint(name: 'UNIQ_79D4C1147E3C61F97B6461', columns: ['owner_id', 'manga_id'])]
 class CollectionEntry
 {
     /** @var Collection<int, VolumeEntry> */
@@ -35,6 +36,9 @@ class CollectionEntry
         #[ORM\ManyToOne(targetEntity: Manga::class)]
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
         public Manga $manga,
+        #[ORM\ManyToOne(targetEntity: User::class)]
+        #[ORM\JoinColumn(name: 'owner_id', nullable: true, onDelete: 'CASCADE')]
+        public ?User $owner = null,
         #[ORM\Column(enumType: ReadingStatusEnum::class)]
         public ReadingStatusEnum $readingStatus = ReadingStatusEnum::NotStarted,
         #[ORM\Column(type: 'text', nullable: true)]
@@ -49,29 +53,29 @@ class CollectionEntry
         public ?DateTimeImmutable $notificationsEnabledAt = null,
     ) {
         $this->volumeEntries = new ArrayCollection();
-        $this->addedAt = new DateTimeImmutable();
+        $this->addedAt       = new DateTimeImmutable();
     }
 
     /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [
-            'id' => $this->id,
-            'manga' => $this->manga->toArray(),
-            'readingStatus' => $this->readingStatus->value,
-            'review' => $this->review,
-            'rating' => $this->rating,
-            'ownedCount' => $this->volumeEntries->filter(fn (VolumeEntry $ve) => $ve->isOwned)->count(),
-            'readCount' => $this->volumeEntries->filter(fn (VolumeEntry $ve) => $ve->isRead)->count(),
-            'wishedCount' => $this->volumeEntries
-                ->filter(fn (VolumeEntry $ve) => $ve->isWished && !$ve->isOwned)
+            'id'                     => $this->id,
+            'manga'                  => $this->manga->toArray(),
+            'readingStatus'          => $this->readingStatus->value,
+            'review'                 => $this->review,
+            'rating'                 => $this->rating,
+            'ownedCount'             => $this->volumeEntries->filter(fn (VolumeEntry $volumeEntry) => $volumeEntry->isOwned)->count(),
+            'readCount'              => $this->volumeEntries->filter(fn (VolumeEntry $volumeEntry) => $volumeEntry->isRead)->count(),
+            'wishedCount'            => $this->volumeEntries
+                ->filter(fn (VolumeEntry $volumeEntry) => $volumeEntry->isWished && !$volumeEntry->isOwned)
                 ->count(),
-            'totalVolumes' => $this->manga->volumes->count(),
-            'notificationsEnabled' => $this->notificationsEnabled,
+            'totalVolumes'           => $this->manga->volumes->count(),
+            'notificationsEnabled'   => $this->notificationsEnabled,
             'notificationsEnabledAt' => $this->notificationsEnabledAt?->format(DateTimeInterface::ATOM),
-            'addedAt' => $this->addedAt->format(DateTimeInterface::ATOM),
-            'ownedValue' => (float) array_sum(array_map(
-                fn (VolumeEntry $ve) => $ve->isOwned ? ($ve->volume->price ?? 0.0) : 0.0,
+            'addedAt'                => $this->addedAt->format(DateTimeInterface::ATOM),
+            'ownedValue'             => (float) array_sum(array_map(
+                fn (VolumeEntry $volumeEntry) => $volumeEntry->isOwned ? ($volumeEntry->volume->price ?? 0.0) : 0.0,
                 $this->volumeEntries->toArray(),
             )),
         ];
@@ -81,10 +85,10 @@ class CollectionEntry
     public function toDetailArray(): array
     {
         $volumes = $this->volumeEntries->toArray();
-        usort($volumes, static fn (VolumeEntry $a, VolumeEntry $b) => $a->volume->number <=> $b->volume->number);
+        usort($volumes, static fn (VolumeEntry $volumeEntryA, VolumeEntry $volumeEntryB) => $volumeEntryA->volume->number <=> $volumeEntryB->volume->number);
 
         return array_merge($this->toArray(), [
-            'volumes' => array_map(static fn (VolumeEntry $ve) => $ve->toArray(), $volumes),
+            'volumes' => array_map(static fn (VolumeEntry $volumeEntry) => $volumeEntry->toArray(), $volumes),
         ]);
     }
 }
