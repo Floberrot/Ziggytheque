@@ -50,4 +50,9 @@ final class IsbnType extends StringType
 
         return $platform->getStringTypeDeclarationSQL($column);
     }
+
+    public function requiresSQLCommentHint(AbstractPlatform $platform): bool
+    {
+        return true;
+    }
 }
