@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notification\Domain;
 
+use App\Auth\Domain\User;
 use App\Collection\Domain\CollectionEntry;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -16,6 +17,10 @@ class Article
 {
     #[ORM\Column]
     public DateTimeImmutable $createdAt;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'owner_id', nullable: true, onDelete: 'CASCADE')]
+    public ?User $owner = null;
 
     public function __construct(
         #[ORM\Id]

@@ -140,11 +140,13 @@ deptrac:
     Collection_Domain:
       - Shared
       - Manga_Domain
+      - Auth_Domain
     Manga_Domain:
       - Shared
     Notification_Domain:
       - Shared
       - Collection_Domain
+      - Auth_Domain
     Stats_Domain:
       - Shared
       - Manga_Domain

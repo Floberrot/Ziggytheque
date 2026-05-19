@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notification\Domain;
 
+use App\Auth\Domain\User;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Doctrine\ORM\Mapping as ORM;
@@ -23,6 +24,9 @@ class Notification
         public string $type,
         #[ORM\Column(type: 'text')]
         public string $message,
+        #[ORM\ManyToOne(targetEntity: User::class)]
+        #[ORM\JoinColumn(name: 'owner_id', nullable: true, onDelete: 'CASCADE')]
+        public ?User $owner = null,
         #[ORM\Column]
         public bool $isRead = false,
     ) {

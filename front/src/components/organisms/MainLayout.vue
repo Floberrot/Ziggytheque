@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { shallowRef, watch } from 'vue'
+import { computed, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { useUiStore } from '@/stores/useUiStore'
 import { useThemeStore, THEMES } from '@/stores/useThemeStore'
 import { useI18n } from 'vue-i18n'
-import { Menu, Settings, LogOut, Globe, Palette, LayoutDashboard, Library, ShoppingCart, PlusCircle, Bell, ClipboardList, BookOpen } from 'lucide-vue-next'
+import { Menu, Settings, LogOut, Globe, Palette, LayoutDashboard, Library, ShoppingCart, PlusCircle, Bell, ClipboardList, BookOpen, Users } from 'lucide-vue-next'
 import BaseToast from '@/components/atoms/BaseToast.vue'
 import AppLogo from '@/components/atoms/AppLogo.vue'
 
@@ -18,7 +18,7 @@ const { t } = useI18n()
 
 function logout() {
   auth.logout()
-  router.push({ name: 'gate' })
+  router.push({ name: 'login' })
 }
 
 const mobileNavOpen = shallowRef(false)
@@ -40,9 +40,10 @@ interface NavItem {
   labelKey: string
   icon: unknown
   comingSoon?: true
+  adminOnly?: true
 }
 
-const navItems: NavItem[] = [
+const allNavItems: NavItem[] = [
   { name: 'dashboard',     labelKey: 'nav.dashboard',     icon: LayoutDashboard },
   { name: 'collection',    labelKey: 'nav.collection',    icon: Library },
   { name: 'wishlist',      labelKey: 'nav.wishlist',      icon: ShoppingCart },
@@ -50,7 +51,12 @@ const navItems: NavItem[] = [
   { name: 'notifications', labelKey: 'nav.notifications', icon: Bell },
   { name: 'journal',       labelKey: 'nav.journal',       icon: ClipboardList },
   { name: 'shelf',         labelKey: 'nav.shelf',         icon: BookOpen },
+  { name: 'admin-users',   labelKey: 'nav.adminUsers',    icon: Users, adminOnly: true },
 ]
+
+const navItems = computed(() =>
+  allNavItems.filter((item) => !item.adminOnly || auth.isAdmin),
+)
 </script>
 
 <template>

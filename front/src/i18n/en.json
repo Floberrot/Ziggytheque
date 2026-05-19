@@ -8,7 +8,8 @@
     "journal": "Journal",
     "logout": "Logout",
     "settings": "Settings",
-    "shelf": "3D Library"
+    "shelf": "3D Library",
+    "adminUsers": "Users"
   },
   "settings": {
     "language": "Language",
