@@ -18,7 +18,15 @@ final readonly class DoctrineCollectionRepository implements CollectionRepositor
 
     public function findById(string $id): ?CollectionEntry
     {
-        return $this->em->find(CollectionEntry::class, $id);
+        // DQL (not em->find) so the owner filter always applies, even when the
+        // entry is already in the identity map.
+        return $this->em->createQueryBuilder()
+            ->select('ce')
+            ->from(CollectionEntry::class, 'ce')
+            ->where('ce.id = :id')
+            ->setParameter('id', $id)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     public function findByMangaId(string $mangaId): ?CollectionEntry

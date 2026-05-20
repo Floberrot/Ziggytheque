@@ -20,7 +20,7 @@ client.interceptors.response.use(
     if (err.response?.status === 401) {
       const auth = useAuthStore()
       auth.logout()
-      window.location.href = '/gate'
+      window.location.href = '/login'
     }
     return Promise.reject(err)
   },

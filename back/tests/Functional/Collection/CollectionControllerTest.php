@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Collection;
 
 use App\Tests\Functional\AbstractApiTestCase;
+use App\Tests\Functional\Fixtures\UserFixtureFactory;
 
 final class CollectionControllerTest extends AbstractApiTestCase
 {
@@ -56,6 +57,39 @@ final class CollectionControllerTest extends AbstractApiTestCase
         $this->assertIsArray($data['items']);
         $this->assertSame(1, $data['page']);
         $this->assertSame(20, $data['limit']);
+    }
+
+    public function testCollectionIsScopedToOwnerAccount(): void
+    {
+        // The setUp admin adds a manga to their own collection.
+        $mangaId = $this->createManga(title: 'Private Series');
+        $entryId = $this->addToCollection($mangaId);
+
+        // A different account signs in.
+        UserFixtureFactory::createActiveUser(static::getContainer(), email: 'intruder@test.local');
+        $otherHeaders = [
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $this->tokenForUser('intruder@test.local'),
+            'HTTP_ACCEPT'        => 'application/json',
+        ];
+
+        // It sees an empty collection …
+        $this->client->request('GET', '/api/collection', [], [], $otherHeaders);
+        $this->assertSame(200, $this->client->getResponse()->getStatusCode());
+        $list = (array) json_decode((string) $this->client->getResponse()->getContent(), true);
+        $this->assertSame(0, $list['total']);
+        $this->assertCount(0, $list['items']);
+
+        // … cannot open the owner's entry …
+        $this->client->request('GET', '/api/collection/' . $entryId, [], [], $otherHeaders);
+        $this->assertSame(404, $this->client->getResponse()->getStatusCode());
+
+        // … and cannot delete it.
+        $this->client->request('DELETE', '/api/collection/' . $entryId, [], [], $otherHeaders);
+        $this->assertSame(404, $this->client->getResponse()->getStatusCode());
+
+        // The owner still has their entry.
+        $ownerData = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/collection'));
+        $this->assertSame(1, $ownerData['total']);
     }
 
     // ── POST /api/collection ─────────────────────────────────────────────────

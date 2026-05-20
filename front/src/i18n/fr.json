@@ -8,7 +8,9 @@
     "journal": "Journal",
     "logout": "Déconnexion",
     "settings": "Réglages",
-    "shelf": "Bibliothèque 3D"
+    "shelf": "Bibliothèque 3D",
+    "adminUsers": "Utilisateurs",
+    "admin": "Admin"
   },
   "settings": {
     "language": "Langue",

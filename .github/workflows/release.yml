@@ -38,13 +38,22 @@ jobs:
             BASE="$LAST"
 
             COMMITS_RAW=$(git log "${BASE}..HEAD" --pretty=format:"%s")
+            COMMITS_FULL=$(git log "${BASE}..HEAD" --pretty=format:"%B")
 
+            # Default bump is patch; a feat commit promotes it to minor.
             BUMP="patch"
             if echo "$COMMITS_RAW" | grep -qE '^feat(\(|!|:)'; then
               BUMP="minor"
             fi
 
+            # MAJOR-TAG anywhere in a commit message forces a major bump:
+            # it increments the first version part (vMAJOR -> vMAJOR+1.0.0).
+            if echo "$COMMITS_FULL" | grep -qF 'MAJOR-TAG'; then
+              BUMP="major"
+            fi
+
             case $BUMP in
+              major) NEXT="v$((MAJOR + 1)).0.0" ;;
               minor) NEXT="v${MAJOR}.$((MINOR + 1)).0" ;;
               patch) NEXT="v${MAJOR}.${MINOR}.$((PATCH + 1))" ;;
             esac

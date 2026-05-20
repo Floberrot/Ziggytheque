@@ -59,6 +59,7 @@ final readonly class JikanNewsClient implements JikanNewsClientInterface
                     ? mb_substr((string) $item['excerpt'], 0, 500)
                     : null,
             );
+            $article->owner = $entry->owner;
             $this->articleRepository->save($article);
             ++$newCount;
         }

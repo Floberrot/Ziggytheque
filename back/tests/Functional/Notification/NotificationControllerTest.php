@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Notification;
 
+use App\Auth\Domain\UserRepositoryInterface;
 use App\Notification\Domain\Notification;
 use App\Tests\Functional\AbstractApiTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -22,7 +23,15 @@ final class NotificationControllerTest extends AbstractApiTestCase
 
     private function createNotification(string $type = 'info', string $message = 'Test notification'): string
     {
-        $n = new Notification(id: 'notif-' . uniqid(), type: $type, message: $message);
+        /** @var UserRepositoryInterface $users */
+        $users = static::getContainer()->get(UserRepositoryInterface::class);
+
+        $n = new Notification(
+            id: 'notif-' . uniqid(),
+            type: $type,
+            message: $message,
+            owner: $users->findByEmail('admin@test.local'),
+        );
         $this->em->persist($n);
         $this->em->flush();
         return $n->id;

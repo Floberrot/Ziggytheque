@@ -1,0 +1,15 @@
+{% extends 'emails/auth/layout.html.twig' %}
+
+{% block title %}Vérifiez votre adresse email{% endblock %}
+
+{% block content %}
+  <h1>Bienvenue, {{ displayName }} !</h1>
+  <p>Merci de votre inscription sur Ziggytheque. Cliquez sur le bouton ci-dessous pour vérifier votre adresse email et poursuivre l'activation de votre compte.</p>
+  <div class="btn-wrap">
+    <a href="{{ verificationUrl }}" class="btn">Vérifier mon email</a>
+  </div>
+  <p class="muted">Ou copiez ce lien dans votre navigateur :<br />
+    <a href="{{ verificationUrl }}" class="link">{{ verificationUrl }}</a>
+  </p>
+  <p class="muted">Ce lien expire dans 7 jours. Si vous n'êtes pas à l'origine de cette inscription, ignorez cet email.</p>
+{% endblock %}

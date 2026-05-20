@@ -10,9 +10,11 @@ use App\Collection\Domain\VolumeEntry;
 use App\Collection\Shared\Event\AddToCollectionFailedEvent;
 use App\Collection\Shared\Event\AddToCollectionStartedEvent;
 use App\Collection\Shared\Event\AddToCollectionSucceededEvent;
+use App\Auth\Domain\UserRepositoryInterface;
 use App\Manga\Domain\MangaRepositoryInterface;
 use App\Shared\Application\Bus\EventBusInterface;
 use App\Shared\Domain\Exception\NotFoundException;
+use App\Shared\Domain\Security\CurrentUserProviderInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Uid\Uuid;
 use Throwable;
@@ -23,6 +25,8 @@ final readonly class AddToCollectionHandler
     public function __construct(
         private CollectionRepositoryInterface $collectionRepository,
         private MangaRepositoryInterface $mangaRepository,
+        private UserRepositoryInterface $userRepository,
+        private CurrentUserProviderInterface $currentUserProvider,
         private EventBusInterface $eventBus,
     ) {
     }
@@ -45,6 +49,7 @@ final readonly class AddToCollectionHandler
             $entry = new CollectionEntry(
                 id: Uuid::v4()->toRfc4122(),
                 manga: $manga,
+                owner: $this->userRepository->findById($this->currentUserProvider->currentUserId()),
             );
 
             foreach ($manga->volumes as $volume) {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional;
 
+use App\Tests\Functional\Fixtures\UserFixtureFactory;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
@@ -22,13 +23,37 @@ abstract class AbstractApiTestCase extends WebTestCase
 
     private function fetchAuthToken(): string
     {
+        UserFixtureFactory::createActiveAdmin(
+            static::getContainer(),
+            email: 'admin@test.local',
+            plainPassword: 'Test1234!',
+        );
+
         $this->client->request(
             'POST',
-            '/api/auth/gate',
+            '/api/auth/login',
             [],
             [],
             ['CONTENT_TYPE' => 'application/json'],
-            (string) json_encode(['password' => 'ziggy123']),
+            (string) json_encode(['email' => 'admin@test.local', 'password' => 'Test1234!']),
+        );
+
+        /** @var array{token?: string} $data */
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+
+        return $data['token'] ?? '';
+    }
+
+    /** Logs in as an existing user and returns their bearer token. */
+    protected function tokenForUser(string $email, string $password = 'Test1234!'): string
+    {
+        $this->client->request(
+            'POST',
+            '/api/auth/login',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            (string) json_encode(['email' => $email, 'password' => $password]),
         );
 
         /** @var array{token?: string} $data */

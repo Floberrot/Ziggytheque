@@ -13,7 +13,19 @@ doctrine:
         identity_generation_preferences:
             Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
         auto_mapping: false
+        filters:
+            collection_owner:
+                class: App\Collection\Infrastructure\Doctrine\CollectionOwnerFilter
+                enabled: false
+            notification_owner:
+                class: App\Notification\Infrastructure\Doctrine\NotificationOwnerFilter
+                enabled: false
         mappings:
+            Auth:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Auth/Domain'
+                prefix: 'App\Auth\Domain'
             Manga:
                 type: attribute
                 is_bundle: false

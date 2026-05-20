@@ -1,0 +1,11 @@
+{% extends 'emails/auth/layout.html.twig' %}
+
+{% block title %}Votre compte est activé{% endblock %}
+
+{% block content %}
+  <h1>Votre compte est activé, {{ displayName }} !</h1>
+  <p>Bonne nouvelle : un administrateur vient de valider votre compte. Vous pouvez dès maintenant vous connecter à Ziggytheque et commencer à construire votre bibliothèque.</p>
+  <div class="btn-wrap">
+    <a href="{{ loginUrl }}" class="btn">Se connecter</a>
+  </div>
+{% endblock %}
