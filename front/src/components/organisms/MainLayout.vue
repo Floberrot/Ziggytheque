@@ -136,7 +136,7 @@ const navItems = computed(() =>
             </button>
             <ul
               tabindex="0"
-              class="dropdown-content bg-base-200 rounded-box shadow-lg z-50 w-48 max-h-72 overflow-y-auto p-1 flex flex-col gap-0.5 mb-1"
+              class="dropdown-content bg-base-200 rounded-box shadow-lg z-50 w-48 max-h-72 overflow-y-auto p-1 space-y-0.5 mb-1"
             >
               <li v-for="th in THEMES" :key="th">
                 <button
