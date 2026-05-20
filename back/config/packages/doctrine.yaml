@@ -3,6 +3,9 @@ doctrine:
         url: '%env(resolve:DATABASE_URL)%'
         server_version: '17'
         profiling_collect_backtrace: '%kernel.debug%'
+        # Tables not mapped to ORM entities (managed via raw SQL or framework
+        # transports). Excluded so schema diff/validate never drops them.
+        schema_filter: '~^(?!crawl_runs$|crawl_jobs$|cache_items$|messenger_messages$).+~'
         types:
             isbn: App\Manga\Infrastructure\Doctrine\Type\IsbnType
     orm:
