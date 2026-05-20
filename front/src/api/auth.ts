@@ -5,7 +5,7 @@ export interface User {
   email: string
   displayName: string
   role: 'ROLE_USER' | 'ROLE_ADMIN'
-  status: 'PendingEmailVerification' | 'PendingAdminApproval' | 'Active' | 'Disabled'
+  status: 'pending_email_verification' | 'pending_admin_approval' | 'active' | 'disabled'
   notificationChannel: 'email' | 'discord'
   notificationEmail: string | null
   discordWebhookUrl: string | null

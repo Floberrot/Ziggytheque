@@ -49,13 +49,14 @@ const allNavItems: NavItem[] = [
   { name: 'wishlist',      labelKey: 'nav.wishlist',      icon: ShoppingCart },
   { name: 'add',           labelKey: 'nav.add',           icon: PlusCircle },
   { name: 'notifications', labelKey: 'nav.notifications', icon: Bell },
-  { name: 'journal',       labelKey: 'nav.journal',       icon: ClipboardList },
   { name: 'shelf',         labelKey: 'nav.shelf',         icon: BookOpen },
-  { name: 'admin-users',   labelKey: 'nav.adminUsers',    icon: Users, adminOnly: true },
+  { name: 'journal',       labelKey: 'nav.journal',       icon: ClipboardList, adminOnly: true },
+  { name: 'admin-users',   labelKey: 'nav.adminUsers',    icon: Users,         adminOnly: true },
 ]
 
-const navItems = computed(() =>
-  allNavItems.filter((item) => !item.adminOnly || auth.isAdmin),
+const mainNavItems = computed(() => allNavItems.filter((item) => !item.adminOnly))
+const adminNavItems = computed(() =>
+  auth.isAdmin ? allNavItems.filter((item) => item.adminOnly) : [],
 )
 </script>
 
@@ -101,7 +102,7 @@ const navItems = computed(() =>
         </div>
 
         <nav class="flex-1 p-3 space-y-1">
-          <template v-for="item in navItems" :key="item.name">
+          <template v-for="item in mainNavItems" :key="item.name">
             <div
               v-if="item.comingSoon"
               class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-base-content/30 cursor-not-allowed select-none"
@@ -112,6 +113,22 @@ const navItems = computed(() =>
             </div>
             <RouterLink
               v-else
+              :to="{ name: item.name }"
+              class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-base-200"
+              active-class="bg-primary/10 text-primary"
+            >
+              <component :is="item.icon" class="w-5 h-5 shrink-0" stroke-width="1.5" />
+              <span>{{ t(item.labelKey) }}</span>
+            </RouterLink>
+          </template>
+
+          <template v-if="adminNavItems.length > 0">
+            <p class="mt-2 pt-3 px-3 border-t border-base-200 text-[10px] font-semibold uppercase tracking-wider text-base-content/40">
+              {{ t('nav.admin') }}
+            </p>
+            <RouterLink
+              v-for="item in adminNavItems"
+              :key="item.name"
               :to="{ name: item.name }"
               class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-base-200"
               active-class="bg-primary/10 text-primary"
@@ -136,7 +153,7 @@ const navItems = computed(() =>
             </button>
             <ul
               tabindex="0"
-              class="dropdown-content bg-base-200 rounded-box shadow-lg z-50 w-48 max-h-72 overflow-y-auto p-1 flex flex-col gap-0.5 mb-1"
+              class="dropdown-content bg-base-200 rounded-box shadow-lg z-50 w-48 max-h-72 overflow-y-auto p-1 space-y-0.5 mb-1"
             >
               <li v-for="th in THEMES" :key="th">
                 <button
@@ -194,7 +211,7 @@ const navItems = computed(() =>
             </div>
             <!-- Nav items -->
             <div class="flex-1 flex flex-col items-center pt-4 gap-1">
-              <template v-for="item in navItems" :key="item.name">
+              <template v-for="item in mainNavItems" :key="item.name">
                 <div
                   v-if="item.comingSoon"
                   class="relative flex items-center justify-center w-14 h-14 rounded-xl text-base-content/20 cursor-not-allowed select-none"
@@ -203,6 +220,23 @@ const navItems = computed(() =>
                 </div>
                 <RouterLink
                   v-else
+                  :to="{ name: item.name }"
+                  class="flex items-center justify-center w-14 h-14 rounded-xl text-base-content/50 transition-colors hover:bg-base-200 hover:text-base-content"
+                  active-class="bg-primary/10 text-primary"
+                >
+                  <component :is="item.icon" class="w-6 h-6" stroke-width="1.5" />
+                </RouterLink>
+              </template>
+
+              <template v-if="adminNavItems.length > 0">
+                <div class="w-10 mt-1 pt-2 border-t border-base-200 text-center">
+                  <span class="text-[9px] font-semibold uppercase tracking-wider text-base-content/40">
+                    {{ t('nav.admin') }}
+                  </span>
+                </div>
+                <RouterLink
+                  v-for="item in adminNavItems"
+                  :key="item.name"
                   :to="{ name: item.name }"
                   class="flex items-center justify-center w-14 h-14 rounded-xl text-base-content/50 transition-colors hover:bg-base-200 hover:text-base-content"
                   active-class="bg-primary/10 text-primary"

@@ -9,7 +9,8 @@
     "logout": "Déconnexion",
     "settings": "Réglages",
     "shelf": "Bibliothèque 3D",
-    "adminUsers": "Utilisateurs"
+    "adminUsers": "Utilisateurs",
+    "admin": "Admin"
   },
   "settings": {
     "language": "Langue",

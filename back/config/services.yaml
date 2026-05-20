@@ -77,6 +77,11 @@ services:
         tags:
             - { name: messenger.message_handler, bus: command.bus }
 
+    # Transactional auth emails (verification, password reset, approval)
+    App\Auth\Infrastructure\Listener\AuthEmailListener:
+        arguments:
+            $frontUrl: '%app_front_url%'
+
     # Bus interfaces bound to Messenger implementations
     App\Shared\Application\Bus\CommandBusInterface:
         alias: App\Shared\Infrastructure\Bus\MessengerCommandBus

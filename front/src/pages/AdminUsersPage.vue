@@ -11,9 +11,19 @@ import {
 } from '@/api/admin'
 import type { User } from '@/api/auth'
 import { useUiStore } from '@/stores/useUiStore'
+import { X } from 'lucide-vue-next'
 
 const ui = useUiStore()
 const queryClient = useQueryClient()
+
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0]!.toUpperCase())
+    .join('')
+}
 
 const search = ref('')
 const statusFilter = ref<string>('')
@@ -36,17 +46,17 @@ const { data, isPending } = useQuery({
 const totalPages = computed(() => Math.max(1, Math.ceil((data.value?.total ?? 0) / limit)))
 
 const STATUS_LABELS: Record<User['status'], string> = {
-  PendingEmailVerification: 'Email à vérifier',
-  PendingAdminApproval: 'À approuver',
-  Active: 'Actif',
-  Disabled: 'Désactivé',
+  pending_email_verification: 'Email à vérifier',
+  pending_admin_approval: 'À approuver',
+  active: 'Actif',
+  disabled: 'Désactivé',
 }
 
 const STATUS_BADGES: Record<User['status'], string> = {
-  PendingEmailVerification: 'badge-warning',
-  PendingAdminApproval: 'badge-info',
-  Active: 'badge-success',
-  Disabled: 'badge-error',
+  pending_email_verification: 'badge-warning',
+  pending_admin_approval: 'badge-info',
+  active: 'badge-success',
+  disabled: 'badge-error',
 }
 
 // ── Edit modal ────────────────────────────────────────────────────────────
@@ -141,10 +151,10 @@ async function copyResetLink(user: User): Promise<void> {
       />
       <select v-model="statusFilter" class="select select-bordered select-sm">
         <option value="">Tous les statuts</option>
-        <option value="PendingEmailVerification">Email à vérifier</option>
-        <option value="PendingAdminApproval">À approuver</option>
-        <option value="Active">Actif</option>
-        <option value="Disabled">Désactivé</option>
+        <option value="pending_email_verification">Email à vérifier</option>
+        <option value="pending_admin_approval">À approuver</option>
+        <option value="active">Actif</option>
+        <option value="disabled">Désactivé</option>
       </select>
     </div>
 
@@ -192,7 +202,7 @@ async function copyResetLink(user: User): Promise<void> {
             <td class="text-right">
               <div class="flex justify-end gap-1">
                 <button
-                  v-if="user.status === 'PendingAdminApproval'"
+                  v-if="user.status === 'pending_admin_approval'"
                   class="btn btn-success btn-xs"
                   @click="approve(user)"
                 >
@@ -237,50 +247,79 @@ async function copyResetLink(user: User): Promise<void> {
 
     <!-- Edit modal -->
     <dialog v-if="editing !== null" class="modal modal-open" @close="closeEdit">
-      <div class="modal-box space-y-4">
-        <h3 class="font-bold text-lg">Modifier {{ editing.displayName }}</h3>
-
-        <div class="form-control">
-          <label class="label"><span class="label-text">Nom d'affichage</span></label>
-          <input v-model="editForm.displayName" type="text" class="input input-bordered" />
+      <div class="modal-box max-w-md p-0 overflow-hidden">
+        <!-- Header -->
+        <div class="flex items-center gap-3 px-5 py-4 border-b border-base-200">
+          <div class="avatar avatar-placeholder">
+            <div class="w-11 rounded-full bg-primary/15 text-primary">
+              <span class="text-sm font-semibold">{{ initials(editing.displayName) }}</span>
+            </div>
+          </div>
+          <div class="min-w-0 flex-1">
+            <h3 class="font-semibold leading-tight truncate">{{ editing.displayName }}</h3>
+            <p class="text-xs text-base-content/50 truncate">{{ editing.email }}</p>
+          </div>
+          <button class="btn btn-sm btn-circle btn-ghost" :disabled="saving" @click="closeEdit">
+            <X class="w-4 h-4" />
+          </button>
         </div>
 
-        <div class="form-control">
-          <label class="label"><span class="label-text">Statut</span></label>
-          <select v-model="editForm.status" class="select select-bordered">
-            <option value="PendingEmailVerification">Email à vérifier</option>
-            <option value="PendingAdminApproval">À approuver</option>
-            <option value="Active">Actif</option>
-            <option value="Disabled">Désactivé</option>
-          </select>
+        <!-- Body -->
+        <div class="px-5 py-4 space-y-4">
+          <div>
+            <label class="text-sm font-medium">Nom d'affichage</label>
+            <input
+              v-model="editForm.displayName"
+              type="text"
+              class="input w-full mt-1.5"
+              placeholder="Nom d'affichage"
+            />
+          </div>
+
+          <div>
+            <label class="text-sm font-medium">Statut</label>
+            <select v-model="editForm.status" class="select w-full mt-1.5">
+              <option value="pending_email_verification">Email à vérifier</option>
+              <option value="pending_admin_approval">À approuver</option>
+              <option value="active">Actif</option>
+              <option value="disabled">Désactivé</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="text-sm font-medium">Canal de notification</label>
+            <select v-model="editForm.notificationChannel" class="select w-full mt-1.5">
+              <option value="email">Email</option>
+              <option value="discord">Discord</option>
+            </select>
+          </div>
+
+          <div v-if="editForm.notificationChannel === 'email'">
+            <label class="text-sm font-medium">Email de notification</label>
+            <input
+              v-model="editForm.notificationEmail"
+              type="email"
+              class="input w-full mt-1.5"
+              placeholder="adresse@exemple.com"
+            />
+          </div>
+
+          <div v-if="editForm.notificationChannel === 'discord'">
+            <label class="text-sm font-medium">Webhook Discord</label>
+            <input
+              v-model="editForm.discordWebhookUrl"
+              type="url"
+              class="input w-full mt-1.5"
+              placeholder="https://discord.com/api/webhooks/…"
+            />
+          </div>
         </div>
 
-        <div class="form-control">
-          <label class="label"><span class="label-text">Canal de notification</span></label>
-          <select v-model="editForm.notificationChannel" class="select select-bordered">
-            <option value="email">Email</option>
-            <option value="discord">Discord</option>
-          </select>
-        </div>
-
-        <div v-if="editForm.notificationChannel === 'email'" class="form-control">
-          <label class="label"><span class="label-text">Email de notification</span></label>
-          <input v-model="editForm.notificationEmail" type="email" class="input input-bordered" />
-        </div>
-
-        <div v-if="editForm.notificationChannel === 'discord'" class="form-control">
-          <label class="label"><span class="label-text">Webhook Discord</span></label>
-          <input v-model="editForm.discordWebhookUrl" type="url" class="input input-bordered" />
-        </div>
-
-        <div class="modal-action">
-          <button class="btn btn-ghost" :disabled="saving" @click="closeEdit">Annuler</button>
-          <button
-            class="btn btn-primary"
-            :class="{ loading: saving }"
-            :disabled="saving"
-            @click="saveEdit"
-          >
+        <!-- Footer -->
+        <div class="flex justify-end gap-2 px-5 py-4 border-t border-base-200 bg-base-200/40">
+          <button class="btn btn-ghost btn-sm" :disabled="saving" @click="closeEdit">Annuler</button>
+          <button class="btn btn-primary btn-sm" :disabled="saving" @click="saveEdit">
+            <span v-if="saving" class="loading loading-spinner loading-xs" />
             Enregistrer
           </button>
         </div>

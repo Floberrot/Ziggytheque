@@ -44,6 +44,24 @@ abstract class AbstractApiTestCase extends WebTestCase
         return $data['token'] ?? '';
     }
 
+    /** Logs in as an existing user and returns their bearer token. */
+    protected function tokenForUser(string $email, string $password = 'Test1234!'): string
+    {
+        $this->client->request(
+            'POST',
+            '/api/auth/login',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            (string) json_encode(['email' => $email, 'password' => $password]),
+        );
+
+        /** @var array{token?: string} $data */
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+
+        return $data['token'] ?? '';
+    }
+
     protected function jsonRequest(
         string $method,
         string $url,

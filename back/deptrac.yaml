@@ -177,6 +177,7 @@ deptrac:
       - Collection_Domain
       - Collection_Shared
       - Manga_Domain
+      - Auth_Domain
       - Shared
     Manga_Application:
       - Manga_Domain

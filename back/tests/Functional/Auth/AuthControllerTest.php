@@ -13,6 +13,7 @@ use App\Tests\Functional\AbstractApiTestCase;
 use App\Tests\Functional\Fixtures\UserFixtureFactory;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Mime\Email;
 use Symfony\Component\Uid\Uuid;
 
 final class AuthControllerTest extends AbstractApiTestCase
@@ -28,6 +29,12 @@ final class AuthControllerTest extends AbstractApiTestCase
             auth: false,
         );
         $this->assertJsonStatus(201, $response);
+
+        self::assertEmailCount(1);
+        $email = self::getMailerMessage();
+        self::assertInstanceOf(Email::class, $email);
+        self::assertEmailAddressContains($email, 'To', 'new@test.local');
+        self::assertEmailHtmlBodyContains($email, 'verify-email?token=');
     }
 
     public function testRegisterWithDuplicateEmailReturns409(): void
@@ -147,7 +154,7 @@ final class AuthControllerTest extends AbstractApiTestCase
 
     public function testRequestResetAlwaysReturns200(): void
     {
-        // Silent no-op for unknown email
+        // Silent no-op for unknown email — no reset email leaked
         $response = $this->jsonRequest(
             'POST',
             '/api/auth/request-reset',
@@ -155,6 +162,26 @@ final class AuthControllerTest extends AbstractApiTestCase
             auth: false,
         );
         $this->assertJsonStatus(200, $response);
+        self::assertEmailCount(0);
+    }
+
+    public function testRequestResetWithKnownEmailSendsResetEmail(): void
+    {
+        UserFixtureFactory::createActiveUser(static::getContainer(), email: 'resetmail@test.local');
+
+        $response = $this->jsonRequest(
+            'POST',
+            '/api/auth/request-reset',
+            ['email' => 'resetmail@test.local'],
+            auth: false,
+        );
+        $this->assertJsonStatus(200, $response);
+
+        self::assertEmailCount(1);
+        $email = self::getMailerMessage();
+        self::assertInstanceOf(Email::class, $email);
+        self::assertEmailAddressContains($email, 'To', 'resetmail@test.local');
+        self::assertEmailHtmlBodyContains($email, 'reset-password?token=');
     }
 
     public function testRequestResetWithMissingEmailReturns400(): void

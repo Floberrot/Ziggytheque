@@ -12,6 +12,11 @@ DC      := docker compose
 BACK    := $(DC) exec back
 FRONT   := $(DC) exec app
 
+# ── Admin bootstrap (override on the CLI, e.g. make setup ADMIN_EMAIL=me@x.io) ─
+ADMIN_EMAIL    ?= admin@ziggytheque.local
+ADMIN_PASSWORD ?= ziggy1234
+ADMIN_NAME     ?= Admin
+
 ##@ Infrastructure
 
 .PHONY: dev
@@ -147,8 +152,12 @@ install: ## Install all dependencies (local)
 	cd front && npm install
 	npm install
 
+.PHONY: admin
+admin: ## Create the admin user (override ADMIN_EMAIL / ADMIN_PASSWORD / ADMIN_NAME)
+	$(BACK) php bin/console app:bootstrap-admin "$(ADMIN_EMAIL)" "$(ADMIN_PASSWORD)" --display-name "$(ADMIN_NAME)"
+
 .PHONY: setup
-setup: hooks ## First-time setup: start containers, wait for back, generate JWT keys, migrate, seed price codes
+setup: hooks ## First-time setup: containers, JWT keys, migrations, admin user
 	$(DC) up -d
 	@echo "Waiting for back container to start..."
 	@until docker compose exec back php -r "echo 'ok';" > /dev/null 2>&1; do sleep 2; done
@@ -160,8 +169,11 @@ setup: hooks ## First-time setup: start containers, wait for back, generate JWT 
 	@echo "Dropping existing schema..."
 	docker compose exec back php bin/console doctrine:schema:drop --force --full-database
 	$(MAKE) migrate
+	@echo "Creating admin user ($(ADMIN_EMAIL))..."
+	$(MAKE) admin
 	@echo "Restarting containers..."
 	$(DC) restart worker back
+	@echo "Setup complete — admin login: $(ADMIN_EMAIL) / $(ADMIN_PASSWORD)"
 
 ##@ Help
 

@@ -119,6 +119,7 @@ final readonly class RssFeedParser implements RssFeedParserInterface
                 publishedAt: $publishedAt ?: null,
                 snippet: $this->extractSnippet($itemDesc, array_values($matches)),
             );
+            $article->owner = $entry->owner;
             $this->articleRepository->save($article);
             ++$newCount;
         }

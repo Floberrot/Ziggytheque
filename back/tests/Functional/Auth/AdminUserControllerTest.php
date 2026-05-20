@@ -6,6 +6,7 @@ namespace App\Tests\Functional\Auth;
 
 use App\Tests\Functional\AbstractApiTestCase;
 use App\Tests\Functional\Fixtures\UserFixtureFactory;
+use Symfony\Component\Mime\Email;
 
 final class AdminUserControllerTest extends AbstractApiTestCase
 {
@@ -71,6 +72,57 @@ final class AdminUserControllerTest extends AbstractApiTestCase
         );
 
         $this->assertJsonStatus(200, $this->client->getResponse());
+
+        self::assertEmailCount(1);
+        $email = self::getMailerMessage();
+        self::assertInstanceOf(Email::class, $email);
+        self::assertEmailAddressContains($email, 'To', 'pending2@test.local');
+    }
+
+    // ── PATCH /api/admin/users/{id} ───────────────────────────────────────
+
+    public function testUpdateUserChangesDisplayNameAndStatus(): void
+    {
+        $user          = UserFixtureFactory::createActiveUser(static::getContainer(), email: 'editme@test.local');
+        $unlockedToken = $this->getAdminUnlockedToken();
+
+        $this->client->request(
+            'PATCH',
+            '/api/admin/users/' . $user->id,
+            [],
+            [],
+            [
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $unlockedToken,
+                'HTTP_ACCEPT'        => 'application/json',
+                'CONTENT_TYPE'       => 'application/json',
+            ],
+            (string) json_encode(['displayName' => 'Edited Name', 'status' => 'disabled']),
+        );
+
+        $data = $this->assertJsonStatus(200, $this->client->getResponse());
+        $this->assertSame('Edited Name', $data['displayName']);
+        $this->assertSame('disabled', $data['status']);
+    }
+
+    public function testUpdateUserWithInvalidStatusReturns422(): void
+    {
+        $user          = UserFixtureFactory::createActiveUser(static::getContainer(), email: 'badstatus@test.local');
+        $unlockedToken = $this->getAdminUnlockedToken();
+
+        $this->client->request(
+            'PATCH',
+            '/api/admin/users/' . $user->id,
+            [],
+            [],
+            [
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $unlockedToken,
+                'HTTP_ACCEPT'        => 'application/json',
+                'CONTENT_TYPE'       => 'application/json',
+            ],
+            (string) json_encode(['status' => 'not-a-real-status']),
+        );
+
+        $this->assertJsonStatus(422, $this->client->getResponse());
     }
 
     // ── DELETE /api/admin/users/{id} ─────────────────────────────────────

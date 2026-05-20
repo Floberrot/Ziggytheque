@@ -9,7 +9,8 @@
     "logout": "Logout",
     "settings": "Settings",
     "shelf": "3D Library",
-    "adminUsers": "Users"
+    "adminUsers": "Users",
+    "admin": "Admin"
   },
   "settings": {
     "language": "Language",
