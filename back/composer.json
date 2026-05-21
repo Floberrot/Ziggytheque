@@ -15,6 +15,7 @@
         "lcobucci/jwt": "^5.0",
         "lexik/jwt-authentication-bundle": "^3.2",
         "nelmio/cors-bundle": "^2.6",
+        "symfony/brevo-mailer": "8.0.*",
         "symfony/console": "8.0.*",
         "symfony/doctrine-messenger": "8.0.*",
         "symfony/dotenv": "8.0.*",
