@@ -1,4 +1,4 @@
-# Brevo as SMTP provider
+# Brevo as email provider
 
 This document explains how to send Ziggytheque's transactional emails (email
 verification, password reset, account-approved, and the "new chapters" follow
@@ -22,37 +22,57 @@ framework:
         dsn: '%env(MAILER_DSN)%'
 ```
 
-Two processes send mail, so **both** must receive the Brevo DSN:
-
-| Process | Container | Sends |
-|---|---|---|
-| `back`   | FrankenPHP | verification / password-reset / account-approved emails (synchronous, during the HTTP request) |
-| `worker` | Messenger consumer | "new chapters" follow notifications (from the crawl) |
+`SendEmailMessage` is routed to the `async` Messenger transport, so every email
+— auth (verification / password-reset / account-approved) and the "new
+chapters" follow notifications — is delivered by the **worker** container, never
+during the HTTP request. The `worker` service therefore needs the same
+`MAILER_DSN` as `back`.
 
 Default (local): `MAILER_DSN=smtp://mailer:1025` → Mailpit, UI at <http://localhost:8025>.
 
+Brevo offers two transports. **Prefer the HTTP API transport** — it talks to
+Brevo over HTTPS (port 443), which no cloud platform blocks. The SMTP transport
+is a fallback for when the API cannot be used.
+
 ---
 
-## 2. Get your Brevo SMTP credentials
+## 2. Get your Brevo credentials
 
 1. Create a free account at <https://www.brevo.com> (the free plan allows 300
    emails/day).
-2. In the dashboard open **SMTP & API → SMTP**.
-3. Note the connection details shown there:
-   - **Server:** `smtp-relay.brevo.com`
-   - **Port:** `587` (STARTTLS — recommended)
-   - **Login:** your Brevo login — an email address.
-4. Click **Generate a new SMTP key** and copy it. This key is the SMTP
-   *password* — it is shown only once.
+2. In the dashboard open **SMTP & API**:
+   - **API Keys** tab → **Generate a new API key** → copy the **API v3 key**.
+     This is what the recommended HTTP API transport uses.
+   - **SMTP** tab → note the server `smtp-relay.brevo.com` and your login (an
+     email address), then **Generate a new SMTP key**. Only the fallback SMTP
+     transport needs this. The key is shown once.
 
 ---
 
 ## 3. Build the `MAILER_DSN`
 
-Symfony's generic SMTP transport needs no extra package:
+### Recommended — Brevo HTTP API
+
+The `symfony/brevo-mailer` bridge is already a project dependency, so no extra
+install is needed. Use the **API v3 key** from step 2:
+
+```dotenv
+MAILER_DSN=brevo+api://KEY@default
+```
+
+This delivers over HTTPS (port 443). It is immune to the SMTP-port blocking
+that produces `Connection could not be established` / connection-timeout
+errors on platforms such as Railway.
+
+### Fallback — generic SMTP
+
+If you must use SMTP, point at `smtp-relay.brevo.com`. **Use port `2525`, not
+`587`** — many platforms (Railway included) block outbound `587`, which
+surfaces as a connection timeout. Port `2525` is Brevo's documented
+alternative and carries the same STARTTLS traffic.
 
 ```
-smtp://<LOGIN>:<SMTP_KEY>@smtp-relay.brevo.com:587
+smtp://<LOGIN>:<SMTP_KEY>@smtp-relay.brevo.com:2525
 ```
 
 > **URL-encode special characters.** The login is an email address, so its `@`
@@ -62,7 +82,7 @@ smtp://<LOGIN>:<SMTP_KEY>@smtp-relay.brevo.com:587
 Example — login `mailer@ziggytheque.com`, key `xsmtpsib-abc123`:
 
 ```
-MAILER_DSN=smtp://mailer%40ziggytheque.com:xsmtpsib-abc123@smtp-relay.brevo.com:587
+MAILER_DSN=smtp://mailer%40ziggytheque.com:xsmtpsib-abc123@smtp-relay.brevo.com:2525
 ```
 
 ---
@@ -88,7 +108,7 @@ services:
 ```yaml
 # docker-compose.yml — back service AND worker service
 environment:
-  MAILER_DSN: "smtp://mailer%40ziggytheque.com:xsmtpsib-abc123@smtp-relay.brevo.com:587"
+  MAILER_DSN: "brevo+api://KEY@default"
 ```
 
 Then `docker compose up -d back worker` (or `make dev`).
@@ -103,7 +123,7 @@ environment:
 
 ```dotenv
 # .env  (project root, git-ignored)
-MAILER_DSN=smtp://mailer%40ziggytheque.com:xsmtpsib-abc123@smtp-relay.brevo.com:587
+MAILER_DSN=brevo+api://KEY@default
 ```
 
 ### Bare-metal / non-Docker backend
@@ -111,7 +131,7 @@ MAILER_DSN=smtp://mailer%40ziggytheque.com:xsmtpsib-abc123@smtp-relay.brevo.com:
 Put it in `back/.env.local` (git-ignored, overrides `back/.env`):
 
 ```dotenv
-MAILER_DSN=smtp://mailer%40ziggytheque.com:xsmtpsib-abc123@smtp-relay.brevo.com:587
+MAILER_DSN=brevo+api://KEY@default
 ```
 
 ---
@@ -157,27 +177,20 @@ which shows every accepted/blocked message.
 
 | Symptom | Cause / fix |
 |---|---|
-| `Connection could not be established` | Wrong host/port, or the platform blocks port 587 — try `2525`. |
-| `535 Authentication failed` | Wrong login or SMTP key; regenerate the key. Check the `@` in the login is `%40` in the DSN. |
+| `Connection could not be established` / `Connection timed out` | The platform blocks the SMTP port. Switch to the **HTTP API** transport (`brevo+api://KEY@default`), or change the SMTP port from `587` to `2525`. |
+| `535 Authentication failed` | Wrong credentials. For SMTP: regenerate the SMTP key and check the `@` in the login is `%40`. For the API: check the **API v3** key (the SMTP key will not work for `brevo+api://`). |
 | Email accepted by Brevo but never delivered | Sender not verified — see section 5. Check the Brevo logs. |
 | Emails work locally but not in Docker | `MAILER_DSN` is still the Mailpit value in `docker-compose.yml` — see section 4. |
-| Auth emails silently missing | `AuthEmailListener` catches and logs delivery errors so a mail failure never breaks signup — check the `back` container logs. |
+| Auth emails silently missing | `AuthEmailListener` catches and logs delivery errors so a mail failure never breaks signup. The actual send runs in the `worker`; check its logs, and inspect failed sends with `php bin/console messenger:failed:show`. |
 
 ---
 
-## 8. Optional — the Brevo API transport
+## 8. The Brevo API transport — details
 
-For webhooks and richer delivery tracking you can use Brevo's HTTP API instead
-of SMTP via the official Symfony bridge:
+The HTTP API transport (`brevo+api://`, recommended above) is provided by the
+official `symfony/brevo-mailer` bridge, which is already declared in
+`back/composer.json`. Besides sidestepping SMTP-port blocking, it also unlocks
+Brevo's webhooks and richer delivery tracking should you need them later.
 
-```bash
-docker compose exec back composer require symfony/brevo-mailer
-```
-
-```dotenv
-# KEY = a Brevo API v3 key from SMTP & API → API Keys
-MAILER_DSN=brevo+api://KEY@default
-```
-
-The generic `smtp://` transport in section 3 is sufficient for this project;
-the bridge is only worth it if you later need delivery webhooks.
+No code or configuration change is required to switch transports — only the
+`MAILER_DSN` environment variable.
