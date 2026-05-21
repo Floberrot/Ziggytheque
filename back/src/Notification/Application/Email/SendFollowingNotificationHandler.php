@@ -54,7 +54,7 @@ final readonly class SendFollowingNotificationHandler
         ]);
 
         $email = (new Email())
-            ->from('ziggytheque@noreply.local')
+            ->from($this->notificationEmail)
             ->to($this->notificationEmail)
             ->subject('📰 Nouveautés : ' . $entry->manga->title)
             ->html($html);
