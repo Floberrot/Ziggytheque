@@ -34,9 +34,16 @@ framework:
             App\Notification\Application\Fetch\FetchRssFeedMessage: async
             App\Notification\Application\Fetch\FetchJikanNewsMessage: async
             App\Notification\Application\Discord\SendSchedulerDiscordSummaryMessage: async
+            # Transactional emails are sent by the worker so a slow/unreachable
+            # SMTP server never blocks the HTTP request that triggered them.
+            Symfony\Component\Mailer\Messenger\SendEmailMessage: async
 
 when@test:
     framework:
         messenger:
             transports:
                 async: 'in-memory://'
+            routing:
+                # Handle inline in tests so MailerAssertionsTrait collects the
+                # actual send (the in-memory async transport is never consumed).
+                Symfony\Component\Mailer\Messenger\SendEmailMessage: sync
