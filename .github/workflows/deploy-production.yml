@@ -29,13 +29,13 @@ jobs:
       APP_SECRET: ci-secret-not-used
       JWT_PASSPHRASE: ${{ secrets.JWT_PASSPHRASE || 'ci-jwt-passphrase' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
           tools: composer
           coverage: none
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: back/vendor
           key: composer-${{ hashFiles('back/composer.lock') }}
@@ -55,13 +55,13 @@ jobs:
       APP_SECRET: ci-secret-not-used
       JWT_PASSPHRASE: ${{ secrets.JWT_PASSPHRASE || 'ci-jwt-passphrase' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
           tools: composer
           coverage: none
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: back/vendor
           key: composer-${{ hashFiles('back/composer.lock') }}
@@ -96,14 +96,14 @@ jobs:
         ports:
           - 5432:5432
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
           extensions: pdo_pgsql, intl
           tools: composer
           coverage: none
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: back/vendor
           key: composer-${{ hashFiles('back/composer.lock') }}
@@ -145,14 +145,14 @@ jobs:
         ports:
           - 5432:5432
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
           extensions: pdo_pgsql, intl
           tools: composer
           coverage: none
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: back/vendor
           key: composer-${{ hashFiles('back/composer.lock') }}
@@ -192,14 +192,14 @@ jobs:
         ports:
           - 5432:5432
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
           extensions: pdo_pgsql, intl
           tools: composer
           coverage: none
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: back/vendor
           key: composer-${{ hashFiles('back/composer.lock') }}
@@ -223,8 +223,8 @@ jobs:
       run:
         working-directory: front
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
@@ -239,10 +239,10 @@ jobs:
     name: "Gate: Docker Build (prod + frontend)"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v4
       - name: Build backend prod stage
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile
@@ -250,7 +250,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Build frontend
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: front
           file: front/Dockerfile
@@ -310,7 +310,7 @@ jobs:
     env:
       COMMIT_MSG: ${{ github.event.head_commit.message }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Railway CLI
         run: npm install -g @railway/cli
       - name: Deploy worker service (messenger:consume)
@@ -343,7 +343,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [approve]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Railway CLI
         run: npm install -g @railway/cli
       - name: Deploy frontend service
