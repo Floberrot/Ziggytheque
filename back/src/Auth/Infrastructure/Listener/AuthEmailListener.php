@@ -25,13 +25,12 @@ use Twig\Environment;
 #[AsEventListener(event: UserApprovedEvent::class, method: 'onUserApproved')]
 final readonly class AuthEmailListener
 {
-    private const FROM = 'Ziggytheque <noreply@ziggytheque.local>';
-
     public function __construct(
         private MailerInterface $mailer,
         private Environment $twig,
         private LoggerInterface $logger,
         private string $frontUrl,
+        private string $notificationEmail,
     ) {
     }
 
@@ -73,7 +72,7 @@ final readonly class AuthEmailListener
     {
         try {
             $email = (new Email())
-                ->from(self::FROM)
+                ->from($this->notificationEmail)
                 ->to($recipient)
                 ->subject($subject)
                 ->html($this->twig->render($template, $context));

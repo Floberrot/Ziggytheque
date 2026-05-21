@@ -81,6 +81,7 @@ services:
     App\Auth\Infrastructure\Listener\AuthEmailListener:
         arguments:
             $frontUrl: '%app_front_url%'
+            $notificationEmail: '%notification_email%'
 
     # Bus interfaces bound to Messenger implementations
     App\Shared\Application\Bus\CommandBusInterface:
