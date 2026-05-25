@@ -126,7 +126,7 @@ router.beforeEach(async (to) => {
   }
 
   if (to.meta.requiresAdminUnlocked && !auth.isAdminUnlocked) {
-    return { name: 'gate' }
+    return { name: 'gate', query: { redirect: to.fullPath } }
   }
 
   const pageTitle = to.meta.title as string | undefined

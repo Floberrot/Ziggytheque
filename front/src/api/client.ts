@@ -14,10 +14,16 @@ client.interceptors.request.use((config) => {
   return config
 })
 
+const AUTH_ENDPOINTS_SKIPPING_LOGOUT = ['/auth/gate', '/auth/login']
+
 client.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const requestUrl = err.config?.url ?? ''
+    const isAuthAttempt = AUTH_ENDPOINTS_SKIPPING_LOGOUT.some((endpoint) =>
+      requestUrl.endsWith(endpoint),
+    )
+    if (err.response?.status === 401 && !isAuthAttempt) {
       const auth = useAuthStore()
       auth.logout()
       window.location.href = '/login'
