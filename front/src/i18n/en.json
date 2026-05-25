@@ -153,6 +153,11 @@
     "sortRatingDesc": "Best rating",
     "sortRatingAsc": "Lowest rating",
     "followedOnly": "Followed",
+    "favorites": "Favorites",
+    "quick": "Quick access",
+    "advanced": "Refine",
+    "resultsSingular": "result",
+    "resultsPlural": "results",
     "reset": "Reset",
     "loadingMore": "Loading..."
   },

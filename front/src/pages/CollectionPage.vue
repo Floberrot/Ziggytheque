@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted, type Component } from 'vue'
 import { useInfiniteQuery } from '@tanstack/vue-query'
-import { Search, Plus, Book, X, RotateCcw } from 'lucide-vue-next'
+import {
+  Search, Plus, Book, X, RotateCcw,
+  BookOpen, CheckCircle2, PauseCircle, BookmarkPlus, Ban, Heart, Bell,
+} from 'lucide-vue-next'
 import { getCollection, type CollectionFilters } from '@/api/collection'
 import { useI18n } from 'vue-i18n'
 import MangaCard from '@/components/organisms/MangaCard.vue'
@@ -13,8 +16,6 @@ const GENRES = [
   'isekai', 'fantasy', 'action', 'romance', 'horror',
   'sci_fi', 'slice_of_life', 'sports', 'other',
 ] as const
-
-const READING_STATUSES = ['not_started', 'in_progress', 'completed', 'on_hold', 'dropped'] as const
 
 // ── Filter state ──────────────────────────────────────────────────────────────
 
@@ -52,6 +53,94 @@ function resetFilters() {
   filters.sort          = undefined
   filters.followed      = false
 }
+
+// ── Preset filters (quick-access chips) ───────────────────────────────────────
+
+interface FilterPreset {
+  id: string
+  labelKey: string
+  icon: Component
+  group: 'status' | 'special'
+  match: (filters: CollectionFilters) => boolean
+  apply: (filters: CollectionFilters) => void
+  clear: (filters: CollectionFilters) => void
+}
+
+const PRESETS: FilterPreset[] = [
+  {
+    id: 'in_progress',
+    labelKey: 'status.in_progress',
+    icon: BookOpen,
+    group: 'status',
+    match: f => f.readingStatus === 'in_progress',
+    apply: f => { f.readingStatus = 'in_progress' },
+    clear: f => { f.readingStatus = undefined },
+  },
+  {
+    id: 'completed',
+    labelKey: 'status.completed',
+    icon: CheckCircle2,
+    group: 'status',
+    match: f => f.readingStatus === 'completed',
+    apply: f => { f.readingStatus = 'completed' },
+    clear: f => { f.readingStatus = undefined },
+  },
+  {
+    id: 'on_hold',
+    labelKey: 'status.on_hold',
+    icon: PauseCircle,
+    group: 'status',
+    match: f => f.readingStatus === 'on_hold',
+    apply: f => { f.readingStatus = 'on_hold' },
+    clear: f => { f.readingStatus = undefined },
+  },
+  {
+    id: 'not_started',
+    labelKey: 'status.not_started',
+    icon: BookmarkPlus,
+    group: 'status',
+    match: f => f.readingStatus === 'not_started',
+    apply: f => { f.readingStatus = 'not_started' },
+    clear: f => { f.readingStatus = undefined },
+  },
+  {
+    id: 'dropped',
+    labelKey: 'status.dropped',
+    icon: Ban,
+    group: 'status',
+    match: f => f.readingStatus === 'dropped',
+    apply: f => { f.readingStatus = 'dropped' },
+    clear: f => { f.readingStatus = undefined },
+  },
+  {
+    id: 'favorites',
+    labelKey: 'filter.favorites',
+    icon: Heart,
+    group: 'special',
+    match: f => f.sort === 'rating_desc',
+    apply: f => { f.sort = 'rating_desc' },
+    clear: f => { f.sort = undefined },
+  },
+  {
+    id: 'followed',
+    labelKey: 'filter.followedOnly',
+    icon: Bell,
+    group: 'special',
+    match: f => !!f.followed,
+    apply: f => { f.followed = true },
+    clear: f => { f.followed = false },
+  },
+]
+
+function togglePreset(preset: FilterPreset) {
+  if (preset.match(filters)) {
+    preset.clear(filters)
+  } else {
+    preset.apply(filters)
+  }
+}
+
+const activePresetCount = computed(() => PRESETS.filter(p => p.match(filters)).length)
 
 // ── Infinite query ────────────────────────────────────────────────────────────
 
@@ -125,91 +214,116 @@ onUnmounted(() => {
     </div>
 
     <!-- Sticky filter bar -->
-    <div class="sticky top-0 z-10 bg-base-100/95 backdrop-blur border-b border-base-200 px-4 sm:px-6 py-3">
-      <div class="max-w-7xl mx-auto flex flex-wrap gap-2 items-center">
-        <!-- Search -->
-        <label class="input input-bordered input-sm flex items-center gap-2 bg-base-100 w-52">
-          <Search class="h-4 w-4 opacity-40 shrink-0" />
-          <input
-            v-model="searchInput"
-            type="search"
-            class="grow text-sm min-w-0"
-            :placeholder="t('filter.searchPlaceholder')"
-          />
+    <div class="sticky top-0 z-10 bg-base-100/90 backdrop-blur-md border-b border-base-200/70 shadow-[0_1px_0_0_rgba(0,0,0,0.02)]">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 space-y-3">
+
+        <!-- Row 1: Search + reset -->
+        <div class="flex items-center gap-2">
+          <div class="relative flex-1 max-w-xl">
+            <Search class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/40 pointer-events-none" />
+            <input
+              v-model="searchInput"
+              type="search"
+              class="input input-bordered w-full h-10 pl-10 pr-10 text-sm rounded-xl bg-base-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+              :placeholder="t('filter.searchPlaceholder')"
+            />
+            <button
+              v-if="searchInput"
+              class="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 flex items-center justify-center rounded-full hover:bg-base-200 text-base-content/40 hover:text-base-content/80 transition"
+              :aria-label="t('filter.reset')"
+              @click="searchInput = ''"
+            >
+              <X class="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          <div class="flex-1" />
+
           <button
-            v-if="searchInput"
-            class="opacity-40 hover:opacity-100"
-            @click="searchInput = ''"
+            v-if="hasActiveFilters"
+            class="btn btn-ghost btn-sm gap-1.5 text-base-content/60 hover:text-error shrink-0"
+            @click="resetFilters"
           >
-            <X class="h-3 w-3" />
+            <RotateCcw class="h-3.5 w-3.5" />
+            <span class="hidden sm:inline">{{ t('filter.reset') }}</span>
           </button>
-        </label>
+        </div>
 
-        <!-- Genre -->
-        <select
-          v-model="filters.genre"
-          class="select select-bordered select-sm"
-          :class="{ 'select-primary': filters.genre }"
-        >
-          <option :value="undefined">{{ t('filter.allGenres') }}</option>
-          <option v-for="g in GENRES" :key="g" :value="g">
-            {{ t(`genre.${g}`) }}
-          </option>
-        </select>
-
-        <!-- Reading status -->
-        <select
-          v-model="filters.readingStatus"
-          class="select select-bordered select-sm"
-          :class="{ 'select-primary': filters.readingStatus }"
-        >
-          <option :value="undefined">{{ t('filter.allStatus') }}</option>
-          <option v-for="s in READING_STATUSES" :key="s" :value="s">
-            {{ t(`status.${s}`) }}
-          </option>
-        </select>
-
-        <!-- Sort -->
-        <select
-          v-model="filters.sort"
-          class="select select-bordered select-sm"
-          :class="{ 'select-primary': filters.sort }"
-        >
-          <option :value="undefined">{{ t('filter.allSorts') }}</option>
-          <option value="rating_desc">{{ t('filter.sortRatingDesc') }}</option>
-          <option value="rating_asc">{{ t('filter.sortRatingAsc') }}</option>
-        </select>
-
-        <!-- Edition -->
-        <input
-          v-model="filters.edition"
-          type="text"
-          class="input input-bordered input-sm w-32"
-          :class="{ 'input-primary': filters.edition }"
-          :placeholder="t('filter.editionPlaceholder')"
-        />
-
-        <!-- Followed toggle -->
-        <label class="flex items-center gap-2 cursor-pointer select-none">
-          <input
-            v-model="filters.followed"
-            type="checkbox"
-            class="toggle toggle-primary toggle-sm"
-          />
-          <span class="text-sm" :class="{ 'text-primary font-medium': filters.followed }">
-            {{ t('filter.followedOnly') }}
+        <!-- Row 2: Preset chips -->
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-[11px] uppercase tracking-wider text-base-content/40 font-semibold mr-1 hidden sm:inline">
+            {{ t('filter.quick') }}
           </span>
-        </label>
 
-        <!-- Reset button -->
-        <button
-          v-if="hasActiveFilters"
-          class="btn btn-ghost btn-sm gap-1"
-          @click="resetFilters"
-        >
-          <RotateCcw class="h-3.5 w-3.5" />
-          {{ t('filter.reset') }}
-        </button>
+          <template v-for="(preset, idx) in PRESETS" :key="preset.id">
+            <!-- Visual separator between status group and special group -->
+            <span
+              v-if="idx > 0 && PRESETS[idx - 1].group !== preset.group"
+              class="h-5 w-px bg-base-300 mx-1"
+              aria-hidden="true"
+            />
+            <button
+              type="button"
+              class="group flex items-center gap-1.5 pl-2.5 pr-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150 active:scale-95"
+              :class="preset.match(filters)
+                ? 'bg-primary text-primary-content border-primary shadow-sm shadow-primary/20'
+                : 'bg-base-100 border-base-300/80 text-base-content/70 hover:border-primary/40 hover:bg-primary/5 hover:text-base-content'"
+              @click="togglePreset(preset)"
+            >
+              <component
+                :is="preset.icon"
+                class="h-3.5 w-3.5 transition-transform"
+                :class="preset.match(filters) ? '' : 'opacity-70 group-hover:opacity-100'"
+                stroke-width="2.25"
+              />
+              {{ t(preset.labelKey) }}
+            </button>
+          </template>
+        </div>
+
+        <!-- Row 3: Advanced filters -->
+        <div class="flex flex-wrap items-center gap-2 pt-1">
+          <span class="text-[11px] uppercase tracking-wider text-base-content/40 font-semibold mr-1 hidden sm:inline">
+            {{ t('filter.advanced') }}
+          </span>
+
+          <select
+            v-model="filters.genre"
+            class="select select-bordered select-sm rounded-lg h-9 min-h-9 text-sm"
+            :class="{ 'select-primary text-primary font-medium': filters.genre }"
+          >
+            <option :value="undefined">{{ t('filter.allGenres') }}</option>
+            <option v-for="genre in GENRES" :key="genre" :value="genre">
+              {{ t(`genre.${genre}`) }}
+            </option>
+          </select>
+
+          <select
+            v-model="filters.sort"
+            class="select select-bordered select-sm rounded-lg h-9 min-h-9 text-sm"
+            :class="{ 'select-primary text-primary font-medium': filters.sort }"
+          >
+            <option :value="undefined">{{ t('filter.allSorts') }}</option>
+            <option value="rating_desc">{{ t('filter.sortRatingDesc') }}</option>
+            <option value="rating_asc">{{ t('filter.sortRatingAsc') }}</option>
+          </select>
+
+          <input
+            v-model="filters.edition"
+            type="text"
+            class="input input-bordered input-sm rounded-lg h-9 w-36 text-sm"
+            :class="{ 'input-primary text-primary font-medium': filters.edition }"
+            :placeholder="t('filter.editionPlaceholder')"
+          />
+
+          <div v-if="activePresetCount > 0 || hasActiveFilters" class="ml-auto text-xs text-base-content/50">
+            <span class="inline-flex items-center gap-1">
+              <span class="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+              {{ total }} {{ total !== 1 ? t('filter.resultsPlural') : t('filter.resultsSingular') }}
+            </span>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -265,6 +379,13 @@ onUnmounted(() => {
 <style scoped>
 .card-appear {
   animation: fadeSlideUp 0.4s ease-out both;
+}
+
+/* Hide native search clear button — we render our own */
+input[type='search']::-webkit-search-cancel-button,
+input[type='search']::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 @keyframes fadeSlideUp {
