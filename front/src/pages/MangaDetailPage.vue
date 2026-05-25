@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import {
-  ArrowLeft, Star, RefreshCw, Book, BookOpen, Check, CheckSquare, Pencil, Trash2, Eye, Tag, Megaphone, Package, Info, Bell, BellOff,
+  ArrowLeft, Star, Book, BookOpen, Check, CheckSquare, Pencil, Trash2, Eye, Tag, Megaphone, Package, Info, Bell, BellOff, Plus, Sparkles, HelpCircle,
 } from 'lucide-vue-next'
 import {
   getCollectionEntry,
@@ -145,6 +145,15 @@ const batchPriceMutation = useMutation({
 // ── Sync panel state ──
 const showSyncPanel = ref(false)
 const syncTarget = ref<number | ''>('')
+const syncPlaceholder = computed(() => {
+  const total = entry.value?.totalVolumes ?? 0
+  return `ex: ${total + 5}`
+})
+const syncMin = computed(() => (entry.value?.totalVolumes ?? 0) + 1)
+const isSyncTargetValid = computed(() => {
+  if (syncTarget.value === '') return false
+  return Number(syncTarget.value) >= syncMin.value
+})
 
 // ── Delete confirm ──
 const showDeleteConfirm = ref(false)
@@ -390,7 +399,8 @@ function volumeOpacityClass(ve: VolumeEntry): string {
             <!-- Cover -->
             <div class="shrink-0 group/cover relative flex justify-center sm:block">
               <div
-                class="w-40 sm:w-28 md:w-36 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl ring-2 ring-base-content/10 cursor-pointer"
+                class="tooltip tooltip-right w-40 sm:w-28 md:w-36 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl ring-2 ring-base-content/10 cursor-pointer"
+                data-tip="Modifier la couverture (URL)"
                 @click.stop="startEditCover"
               >
                 <img v-if="entry.manga.coverUrl" :src="coverUrl(entry.manga.coverUrl)!" :alt="entry.manga.title" class="w-full h-full object-cover" />
@@ -398,7 +408,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                   <Book class="h-10 w-10" stroke-width="1.5" />
                 </div>
                 <!-- Edit overlay -->
-                <div class="absolute inset-0 bg-black/50 opacity-0 group-hover/cover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl">
+                <div class="absolute inset-0 bg-black/50 opacity-0 group-hover/cover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl pointer-events-none">
                   <Pencil class="h-7 w-7 text-white" />
                 </div>
               </div>
@@ -441,13 +451,14 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                 </div>
                 <div v-else class="group/title flex items-center gap-2">
                   <h1 class="text-2xl md:text-3xl font-extrabold leading-tight">{{ entry.manga.title }}</h1>
-                  <button
-                    class="btn btn-ghost btn-xs opacity-0 group-hover/title:opacity-60 transition-opacity"
-                    title="Renommer"
-                    @click="startEditTitle"
-                  >
-                    <Pencil class="h-4 w-4" />
-                  </button>
+                  <div class="tooltip tooltip-right" data-tip="Renommer la série">
+                    <button
+                      class="btn btn-ghost btn-xs opacity-0 group-hover/title:opacity-60 transition-opacity"
+                      @click="startEditTitle"
+                    >
+                      <Pencil class="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
 
                 <!-- Inline edition edit -->
@@ -465,22 +476,23 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                     <button class="btn btn-ghost btn-xs" @click="cancelEditEdition">✕</button>
                   </div>
                   <div v-else class="group/edition flex items-center gap-1">
-                    <span
-                      class="badge cursor-pointer gap-1.5"
-                      :class="entry.manga.edition ? 'badge-primary' : 'badge-ghost'"
-                      @click="startEditEdition"
-                    >
-                      <img
-                        v-if="editionLogo"
-                        :src="editionLogo"
-                        :alt="entry.manga.edition!"
-                        class="w-3.5 h-3.5 rounded-sm object-contain"
-                      />
-                      {{ entry.manga.edition ?? 'Édition inconnue' }}
-                    </span>
+                    <div class="tooltip tooltip-bottom" data-tip="Cliquer pour changer l'édition (Kurokawa, Glénat, Pika, …)">
+                      <span
+                        class="badge cursor-pointer gap-1.5"
+                        :class="entry.manga.edition ? 'badge-primary' : 'badge-ghost'"
+                        @click="startEditEdition"
+                      >
+                        <img
+                          v-if="editionLogo"
+                          :src="editionLogo"
+                          :alt="entry.manga.edition!"
+                          class="w-3.5 h-3.5 rounded-sm object-contain"
+                        />
+                        {{ entry.manga.edition ?? 'Édition inconnue' }}
+                      </span>
+                    </div>
                     <button
                       class="btn btn-ghost btn-xs opacity-0 group-hover/edition:opacity-60 transition-opacity p-0 min-h-0 h-auto"
-                      title="Modifier l'édition"
                       @click="startEditEdition"
                     >
                       <Pencil class="h-3 w-3" />
@@ -490,11 +502,12 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                   <span v-if="entry.manga.genre" class="badge badge-outline capitalize">{{ entry.manga.genre }}</span>
 
                   <!-- Rating : à droite du genre -->
-                  <BaseHeartRating
-                    :model-value="entry.rating"
-                    class="ml-1"
-                    @update:model-value="ratingMutation.mutate($event)"
-                  />
+                  <div class="tooltip tooltip-top ml-1" :data-tip="entry.rating !== null ? 'Cliquer une demi-coeur pour modifier ta note' : 'Donne une note à cette série'">
+                    <BaseHeartRating
+                      :model-value="entry.rating"
+                      @update:model-value="ratingMutation.mutate($event)"
+                    />
+                  </div>
                 </div>
                 <p v-if="entry.manga.author" class="text-sm text-base-content/60 mt-1.5 font-medium">{{ entry.manga.author }}</p>
               </div>
@@ -520,121 +533,219 @@ function volumeOpacityClass(ve: VolumeEntry): string {
               </div>
 
               <!-- Status pill selector -->
-              <div class="flex gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1 sm:flex-wrap sm:overflow-visible">
-                <button
-                  v-for="s in STATUS_OPTIONS"
-                  :key="s.value"
-                  class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all duration-150 cursor-pointer"
-                  :class="entry.readingStatus === s.value
-                    ? s.activeClass
-                    : ['border-base-content/10 text-base-content/35 bg-transparent', s.hoverClass]"
-                  :disabled="statusMutation.isPending.value"
-                  @click="entry.readingStatus !== s.value && statusMutation.mutate(s.value)"
-                >
-                  <span
-                    v-if="statusMutation.isPending.value && entry.readingStatus === s.value"
-                    class="loading loading-spinner w-2.5 h-2.5"
-                  />
-                  {{ s.label }}
-                </button>
+              <div>
+                <div class="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-base-content/40 mb-1.5">
+                  Statut de lecture
+                  <div class="tooltip tooltip-right" data-tip="Indique où tu en es dans la lecture de cette série">
+                    <HelpCircle class="h-3 w-3 cursor-help" />
+                  </div>
+                </div>
+                <div class="flex gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1 sm:flex-wrap sm:overflow-visible">
+                  <button
+                    v-for="s in STATUS_OPTIONS"
+                    :key="s.value"
+                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all duration-150 cursor-pointer"
+                    :class="entry.readingStatus === s.value
+                      ? s.activeClass
+                      : ['border-base-content/10 text-base-content/35 bg-transparent', s.hoverClass]"
+                    :disabled="statusMutation.isPending.value"
+                    @click="entry.readingStatus !== s.value && statusMutation.mutate(s.value)"
+                  >
+                    <span
+                      v-if="statusMutation.isPending.value && entry.readingStatus === s.value"
+                      class="loading loading-spinner w-2.5 h-2.5"
+                    />
+                    {{ s.label }}
+                  </button>
+                </div>
               </div>
 
-              <!-- Actions row -->
+              <!-- Actions row : volume management + side actions -->
               <div class="flex flex-wrap items-center gap-2">
-
-                <button
+                <!-- Wishlist all missing (only when there are missing volumes) -->
+                <div
                   v-if="missingVolumes.length > 0"
-                  class="btn btn-warning btn-sm gap-1.5"
-                  :class="{ loading: addToWishlistMutation.isPending.value }"
-                  @click="addToWishlistMutation.mutate()"
+                  class="tooltip tooltip-top tooltip-warning"
+                  :data-tip="`Ajoute en un clic les ${missingVolumes.length} tome${missingVolumes.length > 1 ? 's' : ''} manquant${missingVolumes.length > 1 ? 's' : ''} à ta liste de souhaits`"
                 >
-                  <Star class="h-4 w-4" />
-                  Souhaiter les {{ missingVolumes.length }} manquants
-                </button>
+                  <button
+                    class="btn btn-warning btn-sm gap-1.5"
+                    :class="{ loading: addToWishlistMutation.isPending.value }"
+                    @click="addToWishlistMutation.mutate()"
+                  >
+                    <Star class="h-4 w-4" />
+                    Souhaiter les {{ missingVolumes.length }} manquant{{ missingVolumes.length > 1 ? 's' : '' }}
+                  </button>
+                </div>
 
-                <button
-                  class="btn btn-ghost btn-sm gap-1"
-                  :class="{ loading: autoFillMutation.isPending.value }"
-                  :disabled="autoFillMutation.isPending.value || (batchProgress.progress.value !== null && !batchProgress.progress.value.done)"
-                  @click="autoFillMutation.mutate()"
+                <!-- Add volumes (creates new T2, T3, … entries) -->
+                <div
+                  class="tooltip tooltip-top"
+                  data-tip="Crée de nouveaux tomes vierges dans cette série (utile si la série est encore en publication)"
                 >
-                  <RefreshCw v-if="!autoFillMutation.isPending.value" class="h-4 w-4" />
-                  Compléter les couvertures
-                </button>
+                  <button
+                    class="btn btn-sm gap-1.5"
+                    :class="showSyncPanel ? 'btn-primary' : 'btn-outline btn-primary'"
+                    @click="showSyncPanel = !showSyncPanel"
+                  >
+                    <Plus class="h-4 w-4" />
+                    Ajouter des tomes
+                  </button>
+                </div>
 
-                <button
-                  class="btn btn-ghost btn-sm gap-1"
-                  @click="showSyncPanel = !showSyncPanel"
+                <!-- Auto-fill covers -->
+                <div
+                  class="tooltip tooltip-top"
+                  data-tip="Recherche automatiquement les couvertures manquantes (MangaDex, Google Books, Open Library)"
                 >
-                  <RefreshCw class="h-4 w-4" />
-                  Ajouter tomes
-                </button>
+                  <button
+                    class="btn btn-outline btn-sm gap-1.5"
+                    :class="{ loading: autoFillMutation.isPending.value }"
+                    :disabled="autoFillMutation.isPending.value || (batchProgress.progress.value !== null && !batchProgress.progress.value.done)"
+                    @click="autoFillMutation.mutate()"
+                  >
+                    <Sparkles v-if="!autoFillMutation.isPending.value" class="h-4 w-4" />
+                    Compléter les couvertures
+                  </button>
+                </div>
 
-                <button
-                  class="btn btn-sm gap-2"
-                  :class="entry.notificationsEnabled ? 'btn-secondary' : 'btn-ghost border border-base-300'"
-                  :disabled="followMutation.isPending.value"
-                  @click="followMutation.mutate()"
+                <!-- Follow / unfollow -->
+                <div
+                  class="tooltip tooltip-top"
+                  :data-tip="entry.notificationsEnabled
+                    ? 'Vous serez notifié quand un nouveau tome sort. Cliquer pour arrêter de suivre.'
+                    : 'Recevoir une notification à la sortie d\'un nouveau tome'"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
-                  {{ entry.notificationsEnabled ? t('notifications.following') : t('notifications.follow') }}
-                </button>
+                  <button
+                    class="btn btn-sm gap-1.5"
+                    :class="entry.notificationsEnabled ? 'btn-secondary' : 'btn-ghost border border-base-300'"
+                    :disabled="followMutation.isPending.value"
+                    @click="followMutation.mutate()"
+                  >
+                    <BellOff v-if="entry.notificationsEnabled" class="h-4 w-4" />
+                    <Bell v-else class="h-4 w-4" />
+                    {{ entry.notificationsEnabled ? t('notifications.following') : t('notifications.follow') }}
+                  </button>
+                </div>
 
-                <button
-                  class="btn btn-ghost btn-sm text-error"
-                  @click.stop="showDeleteConfirm = true"
+                <!-- Push remove to the right -->
+                <div class="flex-1 min-w-0" />
+
+                <!-- Remove from collection (destructive, visually de-emphasized) -->
+                <div
+                  class="tooltip tooltip-top tooltip-error"
+                  data-tip="Retirer définitivement cette série et tous ses tomes de votre bibliothèque"
                 >
-                  {{ t('common.remove') }}
-                </button>
+                  <button
+                    class="btn btn-ghost btn-sm gap-1.5 text-error/70 hover:text-error hover:bg-error/10"
+                    @click.stop="showDeleteConfirm = true"
+                  >
+                    <Trash2 class="h-4 w-4" />
+                    {{ t('common.remove') }}
+                  </button>
+                </div>
               </div>
 
-              <!-- Batch price pill -->
-              <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-base-200/60 border border-dashed border-base-content/15 text-xs self-start">
-                <Tag class="h-3 w-3 text-base-content/35 shrink-0" />
-                <span class="text-base-content/40 font-medium tracking-wide">€ / tome</span>
-                <input
-                  v-model.number="batchPrice"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="w-14 bg-transparent outline-none text-center tabular-nums font-mono text-base-content/70 placeholder-base-content/20 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
-                  placeholder="0.00"
-                />
-                <button
-                  class="w-5 h-5 rounded-full flex items-center justify-center transition-all"
-                  :class="batchPrice !== null && !batchPriceMutation.isPending.value
-                    ? 'bg-secondary/20 text-secondary hover:bg-secondary/30 cursor-pointer'
-                    : 'text-base-content/20 cursor-default'"
-                  :disabled="batchPrice === null || batchPriceMutation.isPending.value"
-                  @click="batchPrice !== null && batchPriceMutation.mutate(batchPrice)"
+              <!-- Sync panel (Ajouter des tomes) -->
+              <Transition name="panel-fade">
+                <div
+                  v-if="showSyncPanel"
+                  class="rounded-xl bg-primary/5 border border-primary/20 p-3.5 space-y-2.5"
+                  @click.stop
                 >
-                  <Check v-if="!batchPriceMutation.isPending.value" class="h-3 w-3" stroke-width="3" />
-                  <span v-else class="loading loading-spinner loading-[8px]" />
-                </button>
-              </div>
+                  <div class="flex items-start gap-2 text-xs text-base-content/65 leading-relaxed">
+                    <Info class="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
+                    <p>
+                      Cette série compte actuellement
+                      <strong class="text-base-content">{{ entry.totalVolumes }} tome{{ entry.totalVolumes > 1 ? 's' : '' }}</strong>.
+                      Saisis le numéro du <strong>dernier</strong> tome à créer : les tomes manquants seront ajoutés sans statut (à compléter plus tard).
+                    </p>
+                  </div>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <label for="sync-target" class="text-sm font-medium text-base-content/80 shrink-0">
+                      Aller jusqu'au tome
+                    </label>
+                    <input
+                      id="sync-target"
+                      v-model="syncTarget"
+                      type="number"
+                      :min="syncMin"
+                      max="9999"
+                      class="input input-sm input-bordered w-24 tabular-nums"
+                      :placeholder="syncPlaceholder"
+                      @keydown.enter="isSyncTargetValid && syncMutation.mutate()"
+                    />
+                    <div
+                      class="tooltip tooltip-top"
+                      :data-tip="isSyncTargetValid
+                        ? `Créer les tomes ${syncMin} à ${syncTarget}`
+                        : `Le numéro doit être supérieur à ${entry.totalVolumes}`"
+                    >
+                      <button
+                        class="btn btn-primary btn-sm gap-1.5"
+                        :class="{ loading: syncMutation.isPending.value }"
+                        :disabled="!isSyncTargetValid || syncMutation.isPending.value"
+                        @click="syncMutation.mutate()"
+                      >
+                        <Plus v-if="!syncMutation.isPending.value" class="h-3.5 w-3.5" />
+                        Créer les tomes
+                      </button>
+                    </div>
+                    <button class="btn btn-ghost btn-sm" @click="showSyncPanel = false">
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              </Transition>
 
-              <!-- Sync panel (inline) -->
-              <div v-if="showSyncPanel" class="flex items-center gap-2 p-3 rounded-xl bg-base-200 text-sm">
-                <span class="text-base-content/60 shrink-0">Ajouter jusqu'au tome</span>
-                <input
-                  v-model="syncTarget"
-                  type="number"
-                  min="1"
-                  max="9999"
-                  class="input input-xs input-bordered w-20"
-                  placeholder="ex: 30"
-                />
-                <button
-                  class="btn btn-primary btn-xs"
-                  :class="{ loading: syncMutation.isPending.value }"
-                  :disabled="!syncTarget"
-                  @click="syncMutation.mutate()"
-                >
-                  Ajouter
-                </button>
-                <button class="btn btn-ghost btn-xs" @click="showSyncPanel = false">Annuler</button>
+              <!-- Batch price : full section, clear label + apply-to-all CTA -->
+              <div class="rounded-xl bg-base-200/40 border border-base-content/8 p-3 flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <div class="w-8 h-8 rounded-lg bg-secondary/15 text-secondary flex items-center justify-center shrink-0">
+                    <Tag class="h-4 w-4" />
+                  </div>
+                  <div class="min-w-0">
+                    <div class="text-sm font-semibold leading-tight flex items-center gap-1.5">
+                      Prix unitaire (en lot)
+                      <div class="tooltip tooltip-top" data-tip="Définit le même prix pour tous les tomes de la série en une seule action. Tu peux toujours ajuster le prix d'un tome individuellement.">
+                        <HelpCircle class="h-3.5 w-3.5 text-base-content/35 cursor-help" />
+                      </div>
+                    </div>
+                    <div class="text-[11px] text-base-content/50 leading-tight mt-0.5">
+                      S'applique à tous les tomes ({{ entry.totalVolumes }})
+                    </div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 ml-auto">
+                  <div class="relative">
+                    <input
+                      v-model.number="batchPrice"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      class="input input-sm input-bordered w-28 pr-7 tabular-nums font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                      placeholder="0.00"
+                      @keydown.enter="batchPrice !== null && batchPriceMutation.mutate(batchPrice)"
+                    />
+                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-base-content/40 pointer-events-none font-medium">€</span>
+                  </div>
+                  <div
+                    class="tooltip tooltip-top tooltip-secondary"
+                    :data-tip="batchPrice === null
+                      ? 'Saisis un prix pour activer'
+                      : `Appliquer ${batchPrice.toFixed(2)} € à chaque tome`"
+                  >
+                    <button
+                      class="btn btn-secondary btn-sm gap-1.5"
+                      :class="{ loading: batchPriceMutation.isPending.value }"
+                      :disabled="batchPrice === null || batchPriceMutation.isPending.value"
+                      @click="batchPrice !== null && batchPriceMutation.mutate(batchPrice)"
+                    >
+                      <Check v-if="!batchPriceMutation.isPending.value" class="h-3.5 w-3.5" stroke-width="3" />
+                      Appliquer à tous
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1030,5 +1141,18 @@ function volumeOpacityClass(ve: VolumeEntry): string {
 }
 .modal-fade-enter-from .relative {
   transform: translateY(20px) scale(0.97);
+}
+
+.panel-fade-enter-active,
+.panel-fade-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease, max-height 0.22s ease;
+  overflow: hidden;
+  max-height: 400px;
+}
+.panel-fade-enter-from,
+.panel-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+  max-height: 0;
 }
 </style>
