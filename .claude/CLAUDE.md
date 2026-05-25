@@ -43,8 +43,7 @@ Every time a feature is planned, developed, or removed — this rule is non-nego
 ## Bounded Contexts (back/src/)
 - `Shared/` — CommandBus, QueryBus, EventBus interfaces + Messenger implementations + ExceptionListener
 - `Auth/` — GateUser, GateUserProvider, GateCommand/Handler, GateController
-- `PriceCode/` — PriceCode entity, full CRUD (GET/POST/PATCH/DELETE /api/price-codes)
-- `Manga/` — Manga + Volume entities, ExternalApiClientInterface (prepared, NullMangaApiClient stub)
+- `Manga/` — Manga + Volume entities (price lives on Volume), ExternalApiClientInterface (prepared, NullMangaApiClient stub)
 - `Collection/` — CollectionEntry + VolumeEntry, toggle owned/read per volume
 - `Wishlist/` — WishlistItem, purchase moves to collection
 - `Stats/` — GetStats query (totalOwned, totalRead, totalWishlist, collectionValue, genreBreakdown)
@@ -125,13 +124,13 @@ Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrin
 - Only pages call useQuery/useMutation
 - Auth: useAuthStore (sessionStorage), Bearer JWT via axios interceptor
 - Stores: useAuthStore, useThemeStore (dark default), useUiStore (toasts)
-- API layer: api/client.ts (axios), api/auth.ts, manga.ts, collection.ts, wishlist.ts, priceCode.ts, stats.ts, notification.ts
+- API layer: api/client.ts (axios), api/auth.ts, manga.ts, collection.ts, wishlist.ts, stats.ts, notification.ts
 - i18n: vue-i18n, fr.json + en.json, FR default
 
 ## Routes (frontend)
 - /gate — public password gate
 - / → /dashboard (protected, MainLayout sidebar)
-- /collection, /collection/:id, /wishlist, /add, /price-codes, /notifications
+- /collection, /collection/:id, /wishlist, /add, /notifications
 
 ## API Endpoints
 - POST   /api/auth/gate
@@ -140,7 +139,6 @@ Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrin
 - PATCH  /api/collection/:id/status
 - PATCH  /api/collection/:id/volumes/:veId/toggle { field: isOwned|isRead }
 - GET/POST /api/wishlist, DELETE /api/wishlist/:id, POST /api/wishlist/:id/purchase
-- GET/POST/PATCH/DELETE /api/price-codes, PATCH /api/price-codes/:code
 - GET    /api/stats
 - GET    /api/notifications, PATCH /api/notifications/:id/read
 - GET    /messenger (Basic auth)
@@ -155,12 +153,21 @@ Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrin
 - Frontend search: composable useExternalSearch hits /api/manga/external via authenticated axios client
 - Swap implementation by changing alias in services.yaml (NullMangaApiClient available as stub)
 
-## Docker
+## Docker (local dev)
 - back: http://localhost:8000 — FrankenPHP
 - app:  http://localhost:5173 — Vite
 - db:   localhost:5432 — PostgreSQL 17
-- mailer: http://localhost:8025 — Mailpit
+- mailer: http://localhost:8025 — Mailpit (local catcher only)
 - worker: Messenger consumer
+
+`make dev` prints these URLs after startup so they're ⌘-clickable from the terminal.
+
+## Production (Railway)
+- Public URL: **https://www.ziggytheque.fr** (apex `ziggytheque.fr` redirects 301 → www via OVH)
+- 4 Railway services: backend (FrankenPHP), worker (Messenger consumer), frontend (nginx SPA), PostgreSQL
+- Emails: **Resend** — domain `ziggytheque.fr` verified, sender `notifications@ziggytheque.fr`, `MAILER_DSN=resend+api://KEY@default`. Full setup: `docs/resend.md`
+- Frontend nginx proxies `/api` and `/proxy` to the backend via `BACKEND_URL` (internal Railway URL), so the SPA stays same-origin
+- CORS prod value: `CORS_ALLOW_ORIGIN=^https://(www\.)?ziggytheque\.fr$`
 
 ## First time setup
 ```

@@ -29,6 +29,11 @@ dev: ## Start all 5 containers + sync vendor locally
 	@rsync -a --delete ./back/vendor-tmp/ ./back/vendor/
 	@rm -rf ./back/vendor-tmp
 	@echo "vendor synced."
+	@printf "\n$(BOLD)ZiggyTheque is up — open in your browser:$(RESET)\n"
+	@printf "  $(CYAN)Frontend $(RESET) $(GREEN)http://localhost:5173$(RESET)\n"
+	@printf "  $(CYAN)Backend  $(RESET) $(GREEN)http://localhost:8000$(RESET)\n"
+	@printf "  $(CYAN)Mailpit  $(RESET) $(GREEN)http://localhost:8025$(RESET)\n"
+	@printf "  $(CYAN)Messenger$(RESET) $(GREEN)http://localhost:8000/messenger$(RESET)\n\n"
 
 .PHONY: down
 down: ## Stop all containers

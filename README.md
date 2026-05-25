@@ -4,6 +4,9 @@
 
 [![GitHub](https://img.shields.io/badge/GitHub-floberrot%2FZiggyTheque-blue?logo=github)](https://github.com/floberrot/ZiggyTheque)
 
+**Production:** [https://www.ziggytheque.fr](https://www.ziggytheque.fr) — hosted on [Railway](https://railway.app).
+The apex `ziggytheque.fr` redirects (301) to `www.ziggytheque.fr` via an OVH redirection.
+
 ---
 
 ## ✨ Features
@@ -11,7 +14,7 @@
 - **Manga Library Management** – Search, add, and organize your manga collection with volumes
 - **Collection Tracking** – Mark volumes as owned or read, track your reading progress
 - **Wishlist** – Create wishlist items and convert them to collection entries when purchased
-- **Price Tracking** – Monitor manga prices with custom price codes
+- **Price Tracking** – Per-volume price recording feeds collection value analytics
 - **Advanced Stats** – View collection analytics: total owned, read count, wishlist size, collection value, genre breakdown
 - **Notifications** – Real-time notifications for collection updates and events
 - **Dark Mode** – Elegant dark theme by default with light mode support
@@ -40,8 +43,9 @@
 - **i18n:** Vue-i18n
 
 ### Infrastructure
-- **Docker:** 5 containers (back, app, db, mailer, worker)
-- **Compose:** docker-compose.yml orchestration
+- **Local:** 5 Docker containers (back, app, db, mailer, worker) orchestrated by `docker-compose.yml`
+- **Production:** [Railway](https://railway.app) — 4 services (backend FrankenPHP, Messenger worker, frontend nginx SPA, PostgreSQL)
+- **Email Provider (prod):** [Resend](https://resend.com) — `symfony/resend-mailer` transport, domain `ziggytheque.fr` verified (DKIM + MX)
 - **Quality Gates:** Pre-commit hooks, commitlint
 
 ---
@@ -88,13 +92,15 @@ make shell-front
 
 ### Access Points
 
-| Service | URL | Purpose |
-|---------|-----|---------|
-| Frontend | http://localhost:5173 | Vue.js app |
-| Backend API | http://localhost:8000 | Symfony API |
-| Database | localhost:5432 | PostgreSQL |
-| Mailpit | http://localhost:8025 | Email testing |
-| Messenger | http://localhost:8000/messenger | Job queue monitor |
+`make dev` prints these URLs at the end of startup so you can ⌘-click them straight from the terminal.
+
+| Service | Local (dev) | Production |
+|---------|-------------|------------|
+| Frontend | http://localhost:5173 | https://www.ziggytheque.fr |
+| Backend API | http://localhost:8000 | served behind the frontend via internal Railway URL (proxied through nginx `/api`) |
+| Database | localhost:5432 | Railway-managed PostgreSQL 17 (internal hostname) |
+| Mailer | http://localhost:8025 (Mailpit) | [Resend](https://resend.com) — see [`docs/resend.md`](docs/resend.md) |
+| Messenger | http://localhost:8000/messenger | `/messenger` on the backend service (HTTP Basic, `MONITOR_USER` / `MONITOR_PASSWORD`) |
 
 ---
 
@@ -106,12 +112,11 @@ ZiggyTheque/
 │   └── src/
 │       ├── Shared/          # CQRS buses, exception handling
 │       ├── Auth/            # Gate authentication
-│       ├── Manga/           # Manga & Volume entities
+│       ├── Manga/           # Manga & Volume entities (price lives on Volume)
 │       ├── Collection/      # User collection tracking
 │       ├── Wishlist/        # Wishlist management
-│       ├── PriceCode/       # Price tracking
 │       ├── Stats/           # Analytics queries
-│       └── Notification/    # Notification system
+│       └── Notification/    # Notification system (Discord + email follows)
 ├── front/                   # Vue 3 frontend
 │   └── src/
 │       ├── components/      # Atomic design (atoms, molecules, organisms)
@@ -172,11 +177,6 @@ JWT_PASSPHRASE=your_jwt_passphrase
 - `POST /api/wishlist/:id/purchase` – Move to collection
 - `DELETE /api/wishlist/:id` – Remove from wishlist
 
-### Price Codes
-- `GET/POST /api/price-codes` – List/create price codes
-- `PATCH /api/price-codes/:code` – Update price code
-- `DELETE /api/price-codes/:code` – Delete price code
-
 ### Stats
 - `GET /api/stats` – Collection analytics (totalOwned, totalRead, totalWishlist, collectionValue, genreBreakdown)
 
@@ -233,7 +233,7 @@ make deptrac
 
 ### Environment Variables
 
-Create `back/.env.local`:
+Create `back/.env.local` for local dev overrides:
 
 ```env
 GATE_PASSWORD=your_secure_password
@@ -245,7 +245,40 @@ JWT_PASSPHRASE=your_jwt_passphrase
 MONITOR_USER=monitor
 MONITOR_PASSWORD=your_monitor_password
 GOOGLE_BOOKS_API_KEY=your_api_key  # Optional, for Google Books integration
+
+# Mailer — local dev uses Mailpit (default). For Resend in local "staging" mode, see docs/resend.md
+MAILER_DSN=smtp://mailer:1025
+NOTIFICATION_EMAIL=you@example.com
 ```
+
+### Production (Railway)
+
+Set the following on the **back** and **worker** services (both need the same DB + mailer config):
+
+```env
+APP_ENV=prod
+APP_DEBUG=0
+APP_SECRET=<openssl rand -hex 32>
+DATABASE_URL=postgresql://<user>:<pass>@<railway-pg-host>:5432/<db>
+JWT_PASSPHRASE=<strong random passphrase>
+GATE_PASSWORD=<gate password>
+GOOGLE_BOOKS_API_KEY=<key>
+CORS_ALLOW_ORIGIN=^https://(www\.)?ziggytheque\.fr$
+MONITOR_USER=monitor
+MONITOR_PASSWORD=<strong password>
+
+# Resend (see docs/resend.md)
+MAILER_DSN=resend+api://<RESEND_API_KEY>@default
+NOTIFICATION_EMAIL=notifications@ziggytheque.fr
+```
+
+On the **frontend** Railway service:
+
+```env
+BACKEND_URL=https://<backend-service>.up.railway.app
+```
+
+The frontend nginx proxies `/api` and `/proxy` to `BACKEND_URL`, so the SPA stays same-origin under `www.ziggytheque.fr` — no CORS hit in normal usage.
 
 ---
 
@@ -282,7 +315,7 @@ make logs-worker          # Tail worker logs
 | **back** | PHP 8.4 + FrankenPHP | Symfony API (port 8000) |
 | **app** | Node.js | Vite dev server (port 5173) |
 | **db** | PostgreSQL 17 | Data persistence (port 5432) |
-| **mailer** | Mailpit | Email testing UI (port 8025) |
+| **mailer** | Mailpit | Email catcher for local dev (port 8025) — production uses Resend, see [`docs/resend.md`](docs/resend.md) |
 | **worker** | PHP 8.4 | Symfony Messenger consumer |
 
 ---
@@ -315,8 +348,11 @@ make migrate
 
 ## 📖 Documentation
 
-- **Backend Architecture:** See `.claude/backend.md` for detailed rules and patterns
-- **Project Instructions:** See `.claude/CLAUDE.md` for code style, git discipline, and core patterns
+- **Backend Architecture:** See [`.claude/backend.md`](.claude/backend.md) for detailed rules and patterns
+- **Project Instructions:** See [`.claude/CLAUDE.md`](.claude/CLAUDE.md) for code style, git discipline, and core patterns
+- **Email Setup (Resend):** See [`docs/resend.md`](docs/resend.md) for production email configuration
+- **Real-time (Mercure):** See [`docs/mercure.md`](docs/mercure.md) for the SSE / server-push wiring
+- **Production Deployment:** See [`PLAN_deploy-production.md`](PLAN_deploy-production.md) for the Railway deployment plan
 - **Make Help:** `make help` – View all available commands
 
 ---
