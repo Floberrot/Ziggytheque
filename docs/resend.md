@@ -5,7 +5,8 @@ verification, password reset, account-approved, and "new chapters" follow
 notifications) through **Resend** instead of the local Mailpit catcher.
 
 > Keep **Mailpit** for local development — you don't want real emails sent from
-> your machine. Use **Resend** for staging / production deployments.
+> your machine. **Resend is wired up in production** (`ziggytheque.fr` domain
+> verified, DKIM + MX records live in the OVH DNS zone).
 
 ---
 
@@ -35,6 +36,10 @@ Default (local): `MAILER_DSN=smtp://mailer:1025` → Mailpit, UI at <http://loca
 2. In the dashboard go to **API Keys** → **Create API Key** → copy it.
 3. Go to **Domains** → **Add Domain** and verify your domain (or verify a single
    sender email address if you don't have a custom domain yet).
+
+> **Ziggytheque prod state:** the domain `ziggytheque.fr` is already verified
+> in Resend. The DNS records (`resend._domainkey` TXT, `send` MX / TXT) are in
+> the OVH zone — do not touch them.
 
 ---
 
@@ -90,11 +95,15 @@ MAILER_DSN=resend+api://YOUR_API_KEY@default
 The `NOTIFICATION_EMAIL` env var controls the **From** address for all emails.
 It must match a sender or domain verified in Resend.
 
-Set it in Railway alongside `MAILER_DSN`:
+For Ziggytheque production, set it in Railway alongside `MAILER_DSN`:
 
 ```
-NOTIFICATION_EMAIL=noreply@yourdomain.com
+NOTIFICATION_EMAIL=notifications@ziggytheque.fr
 ```
+
+Any local-part on the verified `ziggytheque.fr` domain works
+(`hello@`, `noreply@`, `notifications@`, …) — Resend does not require the
+mailbox to actually exist, only the domain to be verified.
 
 ---
 
@@ -103,7 +112,7 @@ NOTIFICATION_EMAIL=noreply@yourdomain.com
 After deploying with the Resend DSN, trigger an email and confirm it arrives:
 
 ```bash
-curl -X POST https://<your-host>/api/auth/register \
+curl -X POST https://www.ziggytheque.fr/api/auth/register \
   -H 'Content-Type: application/json' \
   -d '{"email":"you@example.com","password":"Password1!","displayName":"Test"}'
 ```
