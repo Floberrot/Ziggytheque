@@ -91,14 +91,17 @@ final readonly class DoctrineActivityLogRepository implements ActivityLogReposit
     {
         $since = new DateTimeImmutable("-{$windowMinutes} minutes");
 
-        return (int) $this->em()->createQueryBuilder()
-            ->select('COUNT(l.id)')
-            ->from(ActivityLog::class, 'l')
-            ->where('l.status = :status')
-            ->andWhere('l.startedAt >= :since')
-            ->setParameter('status', 'error')
-            ->setParameter('since', $since)
-            ->getQuery()
-            ->getSingleScalarResult();
+        $sql = <<<'SQL'
+            SELECT COUNT(*)
+            FROM activity_logs
+            WHERE status = :status
+              AND started_at >= :since
+              AND (metadata->>'external_api_failure' IS DISTINCT FROM 'true')
+        SQL;
+
+        return (int) $this->em()->getConnection()->executeQuery($sql, [
+            'status' => 'error',
+            'since'  => $since->format('Y-m-d H:i:s.uP'),
+        ])->fetchOne();
     }
 }

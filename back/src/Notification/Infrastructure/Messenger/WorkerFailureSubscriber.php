@@ -8,9 +8,14 @@ use App\Notification\Domain\ActivityLog;
 use App\Notification\Domain\ActivityLogRepositoryInterface;
 use App\Notification\Domain\DiscordNotifierInterface;
 use App\Notification\Domain\EventTypeEnum;
+use App\Notification\Domain\Service\RssFeedParserException;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\Messenger\Event\WorkerMessageFailedEvent;
+use Symfony\Component\Messenger\Exception\WrappedExceptionsInterface;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
+use Throwable;
 
 #[AsEventListener]
 final readonly class WorkerFailureSubscriber
@@ -26,23 +31,29 @@ final readonly class WorkerFailureSubscriber
 
     public function __invoke(WorkerMessageFailedEvent $event): void
     {
-        $throwable   = $event->getThrowable();
-        $messageName = get_class($event->getEnvelope()->getMessage());
+        $throwable         = $event->getThrowable();
+        $messageName       = get_class($event->getEnvelope()->getMessage());
+        $isExternalFailure = $this->isExternalApiFailure($throwable);
+
+        $metadata = [
+            'message_class' => $messageName,
+            'exception'     => $throwable::class,
+            'will_retry'    => !$event->willRetry(),
+        ];
+        if ($isExternalFailure) {
+            $metadata['external_api_failure'] = true;
+        }
 
         $log = new ActivityLog(
             id: Uuid::v4()->toRfc4122(),
             eventType: EventTypeEnum::WorkerFailure,
             sourceName: 'worker',
-            metadata: [
-                'message_class' => $messageName,
-                'exception'     => $throwable::class,
-                'will_retry'    => !$event->willRetry(),
-            ],
+            metadata: $metadata,
         );
         $log->markError($throwable->getMessage());
         $this->activityLogRepository->save($log);
 
-        if ($event->willRetry()) {
+        if ($event->willRetry() || $isExternalFailure) {
             return;
         }
 
@@ -59,5 +70,41 @@ final readonly class WorkerFailureSubscriber
                 critical: true,
             );
         }
+    }
+
+    private function isExternalApiFailure(Throwable $throwable): bool
+    {
+        $visited = [];
+        $stack   = [$throwable];
+
+        while ($stack !== []) {
+            $current = array_pop($stack);
+            $id      = spl_object_id($current);
+            if (isset($visited[$id])) {
+                continue;
+            }
+            $visited[$id] = true;
+
+            if (
+                $current instanceof ServerExceptionInterface
+                || $current instanceof TransportExceptionInterface
+                || $current instanceof RssFeedParserException
+            ) {
+                return true;
+            }
+
+            if ($current instanceof WrappedExceptionsInterface) {
+                foreach ($current->getWrappedExceptions() as $wrapped) {
+                    $stack[] = $wrapped;
+                }
+            }
+
+            $previous = $current->getPrevious();
+            if ($previous !== null) {
+                $stack[] = $previous;
+            }
+        }
+
+        return false;
     }
 }
