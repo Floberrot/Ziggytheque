@@ -1,13 +1,13 @@
 name: Release
 
-# Called automatically by deploy-production.yml after all services deploy successfully.
-# Can also be triggered manually as a fallback.
+# Manually triggered: computes the next semver tag from the commits between
+# the latest existing tag and HEAD on the current branch, then creates a
+# GitHub release with auto-generated notes. Does NOT deploy.
 on:
-  workflow_call: {}
   workflow_dispatch:
     inputs:
       reason:
-        description: 'Reason for manual release'
+        description: 'Reason for this release'
         required: false
         default: 'Manual release'
 

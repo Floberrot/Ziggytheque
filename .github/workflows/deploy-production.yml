@@ -1,9 +1,11 @@
 name: Deploy — Production
 
+# Manually triggered. To deploy: click "Run workflow", switch the
+# "Use workflow from" dropdown to the "Tags" tab, pick the release tag.
+# GitHub fetches the tag list live from its API — nothing to maintain here.
+# Merging a PR to main does NOT trigger this workflow.
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 env:
   RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
@@ -11,17 +13,32 @@ env:
   RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_PRODUCTION_ENVIRONMENT_ID }}
 
 # ---------------------------------------------------------------------------
-# Quality gate — identical to staging; every deploy must pass all checks
-# before the approval gate is presented
+# Quality gate — every gate is re-run against the selected tag so we never
+# deploy a revision that does not pass CI.
 # ---------------------------------------------------------------------------
 
 jobs:
+
+  # --- Guard: must be dispatched from a tag, not a branch --------------------
+
+  guard:
+    name: "Gate: Dispatched from a tag"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check ref is a tag
+        run: |
+          if [ "${{ github.ref_type }}" != "tag" ]; then
+            echo "::error::This workflow must be dispatched from a tag. Open the Run workflow dialog, switch to the Tags tab, and pick a release tag (e.g. v2.0.5)."
+            exit 1
+          fi
+          echo "Deploying tag ${{ github.ref_name }} (${{ github.sha }})"
 
   # --- Backend: code style ---------------------------------------------------
 
   phpcs:
     name: "Gate: PHP_CodeSniffer"
     runs-on: ubuntu-latest
+    needs: [guard]
     defaults:
       run:
         working-directory: back
@@ -48,6 +65,7 @@ jobs:
   deptrac:
     name: "Gate: Deptrac"
     runs-on: ubuntu-latest
+    needs: [guard]
     defaults:
       run:
         working-directory: back
@@ -74,6 +92,7 @@ jobs:
   phpstan:
     name: "Gate: PHPStan"
     runs-on: ubuntu-latest
+    needs: [guard]
     defaults:
       run:
         working-directory: back
@@ -123,6 +142,7 @@ jobs:
   db-migrations:
     name: "Gate: DB Migrations"
     runs-on: ubuntu-latest
+    needs: [guard]
     defaults:
       run:
         working-directory: back
@@ -170,6 +190,7 @@ jobs:
   tests:
     name: "Gate: PHPUnit"
     runs-on: ubuntu-latest
+    needs: [guard]
     defaults:
       run:
         working-directory: back
@@ -219,6 +240,7 @@ jobs:
   frontend:
     name: "Gate: Frontend (vue-tsc + ESLint)"
     runs-on: ubuntu-latest
+    needs: [guard]
     defaults:
       run:
         working-directory: front
@@ -238,6 +260,7 @@ jobs:
   docker-build:
     name: "Gate: Docker Build (prod + frontend)"
     runs-on: ubuntu-latest
+    needs: [guard]
     steps:
       - uses: actions/checkout@v5
       - uses: docker/setup-buildx-action@v4
@@ -259,44 +282,17 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ---------------------------------------------------------------------------
-  # Gate 1: approve the release — all quality gates must pass first.
-  # The release tag is created immediately after this approval so reviewers
-  # can inspect it before the production deployment is authorised.
-  # ---------------------------------------------------------------------------
-
-  approve-release:
-    name: "Approval Gate: Release"
-    runs-on: ubuntu-latest
-    environment: release
-    needs: [phpcs, deptrac, phpstan, db-migrations, tests, frontend, docker-build]
-    steps:
-      - run: echo "Release approved — creating tag and release notes"
-
-  # ---------------------------------------------------------------------------
-  # Release — tag + GitHub release notes created right after release approval,
-  # before anything is deployed to production.
-  # ---------------------------------------------------------------------------
-
-  release:
-    name: "Publish Release"
-    needs: [approve-release]
-    uses: Floberrot/Ziggytheque/.github/workflows/release.yml@main
-    secrets: inherit
-    permissions:
-      contents: write
-
-  # ---------------------------------------------------------------------------
-  # Gate 2: approve the production deployment — release must exist first so
-  # the approver can review the exact tag that will be deployed.
+  # Approval gate — all quality gates must pass, then a reviewer must approve
+  # the `production` environment before Railway is touched.
   # ---------------------------------------------------------------------------
 
   approve:
     name: "Approval Gate: Production"
     runs-on: ubuntu-latest
     environment: production
-    needs: [release]
+    needs: [phpcs, deptrac, phpstan, db-migrations, tests, frontend, docker-build]
     steps:
-      - run: echo "Production deployment approved — proceeding"
+      - run: echo "Production deployment of ${{ github.ref_name }} approved — proceeding"
 
   # ---------------------------------------------------------------------------
   # Deploy to production — single API job: worker first (messenger:consume),
@@ -308,7 +304,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [approve]
     env:
-      COMMIT_MSG: ${{ github.event.head_commit.message }}
+      DEPLOY_MSG: "Deploy ${{ github.ref_name }}"
     steps:
       - uses: actions/checkout@v5
       - name: Install Railway CLI
@@ -322,7 +318,7 @@ jobs:
             railway up \
               --service ziggytheque-worker \
               --ci \
-              -m "Deploy ${{ github.sha }} — $COMMIT_MSG" && break
+              -m "$DEPLOY_MSG" && break
             echo "Attempt $attempt failed — retrying in 30s..."
             sleep 30
           done
@@ -333,7 +329,7 @@ jobs:
             railway up \
               --service ziggytheque-back \
               --ci \
-              -m "Deploy ${{ github.sha }} — $COMMIT_MSG" && break
+              -m "$DEPLOY_MSG" && break
             echo "Attempt $attempt failed — retrying in 30s..."
             sleep 30
           done
@@ -349,13 +345,13 @@ jobs:
       - name: Deploy frontend service
         working-directory: front
         env:
-          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          DEPLOY_MSG: "Deploy ${{ github.ref_name }}"
         run: |
           for attempt in 1 2; do
             railway up \
               --service ziggytheque-front \
               --ci \
-              -m "Deploy ${{ github.sha }} — $COMMIT_MSG" && break
+              -m "$DEPLOY_MSG" && break
             echo "Attempt $attempt failed — retrying in 30s..."
             sleep 30
           done
