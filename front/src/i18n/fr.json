@@ -153,6 +153,11 @@
     "sortRatingDesc": "Meilleure note",
     "sortRatingAsc": "Moins bonne note",
     "followedOnly": "Suivis",
+    "favorites": "Coups de cœur",
+    "quick": "Accès rapide",
+    "advanced": "Affiner",
+    "resultsSingular": "résultat",
+    "resultsPlural": "résultats",
     "reset": "Réinitialiser",
     "loadingMore": "Chargement..."
   },
