@@ -153,4 +153,32 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             'lastLoginAt'         => $this->lastLoginAt?->format('c'),
         ];
     }
+
+    /**
+     * Admin-safe serialization: the notification channel is visible, but the
+     * actual destination (email address or Discord webhook URL) is never
+     * leaked. The admin only needs to know which channel a user has picked,
+     * not the personal address behind it.
+     *
+     * @return array<string, mixed>
+     */
+    public function toAdminArray(): array
+    {
+        return [
+            'id'                     => $this->id,
+            'email'                  => $this->email,
+            'displayName'            => $this->displayName,
+            'role'                   => $this->role->value,
+            'status'                 => $this->status->value,
+            'notificationChannel'    => $this->notificationChannel->value,
+            'notificationConfigured' => match ($this->notificationChannel) {
+                NotificationChannelEnum::Email   => $this->notificationEmail !== null
+                    && $this->notificationEmail !== '',
+                NotificationChannelEnum::Discord => $this->discordWebhookUrl !== null
+                    && $this->discordWebhookUrl !== '',
+            },
+            'createdAt'              => $this->createdAt->format('c'),
+            'lastLoginAt'            => $this->lastLoginAt?->format('c'),
+        ];
+    }
 }

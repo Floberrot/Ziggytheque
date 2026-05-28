@@ -172,6 +172,13 @@ services:
         arguments:
             $notificationEmail: '%notification_email%'
 
+    App\Notification\Application\Test\SendTestNotificationHandler:
+        arguments:
+            $notificationEmail: '%notification_email%'
+
+    App\Notification\Domain\TestNotificationRecipientResolverInterface:
+        alias: App\Auth\Infrastructure\Notification\DoctrineTestNotificationRecipientResolver
+
     App\Notification\Domain\DiscordNotifierInterface:
         alias: App\Notification\Infrastructure\Discord\DiscordNotifier
 

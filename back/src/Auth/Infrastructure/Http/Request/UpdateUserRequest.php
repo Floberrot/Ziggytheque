@@ -15,11 +15,6 @@ final readonly class UpdateUserRequest
         public ?string $displayName = null,
         public ?UserStatusEnum $status = null,
         public ?NotificationChannelEnum $notificationChannel = null,
-        #[Assert\Email]
-        #[Assert\Length(max: 180)]
-        public ?string $notificationEmail = null,
-        #[Assert\Length(max: 500)]
-        public ?string $discordWebhookUrl = null,
     ) {
     }
 }

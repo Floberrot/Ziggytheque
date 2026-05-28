@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import { useQuery } from '@tanstack/vue-query'
-import { getArticles } from '@/api/notification'
+import { ref, computed, watch, onMounted } from 'vue'
+import { useQuery, useQueryClient } from '@tanstack/vue-query'
+import { getArticles, getNotifications } from '@/api/notification'
 import { getCollection } from '@/api/collection'
+import { patchNotificationPreferences, postNotificationTest } from '@/api/auth'
+import { useAuthStore } from '@/stores/useAuthStore'
+import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
 import ArticleCard from '@/components/molecules/ArticleCard.vue'
 import type { CollectionEntry } from '@/types'
 
 const { t } = useI18n()
+const auth = useAuthStore()
+const ui = useUiStore()
+const queryClient = useQueryClient()
 
 const page = ref(1)
 const limit = 12
@@ -29,13 +35,167 @@ const { data: articlePage, isPending } = useQuery({
 
 watch(selectedCollectionId, () => { page.value = 1 })
 
+// ── Notification preferences form ──────────────────────────────────────
+
+const channel = ref<'email' | 'discord'>('email')
+const notificationEmail = ref<string>('')
+const discordWebhookUrl = ref<string>('')
+const saving = ref(false)
+const testing = ref(false)
+
+function syncFormFromUser(): void {
+  if (auth.user === null) return
+  channel.value = auth.user.notificationChannel
+  notificationEmail.value = auth.user.notificationEmail ?? ''
+  discordWebhookUrl.value = auth.user.discordWebhookUrl ?? ''
+}
+
+onMounted(syncFormFromUser)
+watch(() => auth.user, syncFormFromUser)
+
+const canTest = computed(() => {
+  if (channel.value === 'email') return notificationEmail.value.trim() !== ''
+  return discordWebhookUrl.value.trim() !== ''
+})
+
+async function savePreferences(): Promise<void> {
+  saving.value = true
+  try {
+    await patchNotificationPreferences(
+      channel.value,
+      channel.value === 'email' ? (notificationEmail.value.trim() || null) : null,
+      channel.value === 'discord' ? (discordWebhookUrl.value.trim() || null) : null,
+    )
+    await auth.loadUser()
+    ui.addToast(t('notifications.settings.savedToast'), 'success')
+  } catch {
+    ui.addToast(t('notifications.settings.saveErrorToast'), 'error')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function sendTest(): Promise<void> {
+  testing.value = true
+  try {
+    // Save first so the test reflects what the user just typed.
+    await patchNotificationPreferences(
+      channel.value,
+      channel.value === 'email' ? (notificationEmail.value.trim() || null) : null,
+      channel.value === 'discord' ? (discordWebhookUrl.value.trim() || null) : null,
+    )
+    await auth.loadUser()
+    await postNotificationTest()
+    ui.addToast(t('notifications.settings.testDispatchedToast'), 'info')
+    // Refresh the unread notifications shortly after so any async failure
+    // surfaces in the page without the user having to reload.
+    setTimeout(() => {
+      void queryClient.invalidateQueries({ queryKey: ['notifications', 'unread'] })
+    }, 5000)
+  } catch {
+    ui.addToast(t('notifications.settings.testErrorToast'), 'error')
+  } finally {
+    testing.value = false
+  }
+}
+
+// ── Unread async notifications (test failures, etc.) ───────────────────
+
+const { data: unread } = useQuery({
+  queryKey: ['notifications', 'unread'],
+  queryFn: () => getNotifications(),
+  refetchInterval: 15_000,
+})
+
 </script>
 
 <template>
   <div class="p-4 sm:p-6 space-y-6">
     <h1 class="text-2xl font-bold">{{ t('notifications.title') }}</h1>
 
-    <div class="max-w-4xl mx-auto px-6 py-8 space-y-6">
+    <div class="max-w-4xl mx-auto px-6 py-8 space-y-8">
+      <!-- Settings form -->
+      <section class="card bg-base-200/40 border border-base-300">
+        <div class="card-body space-y-4">
+          <div>
+            <h2 class="card-title text-lg">{{ t('notifications.settings.title') }}</h2>
+            <p class="text-sm text-base-content/60 mt-1">
+              {{ t('notifications.settings.description') }}
+            </p>
+          </div>
+
+          <div class="form-control">
+            <label class="label py-1">
+              <span class="label-text font-medium">{{ t('notifications.settings.channel') }}</span>
+            </label>
+            <select v-model="channel" class="select select-bordered">
+              <option value="email">{{ t('notifications.settings.channelEmail') }}</option>
+              <option value="discord">{{ t('notifications.settings.channelDiscord') }}</option>
+            </select>
+          </div>
+
+          <div v-if="channel === 'email'" class="form-control">
+            <label class="label py-1">
+              <span class="label-text font-medium">{{ t('notifications.settings.email') }}</span>
+            </label>
+            <input
+              v-model="notificationEmail"
+              type="email"
+              class="input input-bordered"
+              placeholder="adresse@exemple.com"
+            />
+          </div>
+
+          <div v-if="channel === 'discord'" class="form-control">
+            <label class="label py-1">
+              <span class="label-text font-medium">{{ t('notifications.settings.discord') }}</span>
+            </label>
+            <input
+              v-model="discordWebhookUrl"
+              type="url"
+              class="input input-bordered"
+              placeholder="https://discord.com/api/webhooks/…"
+            />
+          </div>
+
+          <div class="flex gap-2 justify-end pt-2">
+            <button
+              type="button"
+              class="btn btn-ghost"
+              :disabled="!canTest || testing || saving"
+              @click="sendTest"
+            >
+              <span v-if="testing" class="loading loading-spinner loading-xs" />
+              {{ t('notifications.settings.test') }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              :disabled="saving || testing"
+              @click="savePreferences"
+            >
+              <span v-if="saving" class="loading loading-spinner loading-xs" />
+              {{ t('notifications.settings.save') }}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Async test failures / system notifications for this user -->
+      <section v-if="unread && unread.length > 0" class="space-y-2">
+        <h3 class="font-semibold text-sm uppercase tracking-wide text-base-content/70">
+          {{ t('notifications.systemTitle') }}
+        </h3>
+        <div
+          v-for="n in unread"
+          :key="n.id"
+          class="alert"
+          :class="n.type === 'test_failure' ? 'alert-error' : 'alert-info'"
+        >
+          <span class="text-sm">{{ n.message }}</span>
+        </div>
+      </section>
+
       <!-- Filter bar -->
       <div class="flex items-center gap-3 flex-wrap">
         <span class="text-sm text-base-content/60 shrink-0">{{ t('notifications.filterBy') }}</span>

@@ -14,8 +14,6 @@ final readonly class UpdateUserCommand
         public ?string $displayName,
         public ?UserStatusEnum $status,
         public ?NotificationChannelEnum $notificationChannel,
-        public ?string $notificationEmail,
-        public ?string $discordWebhookUrl,
     ) {
     }
 }

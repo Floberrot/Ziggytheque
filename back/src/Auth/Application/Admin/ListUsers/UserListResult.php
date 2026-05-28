@@ -12,6 +12,6 @@ final class UserListResult extends PaginatedResult
 {
     protected function serializeItems(): array
     {
-        return array_map(static fn (User $user) => $user->toArray(), $this->items);
+        return array_map(static fn (User $user) => $user->toAdminArray(), $this->items);
     }
 }

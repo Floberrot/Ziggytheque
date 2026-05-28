@@ -57,7 +57,7 @@ final readonly class AdminUserController
         /** @var User $user */
         $user = $this->queryBus->ask(new GetUserQuery($id));
 
-        return new JsonResponse($user->toArray());
+        return new JsonResponse($user->toAdminArray());
     }
 
     #[Route('/{id}', methods: ['PATCH'])]
@@ -69,11 +69,9 @@ final readonly class AdminUserController
             displayName: $request->displayName,
             status: $request->status,
             notificationChannel: $request->notificationChannel,
-            notificationEmail: $request->notificationEmail,
-            discordWebhookUrl: $request->discordWebhookUrl,
         ));
 
-        return new JsonResponse($user->toArray());
+        return new JsonResponse($user->toAdminArray());
     }
 
     #[Route('/{id}/approve', methods: ['POST'])]

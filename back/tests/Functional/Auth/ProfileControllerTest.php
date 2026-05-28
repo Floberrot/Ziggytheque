@@ -52,4 +52,18 @@ final class ProfileControllerTest extends AbstractApiTestCase
         $response = $this->jsonRequest('PATCH', '/api/me/notifications', []);
         $this->assertJsonStatus(400, $response);
     }
+
+    // ── POST /api/me/notifications/test ───────────────────────────────────
+
+    public function testTestNotificationReturns202(): void
+    {
+        $response = $this->jsonRequest('POST', '/api/me/notifications/test');
+        $this->assertSame(202, $response->getStatusCode());
+    }
+
+    public function testTestNotificationRequiresAuth(): void
+    {
+        $response = $this->jsonRequest('POST', '/api/me/notifications/test', auth: false);
+        $this->assertSame(401, $response->getStatusCode());
+    }
 }

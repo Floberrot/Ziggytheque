@@ -1,0 +1,9 @@
+{% extends 'emails/auth/layout.html.twig' %}
+
+{% block title %}Test de notification — Ziggytheque{% endblock %}
+
+{% block content %}
+  <h1>Bonjour {{ displayName }},</h1>
+  <p>Ceci est ton test.</p>
+  <p class="muted">Si tu reçois cet email, c'est que ta configuration de notification est opérationnelle.</p>
+{% endblock %}

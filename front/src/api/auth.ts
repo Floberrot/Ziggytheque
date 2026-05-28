@@ -7,8 +7,12 @@ export interface User {
   role: 'ROLE_USER' | 'ROLE_ADMIN'
   status: 'pending_email_verification' | 'pending_admin_approval' | 'active' | 'disabled'
   notificationChannel: 'email' | 'discord'
-  notificationEmail: string | null
-  discordWebhookUrl: string | null
+  /** Null when the response is the admin-safe representation. */
+  notificationEmail?: string | null
+  /** Null when the response is the admin-safe representation. */
+  discordWebhookUrl?: string | null
+  /** Present only in the admin-safe representation. */
+  notificationConfigured?: boolean
 }
 
 export async function postLogin(email: string, password: string): Promise<{ token: string }> {
@@ -52,4 +56,8 @@ export async function patchNotificationPreferences(
   discordWebhookUrl: string | null,
 ): Promise<void> {
   await client.patch('/me/notifications', { channel, notificationEmail, discordWebhookUrl })
+}
+
+export async function postNotificationTest(): Promise<void> {
+  await client.post('/me/notifications/test')
 }

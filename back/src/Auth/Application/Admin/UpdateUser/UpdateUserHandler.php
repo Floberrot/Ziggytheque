@@ -33,10 +33,12 @@ final readonly class UpdateUserHandler
         }
 
         if ($command->notificationChannel !== null) {
+            // Preserve the user's saved destinations: the admin can change the
+            // channel but never sees or edits the actual email/webhook URL.
             $user->updateNotificationPreferences(
                 channel: $command->notificationChannel,
-                notificationEmail: $command->notificationEmail,
-                discordWebhookUrl: $command->discordWebhookUrl,
+                notificationEmail: $user->notificationEmail,
+                discordWebhookUrl: $user->discordWebhookUrl,
             );
         }
 
