@@ -67,12 +67,12 @@ const saving = ref(false)
 
 function openEdit(user: User): void {
   editing.value = user
+  // The admin never sees or edits the user's actual notification email
+  // or Discord webhook URL — only the channel choice is admin-editable.
   editForm.value = {
     displayName: user.displayName,
     status: user.status,
     notificationChannel: user.notificationChannel,
-    notificationEmail: user.notificationEmail,
-    discordWebhookUrl: user.discordWebhookUrl,
   }
 }
 
@@ -198,6 +198,10 @@ async function copyResetLink(user: User): Promise<void> {
             </td>
             <td class="text-sm">
               <span class="capitalize">{{ user.notificationChannel }}</span>
+              <span
+                v-if="user.notificationConfigured === false"
+                class="ml-1 text-xs text-base-content/40"
+              >(non configuré)</span>
             </td>
             <td class="text-right">
               <div class="flex justify-end gap-1">
@@ -292,26 +296,9 @@ async function copyResetLink(user: User): Promise<void> {
               <option value="email">Email</option>
               <option value="discord">Discord</option>
             </select>
-          </div>
-
-          <div v-if="editForm.notificationChannel === 'email'">
-            <label class="text-sm font-medium">Email de notification</label>
-            <input
-              v-model="editForm.notificationEmail"
-              type="email"
-              class="input w-full mt-1.5"
-              placeholder="adresse@exemple.com"
-            />
-          </div>
-
-          <div v-if="editForm.notificationChannel === 'discord'">
-            <label class="text-sm font-medium">Webhook Discord</label>
-            <input
-              v-model="editForm.discordWebhookUrl"
-              type="url"
-              class="input w-full mt-1.5"
-              placeholder="https://discord.com/api/webhooks/…"
-            />
+            <p class="mt-1.5 text-xs text-base-content/50">
+              L'adresse email et l'URL du webhook sont gérées par l'utilisateur depuis son onglet Notifications et ne sont jamais visibles ici.
+            </p>
           </div>
         </div>
 

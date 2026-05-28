@@ -91,7 +91,23 @@
     "noFollowed": "Activez le suivi sur une série pour voir ses actualités",
     "follow": "Suivre",
     "following": "Suivi ✓",
-    "markRead": "Marquer comme lu"
+    "markRead": "Marquer comme lu",
+    "systemTitle": "Notifications système",
+    "settings": {
+      "title": "Mes préférences de notification",
+      "description": "Choisis comment tu veux être prévenu·e des nouveaux articles. Tu peux envoyer un test pour vérifier ta configuration.",
+      "channel": "Canal",
+      "channelEmail": "Email",
+      "channelDiscord": "Discord (webhook)",
+      "email": "Adresse email",
+      "discord": "URL du webhook Discord",
+      "save": "Enregistrer",
+      "test": "Tester",
+      "savedToast": "Préférences enregistrées.",
+      "saveErrorToast": "L'enregistrement a échoué.",
+      "testDispatchedToast": "Test envoyé. En cas d'échec, tu recevras un message ici.",
+      "testErrorToast": "Impossible d'envoyer le test."
+    }
   },
   "status": {
     "not_started": "Non commencé",

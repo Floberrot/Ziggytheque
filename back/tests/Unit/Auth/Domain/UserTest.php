@@ -131,4 +131,39 @@ final class UserTest extends TestCase
         $this->assertArrayHasKey('status', $array);
         $this->assertArrayHasKey('notificationChannel', $array);
     }
+
+    public function testToAdminArrayMasksEmailAndDiscordWebhook(): void
+    {
+        $user = new User(
+            id: 'id-1',
+            email: 'user@example.com',
+            passwordHash: 'hash',
+            displayName: 'Alice',
+            notificationChannel: NotificationChannelEnum::Email,
+            notificationEmail: 'private@example.com',
+            discordWebhookUrl: 'https://discord.com/api/webhooks/x/y',
+        );
+
+        $array = $user->toAdminArray();
+
+        $this->assertArrayNotHasKey('notificationEmail', $array);
+        $this->assertArrayNotHasKey('discordWebhookUrl', $array);
+        $this->assertSame('email', $array['notificationChannel']);
+        $this->assertTrue($array['notificationConfigured']);
+    }
+
+    public function testToAdminArrayReportsUnconfiguredWhenChannelHasNoDestination(): void
+    {
+        $user = new User(
+            id: 'id-1',
+            email: 'user@example.com',
+            passwordHash: 'hash',
+            displayName: 'Alice',
+            notificationChannel: NotificationChannelEnum::Discord,
+            notificationEmail: 'private@example.com',
+            discordWebhookUrl: null,
+        );
+
+        $this->assertFalse($user->toAdminArray()['notificationConfigured']);
+    }
 }

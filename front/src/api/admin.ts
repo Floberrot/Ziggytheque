@@ -29,8 +29,6 @@ export interface UpdateUserPayload {
   displayName?: string | null
   status?: User['status'] | null
   notificationChannel?: User['notificationChannel'] | null
-  notificationEmail?: string | null
-  discordWebhookUrl?: string | null
 }
 
 export async function patchUser(id: string, payload: UpdateUserPayload): Promise<User> {

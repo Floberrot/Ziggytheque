@@ -91,7 +91,23 @@
     "noFollowed": "Enable notifications on a series to see its news",
     "follow": "Follow",
     "following": "Following ✓",
-    "markRead": "Mark as read"
+    "markRead": "Mark as read",
+    "systemTitle": "System notifications",
+    "settings": {
+      "title": "My notification preferences",
+      "description": "Pick how you want to be notified about new articles. You can send a test to make sure it works.",
+      "channel": "Channel",
+      "channelEmail": "Email",
+      "channelDiscord": "Discord (webhook)",
+      "email": "Email address",
+      "discord": "Discord webhook URL",
+      "save": "Save",
+      "test": "Test",
+      "savedToast": "Preferences saved.",
+      "saveErrorToast": "Save failed.",
+      "testDispatchedToast": "Test sent. You'll get an alert here if it fails.",
+      "testErrorToast": "Could not send the test."
+    }
   },
   "status": {
     "not_started": "Not started",
