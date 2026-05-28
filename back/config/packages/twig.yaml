@@ -1,5 +1,7 @@
 twig:
     file_name_pattern: '*.twig'
+    globals:
+        app_front_url: '%app_front_url%'
 
 when@test:
     twig:
