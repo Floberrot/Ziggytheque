@@ -5,23 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}Ziggytheque{% endblock %}</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #ece6df; color: #2a2522; margin: 0; padding: 0; }
     .container { max-width: 520px; margin: 32px auto; padding: 0 16px; }
-    .card { background: #1e293b; border-radius: 16px; padding: 32px; }
-    .brand { text-align: center; font-size: 20px; font-weight: 700; color: #f1f5f9; letter-spacing: 0.02em; }
-    h1 { font-size: 20px; color: #f1f5f9; margin: 24px 0 12px; }
-    p { font-size: 14px; line-height: 1.6; color: #cbd5e1; margin: 0 0 14px; }
+    .card { background: #ffffff; border: 1px solid #ddd6cc; border-radius: 8px; padding: 32px; }
+    .brand { text-align: center; margin-bottom: 8px; }
+    .brand img { height: 48px; width: auto; }
+    h1 { font-size: 20px; color: #2a2522; margin: 24px 0 12px; font-weight: 600; }
+    p { font-size: 14px; line-height: 1.6; color: #44403c; margin: 0 0 14px; }
     .btn-wrap { text-align: center; margin: 28px 0; }
-    .btn { display: inline-block; background: #6366f1; color: #ffffff !important; padding: 12px 26px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 600; }
-    .muted { font-size: 12px; color: #64748b; }
-    .link { color: #818cf8; word-break: break-all; }
-    .footer { text-align: center; margin-top: 24px; font-size: 11px; color: #475569; }
+    .btn { display: inline-block; background: #5db4cc; color: #ffffff !important; padding: 12px 26px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 600; }
+    .muted { font-size: 12px; color: #78706a; }
+    .link { color: #3f8a9e; word-break: break-all; }
+    .footer { text-align: center; margin-top: 24px; font-size: 11px; color: #8a8079; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="card">
-      <div class="brand">Ziggytheque</div>
+      <div class="brand">
+        <img src="{{ app_front_url }}/logo-light.png" alt="Ziggytheque" />
+      </div>
       {% block content %}{% endblock %}
     </div>
     <div class="footer">Ziggytheque — votre bibliothèque manga</div>

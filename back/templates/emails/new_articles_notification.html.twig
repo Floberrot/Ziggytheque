@@ -5,31 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nouvelles sur {{ manga.title }}</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #ece6df; color: #2a2522; margin: 0; padding: 0; }
     .container { max-width: 600px; margin: 32px auto; padding: 0 16px; }
-    .header { text-align: center; padding: 32px 0 16px; }
-    .header img { width: 80px; height: 120px; object-fit: cover; border-radius: 8px; }
-    .header h1 { font-size: 22px; margin: 16px 0 4px; color: #f1f5f9; }
-    .header p  { color: #94a3b8; font-size: 13px; margin: 0; }
-    .articles { margin-top: 24px; }
-    .article { background: #1e293b; border-radius: 12px; overflow: hidden; margin-bottom: 16px; display: flex; gap: 0; }
-    .article-image { width: 120px; min-height: 80px; flex-shrink: 0; background: #334155; }
+    .brand { text-align: center; padding: 8px 0 16px; }
+    .brand img { height: 40px; width: auto; }
+    .header { text-align: center; background: #ffffff; border: 1px solid #ddd6cc; border-radius: 8px; padding: 24px 16px; }
+    .header img.cover { width: 80px; height: 120px; object-fit: cover; border-radius: 6px; }
+    .header h1 { font-size: 20px; margin: 16px 0 4px; color: #2a2522; font-weight: 600; }
+    .header p  { color: #78706a; font-size: 13px; margin: 0; }
+    .articles { margin-top: 20px; }
+    .article { background: #ffffff; border: 1px solid #ddd6cc; border-radius: 8px; overflow: hidden; margin-bottom: 12px; display: flex; gap: 0; }
+    .article-image { width: 120px; min-height: 80px; flex-shrink: 0; background: #ece6df; }
     .article-image img { width: 120px; height: 100%; object-fit: cover; display: block; }
     .article-body { padding: 14px 16px; flex: 1; }
-    .article-source { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 4px; }
-    .article-title { font-size: 14px; font-weight: 600; color: #f1f5f9; line-height: 1.4; margin: 0 0 6px; }
-    .article-author { font-size: 11px; color: #94a3b8; margin-bottom: 10px; }
-    .article-link { display: inline-block; font-size: 12px; background: #6366f1; color: #fff; padding: 5px 12px; border-radius: 6px; text-decoration: none; }
-    .footer { text-align: center; margin-top: 32px; padding-bottom: 32px; font-size: 11px; color: #475569; }
+    .article-source { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #8a8079; margin-bottom: 4px; }
+    .article-title { font-size: 14px; font-weight: 600; color: #2a2522; line-height: 1.4; margin: 0 0 6px; }
+    .article-author { font-size: 11px; color: #78706a; margin-bottom: 10px; }
+    .article-link { display: inline-block; font-size: 12px; background: #5db4cc; color: #ffffff !important; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-weight: 600; }
+    .footer { text-align: center; margin-top: 24px; padding-bottom: 32px; font-size: 11px; color: #8a8079; }
   </style>
 </head>
 <body>
   <div class="container">
+    <div class="brand">
+      <img src="{{ app_front_url }}/logo-light.png" alt="Ziggytheque" />
+    </div>
+
     <div class="header">
       {% if manga.coverUrl %}
-        <img src="{{ manga.coverUrl }}" alt="{{ manga.title }}" />
+        <img src="{{ manga.coverUrl }}" alt="{{ manga.title }}" class="cover" />
       {% endif %}
-      <h1>📰 Nouveautés — {{ manga.title }}</h1>
+      <h1>Nouveautés — {{ manga.title }}</h1>
       <p>{{ articles|length }} nouvel{{ articles|length > 1 ? 'les actualités ont été trouvées' : 'le actualité a été trouvée' }}</p>
     </div>
 
