@@ -1,24 +1,33 @@
 name: Deploy — Staging
 
-# Continuous staging: every merge to `main` auto-deploys the staging
-# environment. Production stays tag-gated and manual (see deploy-production.yml)
-# — this is the only difference in trigger between the two environments.
+# Continuous staging: every merge to `main` deploys the staging environment.
+# Production stays tag-gated and manual (see deploy-production.yml).
 #
-# PR quality gates (qa.yml / tests.yml / frontend.yml) already ran before the
-# merge, so this workflow runs a fast smoke gate (PHPUnit + frontend build),
-# then deploys the three services to the staging environment, mirroring the
-# production deploy steps (worker → backend, frontend in parallel).
+# SAFETY: this workflow deploys ONLY to the staging environment. A `guard` job
+# refuses to run unless a DEDICATED, staging-scoped token and a staging
+# environment id are configured (and the staging id is not the production id),
+# so it can never silently fall back to the project's default = production.
+#
+# Quality gates mirror deploy-production.yml exactly (phpcs, deptrac, phpstan,
+# db-migrations, tests, frontend, docker-build). The only differences vs prod:
+#   - trigger is a merge to `main` (or manual dispatch), not a tag;
+#   - there is no manual approval gate (staging deploys continuously);
+#   - every job checks out the chosen `ref` so a manual branch deploy tests and
+#     deploys that branch.
 #
 # Manual branch deploy: deploy ANY branch to staging BEFORE merging to main —
 # run this workflow ("Run workflow"), pick the branch in "Use workflow from"
-# and/or set the `ref` input. Every job checks out that ref and deploys it.
+# and/or set the `ref` input.
 #
 # Required GitHub secrets:
-#   RAILWAY_TOKEN                   — already set (shared with production)
-#   RAILWAY_PROJECT_ID              — already set (shared with production)
-#   RAILWAY_STAGING_ENVIRONMENT_ID  — NEW: the id of the `staging` environment
-#                                     (Railway dashboard URL ?environmentId=…,
-#                                      or `railway environment` after linking)
+#   RAILWAY_STAGING_TOKEN             — Railway token scoped to STAGING (a project
+#                                       token created for the staging environment,
+#                                       or an account/team token). MUST NOT be the
+#                                       production project token.
+#   RAILWAY_PROJECT_ID                — already set (shared)
+#   RAILWAY_STAGING_ENVIRONMENT_ID    — id of the `staging` environment
+#   RAILWAY_PRODUCTION_ENVIRONMENT_ID — already set; used only by the guard to
+#                                       assert we are NOT pointing at production
 on:
   push:
     branches: [main]
@@ -38,17 +47,201 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+  # Staging-scoped token ONLY — never the production token.
+  RAILWAY_TOKEN: ${{ secrets.RAILWAY_STAGING_TOKEN }}
   RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
   RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_STAGING_ENVIRONMENT_ID }}
 
 jobs:
 
-  # --- Smoke gate: backend test suite ----------------------------------------
+  # --- Safety guard: refuse to run unless a real staging target is set -------
+  # Without this, an empty RAILWAY_ENVIRONMENT_ID (or a prod-scoped token) makes
+  # `railway up` fall back to the project's default environment = PRODUCTION.
+
+  guard:
+    name: "Safety: staging target only"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assert a dedicated staging target is configured
+        env:
+          STAGING_TOKEN: ${{ secrets.RAILWAY_STAGING_TOKEN }}
+          STAGING_ENV_ID: ${{ secrets.RAILWAY_STAGING_ENVIRONMENT_ID }}
+          PROD_ENV_ID: ${{ secrets.RAILWAY_PRODUCTION_ENVIRONMENT_ID }}
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+          [ -n "$STAGING_TOKEN" ] || fail "RAILWAY_STAGING_TOKEN is not set — refusing to deploy (would fall back to the default/production environment). Create a staging-scoped Railway token first."
+          [ -n "$STAGING_ENV_ID" ] || fail "RAILWAY_STAGING_ENVIRONMENT_ID is not set — create the staging environment and add its id."
+          if [ -n "$PROD_ENV_ID" ] && [ "$STAGING_ENV_ID" = "$PROD_ENV_ID" ]; then
+            fail "RAILWAY_STAGING_ENVIRONMENT_ID equals the production environment id — refusing to deploy to production."
+          fi
+          echo "Staging target OK — env id: ${STAGING_ENV_ID}"
+
+  # --- Backend: code style ---------------------------------------------------
+
+  phpcs:
+    name: "Gate: PHP_CodeSniffer"
+    runs-on: ubuntu-latest
+    needs: [guard]
+    defaults:
+      run:
+        working-directory: back
+    env:
+      APP_SECRET: ci-secret-not-used
+      JWT_PASSPHRASE: ${{ secrets.JWT_PASSPHRASE || 'ci-jwt-passphrase' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer
+          coverage: none
+      - uses: actions/cache@v5
+        with:
+          path: back/vendor
+          key: composer-${{ hashFiles('back/composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: vendor/bin/phpcs
+
+  # --- Backend: architecture -------------------------------------------------
+
+  deptrac:
+    name: "Gate: Deptrac"
+    runs-on: ubuntu-latest
+    needs: [guard]
+    defaults:
+      run:
+        working-directory: back
+    env:
+      APP_SECRET: ci-secret-not-used
+      JWT_PASSPHRASE: ${{ secrets.JWT_PASSPHRASE || 'ci-jwt-passphrase' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer
+          coverage: none
+      - uses: actions/cache@v5
+        with:
+          path: back/vendor
+          key: composer-${{ hashFiles('back/composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: vendor/bin/deptrac analyse --no-progress
+
+  # --- Backend: static analysis ----------------------------------------------
+
+  phpstan:
+    name: "Gate: PHPStan"
+    runs-on: ubuntu-latest
+    needs: [guard]
+    defaults:
+      run:
+        working-directory: back
+    env:
+      DATABASE_URL: postgresql://ziggy:ziggy@127.0.0.1:5432/ziggytheque?serverVersion=17&charset=utf8
+      APP_SECRET: ci-secret-not-used
+      JWT_PASSPHRASE: ${{ secrets.JWT_PASSPHRASE || 'ci-jwt-passphrase' }}
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ziggy
+          POSTGRES_PASSWORD: ziggy
+          POSTGRES_DB: ziggytheque
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql, intl
+          tools: composer
+          coverage: none
+      - uses: actions/cache@v5
+        with:
+          path: back/vendor
+          key: composer-${{ hashFiles('back/composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Generate JWT keys
+        run: |
+          mkdir -p config/jwt
+          openssl genrsa -passout pass:${JWT_PASSPHRASE} -out config/jwt/private.pem 4096
+          openssl rsa -pubout -passin pass:${JWT_PASSPHRASE} -in config/jwt/private.pem -out config/jwt/public.pem
+      - run: php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+      - run: php bin/console cache:warmup --env=dev
+      - run: vendor/bin/phpstan analyse --no-progress
+
+  # --- Backend: database migrations ------------------------------------------
+
+  db-migrations:
+    name: "Gate: DB Migrations"
+    runs-on: ubuntu-latest
+    needs: [guard]
+    defaults:
+      run:
+        working-directory: back
+    env:
+      DATABASE_URL: postgresql://ziggy:ziggy@127.0.0.1:5432/ziggytheque?serverVersion=17&charset=utf8
+      APP_SECRET: ci-secret-not-used
+      JWT_PASSPHRASE: ${{ secrets.JWT_PASSPHRASE || 'ci-jwt-passphrase' }}
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ziggy
+          POSTGRES_PASSWORD: ziggy
+          POSTGRES_DB: ziggytheque
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql, intl
+          tools: composer
+          coverage: none
+      - uses: actions/cache@v5
+        with:
+          path: back/vendor
+          key: composer-${{ hashFiles('back/composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Generate JWT keys
+        run: |
+          mkdir -p config/jwt
+          openssl genrsa -passout pass:${JWT_PASSPHRASE} -out config/jwt/private.pem 4096
+          openssl rsa -pubout -passin pass:${JWT_PASSPHRASE} -in config/jwt/private.pem -out config/jwt/public.pem
+      - run: php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+
+  # --- Backend: test suite ---------------------------------------------------
 
   tests:
     name: "Gate: PHPUnit"
     runs-on: ubuntu-latest
+    needs: [guard]
     defaults:
       run:
         working-directory: back
@@ -95,11 +288,12 @@ jobs:
       - run: php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration --env=test
       - run: php bin/phpunit --no-progress
 
-  # --- Smoke gate: frontend type-check + build -------------------------------
+  # --- Frontend: TypeScript + ESLint -----------------------------------------
 
   frontend:
-    name: "Gate: Frontend (vue-tsc + build)"
+    name: "Gate: Frontend (vue-tsc + ESLint)"
     runs-on: ubuntu-latest
+    needs: [guard]
     defaults:
       run:
         working-directory: front
@@ -114,14 +308,42 @@ jobs:
           cache-dependency-path: front/package-lock.json
       - run: npm ci
       - run: npm run type-check
-      - run: npm run build
+      - run: npm run lint
+
+  # --- Docker build validation -----------------------------------------------
+
+  docker-build:
+    name: "Gate: Docker Build (prod + frontend)"
+    runs-on: ubuntu-latest
+    needs: [guard]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: docker/setup-buildx-action@v4
+      - name: Build backend prod stage
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build frontend
+        uses: docker/build-push-action@v7
+        with:
+          context: front
+          file: front/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   # --- Deploy API: worker first (messenger:consume), then backend ------------
 
   deploy-api:
     name: "Staging: Deploy API (worker → backend)"
     runs-on: ubuntu-latest
-    needs: [tests, frontend]
+    needs: [guard, phpcs, deptrac, phpstan, db-migrations, tests, frontend, docker-build]
     env:
       DEPLOY_MSG: "Staging deploy ${{ inputs.ref || github.ref_name }} (${{ github.sha }})"
     steps:
@@ -138,6 +360,7 @@ jobs:
           for attempt in 1 2; do
             railway up \
               --service ziggytheque-worker \
+              --environment "$RAILWAY_ENVIRONMENT_ID" \
               --ci \
               -m "$DEPLOY_MSG" && break
             echo "Attempt $attempt failed — retrying in 30s..."
@@ -149,6 +372,7 @@ jobs:
           for attempt in 1 2; do
             railway up \
               --service ziggytheque-back \
+              --environment "$RAILWAY_ENVIRONMENT_ID" \
               --ci \
               -m "$DEPLOY_MSG" && break
             echo "Attempt $attempt failed — retrying in 30s..."
@@ -160,7 +384,7 @@ jobs:
   deploy-front:
     name: "Staging: Deploy Frontend"
     runs-on: ubuntu-latest
-    needs: [tests, frontend]
+    needs: [guard, phpcs, deptrac, phpstan, db-migrations, tests, frontend, docker-build]
     env:
       DEPLOY_MSG: "Staging deploy ${{ inputs.ref || github.ref_name }} (${{ github.sha }})"
     steps:
@@ -175,6 +399,7 @@ jobs:
           for attempt in 1 2; do
             railway up \
               --service ziggytheque-front \
+              --environment "$RAILWAY_ENVIRONMENT_ID" \
               --ci \
               -m "$DEPLOY_MSG" && break
             echo "Attempt $attempt failed — retrying in 30s..."
