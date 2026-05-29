@@ -14,6 +14,8 @@ const props = defineProps<{
   mangaId: string
   mangaTitle: string
   mangaEdition: string | null
+  mangaPublisher: string | null
+  mangaEditionYear: number | null
   volume: VolumeEntry | null
 }>()
 
@@ -104,7 +106,7 @@ async function runSearch(q: string) {
   currentPage = 1
   isSearching.value = true
   try {
-    const data = await searchVolumeExternal(lastQuery, 1, lastVolumeNumber, lastEdition, provider.value)
+    const data = await searchVolumeExternal(lastQuery, 1, lastVolumeNumber, lastEdition, provider.value, null, props.mangaPublisher, props.mangaEditionYear)
     searchResults.value = data
     hasMore.value = data.length >= PAGE_SIZE
   } catch {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Manga\Infrastructure\ExternalApi;
 
+use App\Manga\Domain\EditionContext;
 use App\Manga\Domain\Isbn;
 use App\Manga\Domain\MangaCoverProviderInterface;
 use App\Manga\Domain\MangaVolumeCoverDto;
@@ -29,32 +30,30 @@ final readonly class MangaDexMangaApiClient implements MangaCoverProviderInterfa
         return null;
     }
 
-    public function findByContext(
-        string $mangaTitle,
-        ?string $edition,
-        int $volumeNumber,
-        string $language = 'fr',
-    ): ?MangaVolumeCoverDto {
+    public function findByContext(EditionContext $context, int $volumeNumber): ?MangaVolumeCoverDto
+    {
         $this->logger->info(self::PREFIX_LOGGER . 'find by context; BEGIN.', [
-            'title' => $mangaTitle,
-            'edition' => $edition,
-            'volume' => $volumeNumber,
-            'language' => $language,
+            'title'    => $context->mangaTitle,
+            'volume'   => $volumeNumber,
+            'language' => $context->language,
         ]);
 
         try {
-            $mangaId = $this->searchMangaId($mangaTitle, $language);
+            $mangaId = $this->searchMangaId($context->mangaTitle, $context->language);
 
             if ($mangaId === null) {
-                $this->logger->info(self::PREFIX_LOGGER . 'find by context; NO MANGA FOUND.', ['title' => $mangaTitle]);
+                $this->logger->info(
+                    self::PREFIX_LOGGER . 'find by context; NO MANGA FOUND.',
+                    ['title' => $context->mangaTitle],
+                );
                 return null;
             }
 
-            $coverDto = $this->findVolumeCover($mangaId, $volumeNumber, $language);
+            $coverDto = $this->findVolumeCover($mangaId, $volumeNumber, $context->language);
 
             if ($coverDto === null) {
                 $this->logger->info(self::PREFIX_LOGGER . 'find by context; NO COVER FOUND.', [
-                    'title' => $mangaTitle,
+                    'title' => $context->mangaTitle,
                     'manga_id' => $mangaId,
                     'volume' => $volumeNumber,
                 ]);
@@ -63,7 +62,7 @@ final readonly class MangaDexMangaApiClient implements MangaCoverProviderInterfa
             return $coverDto;
         } catch (Throwable $exception) {
             $this->logger->info(self::PREFIX_LOGGER . 'find by context; ERROR.', [
-                'title' => $mangaTitle,
+                'title' => $context->mangaTitle,
                 'error' => $exception->getMessage(),
             ]);
             return null;

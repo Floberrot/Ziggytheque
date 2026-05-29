@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Manga\Infrastructure\ExternalApi;
 
+use App\Manga\Domain\EditionContext;
 use App\Manga\Domain\ExternalApiClientInterface;
 use App\Manga\Domain\ExternalMangaDto;
 use App\Manga\Domain\Isbn;
@@ -139,22 +140,44 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
         }
     }
 
-    public function findByContext(
-        string $mangaTitle,
-        ?string $edition,
-        int $volumeNumber,
-        string $language = 'fr',
-    ): ?MangaVolumeCoverDto {
-        $query = sprintf('%s tome %d%s', $mangaTitle, $volumeNumber, $edition ? ' ' . $edition : '');
+    public function findByContext(EditionContext $context, int $volumeNumber): ?MangaVolumeCoverDto
+    {
+        $publisherSuffix = $context->publisher !== null ? ' ' . $context->publisher : '';
+        $query = sprintf('%s tome %d%s', $context->mangaTitle, $volumeNumber, $publisherSuffix);
         $this->logger->info(self::PREFIX_LOGGER . 'find by context; BEGIN.', ['query' => $query]);
 
         try {
-            $results = $this->searchByTitle($query, page: 1);
+            $response = $this->httpClient->request('GET', self::BASE_URL . '/volumes', [
+                'query' => [
+                    'q'            => $query . '+manga',
+                    'printType'    => 'books',
+                    'langRestrict' => $context->language,
+                    'maxResults'   => 10,
+                    'orderBy'      => 'relevance',
+                    'key'          => $this->apiKey,
+                ],
+            ]);
 
-            foreach ($results as $dto) {
-                if ($dto->coverUrl !== null) {
+            $data = $response->toArray();
+
+            if (empty($data['items'])) {
+                return null;
+            }
+
+            foreach ($data['items'] as $item) {
+                $volumeInfo = $item['volumeInfo'] ?? [];
+
+                if ($context->publisher !== null) {
+                    $itemPublisher = strtolower($volumeInfo['publisher'] ?? '');
+                    if (!str_contains($itemPublisher, strtolower($context->publisher))) {
+                        continue;
+                    }
+                }
+
+                $coverUrl = $this->extractCoverUrl($volumeInfo);
+                if ($coverUrl !== null) {
                     return new MangaVolumeCoverDto(
-                        coverUrl: $dto->coverUrl,
+                        coverUrl: $coverUrl,
                         spineUrl: null,
                         isbn: null,
                         source: 'google_books',

@@ -10,6 +10,8 @@ final readonly class UpdateMangaRequest
         public ?string $title = null,
         public ?string $edition = null,
         public ?string $coverUrl = null,
+        public ?string $publisher = null,
+        public ?int $editionYear = null,
     ) {
     }
 }

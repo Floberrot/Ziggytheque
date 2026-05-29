@@ -24,6 +24,11 @@ final readonly class ImportMangaRequest
         public ?string $externalId = null,
         #[Assert\PositiveOrZero]
         public ?int $totalVolumes = null,
+        #[Assert\Length(max: 255)]
+        public ?string $publisher = null,
+        #[Assert\Range(min: 1900, max: 2100)]
+        public ?int $editionYear = null,
+        public ?string $externalWorkId = null,
     ) {
     }
 }

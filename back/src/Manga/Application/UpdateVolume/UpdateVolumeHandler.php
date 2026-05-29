@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Manga\Application\UpdateVolume;
 
+use App\Manga\Domain\Isbn;
 use App\Manga\Domain\MangaRepositoryInterface;
 use App\Manga\Domain\Volume;
 use App\Manga\Shared\Event\UpdateVolumeSucceededEvent;
@@ -53,6 +54,10 @@ final readonly class UpdateVolumeHandler
 
             if ($command->spineUrl !== null) {
                 $volume->spineUrl = $command->spineUrl;
+            }
+
+            if ($command->isbn !== null) {
+                $volume->isbn = Isbn::fromString($command->isbn);
             }
 
             $this->mangaRepository->save($manga);

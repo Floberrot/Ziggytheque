@@ -6,13 +6,17 @@ namespace App\Manga\Infrastructure\Http;
 
 use App\Manga\Application\AddVolume\AddVolumeCommand;
 use App\Manga\Application\AutoCovers\StartCoverBatchCommand;
+use App\Manga\Application\DiscoverEditions\DiscoverEditionsQuery;
 use App\Manga\Application\Get\GetMangaQuery;
 use App\Manga\Application\Import\ImportMangaCommand;
+use App\Manga\Application\PublishScannedIsbn\PublishScannedIsbnCommand;
 use App\Manga\Application\Search\SearchMangaQuery;
 use App\Manga\Application\SearchExternal\SearchExternalMangaQuery;
 use App\Manga\Application\SearchVolumeExternal\SearchVolumeExternalQuery;
+use App\Manga\Application\StartScanSession\StartScanSessionCommand;
 use App\Manga\Application\Update\UpdateMangaCommand;
 use App\Manga\Application\UpdateVolume\UpdateVolumeCommand;
+use App\Manga\Domain\Country;
 use App\Shared\Application\Bus\CommandBusInterface;
 use App\Shared\Application\Bus\QueryBusInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -48,25 +52,65 @@ final readonly class MangaController
         return new JsonResponse($this->queryBus->ask(new SearchExternalMangaQuery($query, $type, $page)));
     }
 
+    #[Route('/editions', methods: ['GET'])]
+    public function discoverEditions(Request $request): JsonResponse
+    {
+        $title   = $request->query->get('title', '');
+        $country = Country::fromCode($request->query->get('country'));
+
+        return new JsonResponse($this->queryBus->ask(new DiscoverEditionsQuery($title, $country)));
+    }
+
     /** Composite cover search for individual volume covers/metadata */
     #[Route('/volume-search', methods: ['GET'])]
     public function searchVolumeExternal(Request $request): JsonResponse
     {
-        $query        = $request->query->get('q', '');
+        $search       = $request->query->get('q', '');
         $page         = max(1, (int) $request->query->get('page', 1));
         $volumeNumber = $request->query->get('volumeNumber') !== null
             ? (int) $request->query->get('volumeNumber')
             : null;
         $edition      = $request->query->get('edition');
         $provider     = $request->query->get('provider', 'composite');
+        $isbn         = $request->query->get('isbn');
+        $publisher    = $request->query->get('publisher');
+        $year         = $request->query->get('year') !== null
+            ? (int) $request->query->get('year')
+            : null;
+        $language     = $request->query->get('language', 'fr');
 
         return new JsonResponse($this->queryBus->ask(new SearchVolumeExternalQuery(
-            search: $query,
+            search: $search,
             page: $page,
             volumeNumber: $volumeNumber,
             edition: $edition,
             provider: $provider,
+            isbn: $isbn,
+            publisher: $publisher,
+            year: $year,
+            language: $language,
         )));
+    }
+
+    #[Route('/scan-session', methods: ['POST'])]
+    public function startScanSession(): JsonResponse
+    {
+        $result = $this->commandBus->dispatch(new StartScanSessionCommand());
+
+        return new JsonResponse($result->toArray(), Response::HTTP_ACCEPTED);
+    }
+
+    #[Route('/scan-session/{sessionId}/isbn', methods: ['POST'])]
+    public function publishScannedIsbn(
+        string $sessionId,
+        #[MapRequestPayload] ScanIsbnRequest $request,
+    ): JsonResponse {
+        $this->commandBus->dispatch(new PublishScannedIsbnCommand(
+            sessionId: $sessionId,
+            isbn: $request->isbn,
+        ));
+
+        return new JsonResponse(null, Response::HTTP_ACCEPTED);
     }
 
     #[Route('/{id}', methods: ['GET'])]
@@ -88,6 +132,9 @@ final readonly class MangaController
             genre: $request->genre,
             externalId: $request->externalId,
             totalVolumes: $request->totalVolumes,
+            publisher: $request->publisher,
+            editionYear: $request->editionYear,
+            externalWorkId: $request->externalWorkId,
         ));
 
         return new JsonResponse(['id' => $id], Response::HTTP_CREATED);
@@ -101,6 +148,8 @@ final readonly class MangaController
             title: $request->title,
             edition: $request->edition,
             coverUrl: $request->coverUrl,
+            publisher: $request->publisher,
+            editionYear: $request->editionYear,
         ));
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
@@ -132,6 +181,7 @@ final readonly class MangaController
             releaseDate: $request->releaseDate,
             price: $request->price,
             spineUrl: $request->spineUrl,
+            isbn: $request->isbn,
         ));
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);

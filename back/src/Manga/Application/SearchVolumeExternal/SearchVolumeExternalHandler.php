@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Manga\Application\SearchVolumeExternal;
 
+use App\Manga\Domain\EditionContext;
+use App\Manga\Domain\Isbn;
 use App\Manga\Domain\MangaCoverProviderInterface;
 use App\Manga\Domain\MangaVolumeCoverDto;
 use Psr\Container\ContainerInterface;
@@ -24,17 +26,32 @@ final readonly class SearchVolumeExternalHandler
         $provider = $this->resolveProvider($query->provider);
         $volumeNumber = $query->volumeNumber ?? 1;
 
-        $coverDto = $provider->findByContext(
+        if ($query->isbn !== null) {
+            $isbn = Isbn::tryFrom($query->isbn);
+            if ($isbn !== null) {
+                $coverDto = $provider->findByIsbn($isbn);
+                if ($coverDto !== null) {
+                    return [$this->mapDtoToArray($coverDto, $query->search, $volumeNumber, $query->language)];
+                }
+            }
+        }
+
+        $editionContext = new EditionContext(
             mangaTitle: $query->search,
-            edition: $query->edition,
-            volumeNumber: $volumeNumber,
+            publisher: $query->publisher,
+            editionLabel: $query->edition,
+            year: $query->year,
+            language: $query->language,
+            externalWorkId: $query->externalWorkId,
         );
+
+        $coverDto = $provider->findByContext($editionContext, $volumeNumber);
 
         if ($coverDto === null) {
             return [];
         }
 
-        return [$this->mapDtoToArray($coverDto, $query->search, $volumeNumber)];
+        return [$this->mapDtoToArray($coverDto, $query->search, $volumeNumber, $query->language)];
     }
 
     private function resolveProvider(string $key): MangaCoverProviderInterface
@@ -47,18 +64,18 @@ final readonly class SearchVolumeExternalHandler
     }
 
     /** @return array<string, mixed> */
-    private function mapDtoToArray(MangaVolumeCoverDto $dto, string $title, int $volumeNumber): array
+    private function mapDtoToArray(MangaVolumeCoverDto $dto, string $title, int $volumeNumber, string $language): array
     {
         return [
-            'externalId' => null,
-            'title' => $title,
-            'edition' => null,
-            'coverUrl' => $dto->coverUrl,
-            'spineUrl' => $dto->spineUrl,
-            'isbn' => $dto->isbn?->value,
-            'language' => 'fr',
+            'externalId'   => null,
+            'title'        => $title,
+            'edition'      => null,
+            'coverUrl'     => $dto->coverUrl,
+            'spineUrl'     => $dto->spineUrl,
+            'isbn'         => $dto->isbn?->value,
+            'language'     => $language,
             'totalVolumes' => null,
-            'source' => $dto->source,
+            'source'       => $dto->source,
         ];
     }
 }

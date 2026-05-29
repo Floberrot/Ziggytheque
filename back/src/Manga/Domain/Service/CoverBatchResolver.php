@@ -7,6 +7,7 @@ namespace App\Manga\Domain\Service;
 use App\Manga\Domain\CoverBatchProgressEvent;
 use App\Manga\Domain\CoverBatchProgressPublisherInterface;
 use App\Manga\Domain\CoverBatchResult;
+use App\Manga\Domain\EditionContext;
 use App\Manga\Domain\Isbn;
 use App\Manga\Domain\Manga;
 use App\Manga\Domain\MangaCoverProviderInterface;
@@ -124,17 +125,23 @@ final readonly class CoverBatchResolver
 
     private function resolveCover(Manga $manga, Volume $volume): ?MangaVolumeCoverDto
     {
-        return $volume->isbn !== null
-            ? ($this->coverProvider->findByIsbn($volume->isbn) ?? $this->coverProvider->findByContext(
-                $manga->title,
-                $manga->edition,
-                $volume->number,
-            ))
-            : $this->coverProvider->findByContext(
-                $manga->title,
-                $manga->edition,
-                $volume->number,
-            );
+        $editionContext = new EditionContext(
+            mangaTitle: $manga->title,
+            publisher: $manga->publisher,
+            editionLabel: $manga->edition,
+            year: $manga->editionYear,
+            language: $manga->language,
+            externalWorkId: $manga->externalWorkId,
+        );
+
+        if ($volume->isbn !== null) {
+            $coverByIsbn = $this->coverProvider->findByIsbn($volume->isbn);
+            if ($coverByIsbn !== null) {
+                return $coverByIsbn;
+            }
+        }
+
+        return $this->coverProvider->findByContext($editionContext, $volume->number);
     }
 
     private function applyCovers(Volume $volume, string $coverUrl, ?string $spineUrl, ?Isbn $isbn): void

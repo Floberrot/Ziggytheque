@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Manga\Infrastructure\ExternalApi;
 
+use App\Manga\Domain\EditionContext;
 use App\Manga\Domain\Isbn;
 use App\Manga\Domain\MangaCoverProviderInterface;
 use App\Manga\Domain\MangaVolumeCoverDto;
@@ -44,25 +45,21 @@ final readonly class CompositeMangaCoverApiClient implements MangaCoverProviderI
         return null;
     }
 
-    public function findByContext(
-        string $mangaTitle,
-        ?string $edition,
-        int $volumeNumber,
-        string $language = 'fr',
-    ): ?MangaVolumeCoverDto {
+    public function findByContext(EditionContext $context, int $volumeNumber): ?MangaVolumeCoverDto
+    {
         foreach ($this->providers as $provider) {
             $providerClass = $provider::class;
             $this->logger->info('COMPOSITE : trying findByContext.', [
                 'provider' => $providerClass,
-                'title' => $mangaTitle,
-                'volume' => $volumeNumber,
+                'title'    => $context->mangaTitle,
+                'volume'   => $volumeNumber,
             ]);
 
-            $result = $provider->findByContext($mangaTitle, $edition, $volumeNumber, $language);
+            $result = $provider->findByContext($context, $volumeNumber);
 
             $this->logger->info('COMPOSITE : findByContext result.', [
                 'provider' => $providerClass,
-                'match' => $result !== null,
+                'match'    => $result !== null,
             ]);
 
             if ($result !== null) {

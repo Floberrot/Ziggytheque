@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Manga\Infrastructure;
 
+use App\Manga\Domain\EditionContext;
 use App\Manga\Domain\Isbn;
 use App\Manga\Domain\MangaVolumeCoverDto;
 use App\Manga\Infrastructure\ExternalApi\MangaDexMangaApiClient;
@@ -24,7 +25,7 @@ final class MangaDexMangaApiClientTest extends TestCase
 
     private function mangaSearchResponse(string $mangaId): MockResponse
     {
-        return new MockResponse(json_encode([
+        return new MockResponse((string) json_encode([
             'data' => [
                 ['id' => $mangaId, 'attributes' => ['title' => ['fr' => 'Test Manga']]],
             ],
@@ -33,12 +34,12 @@ final class MangaDexMangaApiClientTest extends TestCase
 
     private function coverListResponse(string $mangaId, int $volumeNumber, string $fileName): MockResponse
     {
-        return new MockResponse(json_encode([
+        return new MockResponse((string) json_encode([
             'data' => [
                 [
-                    'id' => 'cover-id-1',
+                    'id'         => 'cover-id-1',
                     'attributes' => [
-                        'volume' => (string) $volumeNumber,
+                        'volume'   => (string) $volumeNumber,
                         'fileName' => $fileName,
                     ],
                 ],
@@ -61,7 +62,8 @@ final class MangaDexMangaApiClientTest extends TestCase
             $this->coverListResponse(self::MANGA_ID, 1, 'cover.jpg'),
         ]);
 
-        $result = $this->makeClient($httpClient)->findByContext('Test Manga', null, 1);
+        $context = new EditionContext(mangaTitle: 'Test Manga');
+        $result = $this->makeClient($httpClient)->findByContext($context, 1);
 
         $this->assertInstanceOf(MangaVolumeCoverDto::class, $result);
         $this->assertSame('mangadex', $result->source);
@@ -73,10 +75,11 @@ final class MangaDexMangaApiClientTest extends TestCase
     public function testFindByContextReturnsNullWhenNoMangaFound(): void
     {
         $httpClient = new MockHttpClient([
-            new MockResponse(json_encode(['data' => []]), ['response_headers' => ['Content-Type' => 'application/json']]),
+            new MockResponse((string) json_encode(['data' => []]), ['response_headers' => ['Content-Type' => 'application/json']]),
         ]);
 
-        $result = $this->makeClient($httpClient)->findByContext('Unknown Manga', null, 1);
+        $context = new EditionContext(mangaTitle: 'Unknown Manga');
+        $result = $this->makeClient($httpClient)->findByContext($context, 1);
 
         $this->assertNull($result);
     }
@@ -85,11 +88,11 @@ final class MangaDexMangaApiClientTest extends TestCase
     {
         $httpClient = new MockHttpClient([
             $this->mangaSearchResponse(self::MANGA_ID),
-            // Cover list has volume 5, not the requested volume 1
             $this->coverListResponse(self::MANGA_ID, 5, 'cover5.jpg'),
         ]);
 
-        $result = $this->makeClient($httpClient)->findByContext('Test Manga', null, 1);
+        $context = new EditionContext(mangaTitle: 'Test Manga');
+        $result = $this->makeClient($httpClient)->findByContext($context, 1);
 
         $this->assertNull($result);
     }
@@ -100,7 +103,8 @@ final class MangaDexMangaApiClientTest extends TestCase
             new MockResponse('Internal Server Error', ['http_code' => 500]),
         ]);
 
-        $result = $this->makeClient($httpClient)->findByContext('Test Manga', null, 1);
+        $context = new EditionContext(mangaTitle: 'Test Manga');
+        $result = $this->makeClient($httpClient)->findByContext($context, 1);
 
         $this->assertNull($result);
     }

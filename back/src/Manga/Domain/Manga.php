@@ -47,6 +47,12 @@ class Manga
         public ?GenreEnum $genre = null,
         #[ORM\Column(nullable: true)]
         public ?string $externalId = null,
+        #[ORM\Column(nullable: true)]
+        public ?string $publisher = null,
+        #[ORM\Column(nullable: true)]
+        public ?int $editionYear = null,
+        #[ORM\Column(nullable: true)]
+        public ?string $externalWorkId = null,
     ) {
         $this->volumes = new ArrayCollection();
         $this->createdAt = new DateTimeImmutable();
@@ -72,6 +78,9 @@ class Manga
             'coverUrl' => $this->coverUrl,
             'genre' => $this->genre?->value,
             'externalId' => $this->externalId,
+            'publisher' => $this->publisher,
+            'editionYear' => $this->editionYear,
+            'externalWorkId' => $this->externalWorkId,
             'totalVolumes' => $this->volumes->count(),
             'createdAt' => $this->createdAt->format(DateTimeInterface::ATOM),
         ];

@@ -65,7 +65,11 @@
     "noResults": "Aucun résultat. Vous pouvez saisir les informations manuellement.",
     "fillManually": "Saisir manuellement",
     "selectResult": "Sélectionner",
-    "selectedResult": "Sélectionné"
+    "selectedResult": "Sélectionné",
+    "edition": "Édition",
+    "chooseEdition": "Choisir l'édition",
+    "editionsFor": "Éditions disponibles pour",
+    "noEditionsFound": "Aucune édition trouvée — saisissez manuellement"
   },
   "manga": {
     "title": "Titre",
@@ -75,7 +79,18 @@
     "genre": "Genre",
     "coverUrl": "URL de couverture",
     "summary": "Résumé",
-    "totalVolumes": "Nombre de tomes"
+    "totalVolumes": "Nombre de tomes",
+    "publisher": "Éditeur",
+    "editionYear": "Année d'édition"
+  },
+  "scan": {
+    "title": "Scanner l'ISBN",
+    "cameraUnavailable": "Caméra non disponible",
+    "viaPhone": "Via téléphone",
+    "scanWithPhone": "Scanner avec le téléphone",
+    "manualIsbn": "Saisir l'ISBN manuellement",
+    "sent": "ISBN envoyé",
+    "apply": "Appliquer"
   },
   "volume": {
     "price": "Prix (€)",
@@ -185,6 +200,15 @@
     "edit": "Modifier",
     "delete": "Supprimer",
     "remove": "Retirer",
-    "next": "Suivant"
+    "next": "Suivant",
+    "or": "ou"
+  },
+  "country": {
+    "fr": "France",
+    "it": "Italie",
+    "es": "Espagne",
+    "de": "Allemagne",
+    "us": "États-Unis",
+    "jp": "Japon"
   }
 }

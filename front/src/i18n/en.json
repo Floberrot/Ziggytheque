@@ -65,7 +65,11 @@
     "noResults": "No results. You can fill in the form manually.",
     "fillManually": "Fill manually",
     "selectResult": "Select",
-    "selectedResult": "Selected"
+    "selectedResult": "Selected",
+    "edition": "Edition",
+    "chooseEdition": "Choose edition",
+    "editionsFor": "Available editions for",
+    "noEditionsFound": "No editions found — fill in manually"
   },
   "manga": {
     "title": "Title",
@@ -75,7 +79,18 @@
     "genre": "Genre",
     "coverUrl": "Cover URL",
     "summary": "Summary",
-    "totalVolumes": "Total volumes"
+    "totalVolumes": "Total volumes",
+    "publisher": "Publisher",
+    "editionYear": "Edition year"
+  },
+  "scan": {
+    "title": "Scan ISBN",
+    "cameraUnavailable": "Camera not available",
+    "viaPhone": "Via phone",
+    "scanWithPhone": "Scan with phone",
+    "manualIsbn": "Enter ISBN manually",
+    "sent": "ISBN sent",
+    "apply": "Apply"
   },
   "volume": {
     "price": "Price (€)",
@@ -185,6 +200,15 @@
     "edit": "Edit",
     "delete": "Delete",
     "remove": "Remove",
-    "next": "Next"
+    "next": "Next",
+    "or": "or"
+  },
+  "country": {
+    "fr": "France",
+    "it": "Italy",
+    "es": "Spain",
+    "de": "Germany",
+    "us": "United States",
+    "jp": "Japan"
   }
 }
