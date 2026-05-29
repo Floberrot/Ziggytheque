@@ -1,0 +1,182 @@
+name: Deploy — Staging
+
+# Continuous staging: every merge to `main` auto-deploys the staging
+# environment. Production stays tag-gated and manual (see deploy-production.yml)
+# — this is the only difference in trigger between the two environments.
+#
+# PR quality gates (qa.yml / tests.yml / frontend.yml) already ran before the
+# merge, so this workflow runs a fast smoke gate (PHPUnit + frontend build),
+# then deploys the three services to the staging environment, mirroring the
+# production deploy steps (worker → backend, frontend in parallel).
+#
+# Manual branch deploy: deploy ANY branch to staging BEFORE merging to main —
+# run this workflow ("Run workflow"), pick the branch in "Use workflow from"
+# and/or set the `ref` input. Every job checks out that ref and deploys it.
+#
+# Required GitHub secrets:
+#   RAILWAY_TOKEN                   — already set (shared with production)
+#   RAILWAY_PROJECT_ID              — already set (shared with production)
+#   RAILWAY_STAGING_ENVIRONMENT_ID  — NEW: the id of the `staging` environment
+#                                     (Railway dashboard URL ?environmentId=…,
+#                                      or `railway environment` after linking)
+on:
+  push:
+    branches: [main]
+  # Manual branch deploy: pick a branch in "Use workflow from" and/or fill the
+  # `ref` input to deploy that branch to staging BEFORE merging it to main.
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branche/ref à déployer sur staging (vide = la branche choisie dans 'Use workflow from')"
+        required: false
+        type: string
+        default: ''
+
+# Never run two staging deploys at once; the most recent run wins.
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: true
+
+env:
+  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+  RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+  RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_STAGING_ENVIRONMENT_ID }}
+
+jobs:
+
+  # --- Smoke gate: backend test suite ----------------------------------------
+
+  tests:
+    name: "Gate: PHPUnit"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: back
+    env:
+      DATABASE_URL: postgresql://ziggy:ziggy@127.0.0.1:5432/ziggytheque?serverVersion=17&charset=utf8
+      APP_SECRET: ci-secret-not-used
+      JWT_PASSPHRASE: ${{ secrets.JWT_PASSPHRASE || 'ci-jwt-passphrase' }}
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ziggy
+          POSTGRES_PASSWORD: ziggy
+          POSTGRES_DB: ziggytheque
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql, intl
+          tools: composer
+          coverage: none
+      - uses: actions/cache@v5
+        with:
+          path: back/vendor
+          key: composer-${{ hashFiles('back/composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Generate JWT keys
+        run: |
+          mkdir -p config/jwt
+          openssl genrsa -passout pass:${JWT_PASSPHRASE} -out config/jwt/private.pem 4096
+          openssl rsa -pubout -passin pass:${JWT_PASSPHRASE} -in config/jwt/private.pem -out config/jwt/public.pem
+      - run: php bin/console doctrine:database:create --env=test --if-not-exists
+      - run: php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration --env=test
+      - run: php bin/phpunit --no-progress
+
+  # --- Smoke gate: frontend type-check + build -------------------------------
+
+  frontend:
+    name: "Gate: Frontend (vue-tsc + build)"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: front
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: front/package-lock.json
+      - run: npm ci
+      - run: npm run type-check
+      - run: npm run build
+
+  # --- Deploy API: worker first (messenger:consume), then backend ------------
+
+  deploy-api:
+    name: "Staging: Deploy API (worker → backend)"
+    runs-on: ubuntu-latest
+    needs: [tests, frontend]
+    env:
+      DEPLOY_MSG: "Staging deploy ${{ inputs.ref || github.ref_name }} (${{ github.sha }})"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      - name: Deploy worker service (messenger:consume)
+        # Swap in worker/railway.json so Railway uses dockerBuildTarget: "worker".
+        # Restore the original railway.json afterwards for the backend step.
+        run: |
+          cp worker/railway.json railway.json
+          for attempt in 1 2; do
+            railway up \
+              --service ziggytheque-worker \
+              --ci \
+              -m "$DEPLOY_MSG" && break
+            echo "Attempt $attempt failed — retrying in 30s..."
+            sleep 30
+          done
+          git checkout railway.json
+      - name: Deploy backend service (frankenphp run)
+        run: |
+          for attempt in 1 2; do
+            railway up \
+              --service ziggytheque-back \
+              --ci \
+              -m "$DEPLOY_MSG" && break
+            echo "Attempt $attempt failed — retrying in 30s..."
+            sleep 30
+          done
+
+  # --- Deploy Frontend (parallel with API) -----------------------------------
+
+  deploy-front:
+    name: "Staging: Deploy Frontend"
+    runs-on: ubuntu-latest
+    needs: [tests, frontend]
+    env:
+      DEPLOY_MSG: "Staging deploy ${{ inputs.ref || github.ref_name }} (${{ github.sha }})"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      - name: Deploy frontend service
+        working-directory: front
+        run: |
+          for attempt in 1 2; do
+            railway up \
+              --service ziggytheque-front \
+              --ci \
+              -m "$DEPLOY_MSG" && break
+            echo "Attempt $attempt failed — retrying in 30s..."
+            sleep 30
+          done
