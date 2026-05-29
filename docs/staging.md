@@ -77,9 +77,13 @@ railway run --environment staging --service ziggytheque-back -- \
 ## 3. Auto-déploiement au merge sur `main`
 
 Le workflow [`.github/workflows/deploy-staging.yml`](../.github/workflows/deploy-staging.yml)
-déploie staging **à chaque merge sur `main`** : smoke gate (PHPUnit + build
-frontend) puis `railway up` des 3 services vers l'environnement staging
-(worker → backend, frontend en parallèle). La prod reste tag-gated et manuelle.
+déploie staging **à chaque merge sur `main`** : il rejoue **les mêmes gates QA
+que la prod** (PHP_CodeSniffer, Deptrac, PHPStan, migrations, PHPUnit, frontend
+vue-tsc + ESLint, build Docker), puis `railway up` des 3 services vers
+l'environnement staging (worker → backend, frontend en parallèle). Seules
+différences avec la prod : le déclencheur est un merge sur `main` (pas un tag)
+et il n'y a pas de gate d'approbation manuelle (staging déploie en continu). La
+prod reste tag-gated et manuelle.
 
 ### Déployer une branche sur staging *avant* de merger sur `main`
 
@@ -96,13 +100,21 @@ Pour tester une branche sur staging avant le merge :
 > (`main`) : cette PR doit donc être mergée une première fois pour que l'option
 > « Run workflow » apparaisse.
 
-**Secret GitHub à ajouter** (Settings → Secrets and variables → Actions) :
+**Secrets GitHub à ajouter** (Settings → Secrets and variables → Actions) :
 
 | Secret | Valeur |
 |---|---|
+| `RAILWAY_STAGING_TOKEN` | token Railway **scopé staging** (project token créé pour l'env staging, ou token compte/team). **Jamais** le project token de prod. |
 | `RAILWAY_STAGING_ENVIRONMENT_ID` | id de l'environnement staging (étape 1.3) |
 
-`RAILWAY_TOKEN` et `RAILWAY_PROJECT_ID` existent déjà (partagés avec la prod).
+`RAILWAY_PROJECT_ID` et `RAILWAY_PRODUCTION_ENVIRONMENT_ID` existent déjà (ce
+dernier sert au garde-fou ci-dessous).
+
+> 🛡️ **Garde-fou anti-prod** : un job `guard` en tête du workflow **refuse de
+> déployer** si `RAILWAY_STAGING_TOKEN` ou `RAILWAY_STAGING_ENVIRONMENT_ID` est
+> absent, ou si l'id staging = id prod. Tant que ces secrets ne sont pas
+> configurés, chaque merge sur `main` fait **échouer** le workflow (croix rouge)
+> sans rien déployer — il ne peut donc **plus** retomber sur la production.
 
 > Pour ajuster le déclencheur (ex. déployer depuis une branche `staging` plutôt
 > que `main`), modifie le bloc `on:` du workflow.
@@ -156,7 +168,8 @@ railway run --environment staging --service ziggytheque-back -- \
 ## Récapitulatif des actions manuelles (hors repo)
 
 - [ ] Dupliquer l'env `production` → `staging` (dashboard ou CLI).
+- [ ] Créer un **token Railway scopé staging** → secret GitHub `RAILWAY_STAGING_TOKEN`.
+- [ ] Ajouter le secret GitHub `RAILWAY_STAGING_ENVIRONMENT_ID` (id de l'env staging).
 - [ ] Re-saisir les variables sealed + régler CORS/Mercure/domaine staging.
-- [ ] Ajouter le secret GitHub `RAILWAY_STAGING_ENVIRONMENT_ID`.
 - [ ] (optionnel) Copier + anonymiser les données de prod.
-- [ ] Vérifier un premier déploiement (merge sur `main` ou `workflow_dispatch`).
+- [ ] Vérifier un premier déploiement (`workflow_dispatch`, puis merge sur `main`).
