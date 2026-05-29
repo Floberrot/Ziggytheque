@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Manga\Domain\Service;
 
+use App\Manga\Domain\EditionContext;
 use App\Manga\Domain\Isbn;
 use App\Manga\Domain\Manga;
 use App\Manga\Domain\MangaCoverProviderInterface;
@@ -41,7 +42,7 @@ final class CoverBatchResolverTest extends TestCase
                 return $this->dto;
             }
 
-            public function findByContext(string $mangaTitle, ?string $edition, int $volumeNumber, string $language = 'fr'): ?MangaVolumeCoverDto
+            public function findByContext(EditionContext $context, int $volumeNumber): ?MangaVolumeCoverDto
             {
                 return $this->dto;
             }
@@ -138,7 +139,7 @@ final class CoverBatchResolverTest extends TestCase
                 return $this->dto;
             }
 
-            public function findByContext(string $mangaTitle, ?string $edition, int $volumeNumber, string $language = 'fr'): ?MangaVolumeCoverDto
+            public function findByContext(EditionContext $context, int $volumeNumber): ?MangaVolumeCoverDto
             {
                 $this->log[] = 'findByContext';
                 return $this->dto;
@@ -174,7 +175,7 @@ final class CoverBatchResolverTest extends TestCase
                 return null;
             }
 
-            public function findByContext(string $mangaTitle, ?string $edition, int $volumeNumber, string $language = 'fr'): ?MangaVolumeCoverDto
+            public function findByContext(EditionContext $context, int $volumeNumber): ?MangaVolumeCoverDto
             {
                 $this->log[] = 'findByContext';
                 return $this->dto;
@@ -212,7 +213,7 @@ final class CoverBatchResolverTest extends TestCase
                 return null;
             }
 
-            public function findByContext(string $mangaTitle, ?string $edition, int $volumeNumber, string $language = 'fr'): ?MangaVolumeCoverDto
+            public function findByContext(EditionContext $context, int $volumeNumber): ?MangaVolumeCoverDto
             {
                 $this->count++;
                 return $this->count === 1 ? $this->dto : null;

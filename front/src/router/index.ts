@@ -102,6 +102,12 @@ const router = createRouter({
         },
       ],
     },
+    {
+      path: '/scan/:sessionId',
+      name: 'scan-relay',
+      component: () => import('@/pages/ScanRelayPage.vue'),
+      meta: { requiresAuth: true, title: 'Scanner' },
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })

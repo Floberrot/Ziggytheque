@@ -41,6 +41,14 @@ final readonly class UpdateMangaHandler
                 $manga->coverUrl = $command->coverUrl === '' ? null : $command->coverUrl;
             }
 
+            if ($command->publisher !== null) {
+                $manga->publisher = $command->publisher === '' ? null : $command->publisher;
+            }
+
+            if ($command->editionYear !== null) {
+                $manga->editionYear = $command->editionYear;
+            }
+
             $this->mangaRepository->save($manga);
 
             $this->eventBus->publish(new UpdateMangaSucceededEvent(

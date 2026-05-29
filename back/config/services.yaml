@@ -136,6 +136,34 @@ services:
         tags:
             - { name: app.manga_cover_provider, priority: 10 }
 
+    # Edition discovery composite — used for discoverEditions endpoint
+    App\Manga\Domain\EditionDiscoveryInterface:
+        alias: App\Manga\Infrastructure\ExternalApi\CompositeEditionDiscoveryClient
+
+    App\Manga\Infrastructure\ExternalApi\CompositeEditionDiscoveryClient:
+        arguments:
+            $providers: !tagged_iterator { tag: app.edition_discovery_provider }
+
+    # BnF (Bibliothèque nationale de France) — authoritative source for French
+    # editions (legal deposit). Highest priority so its records win on dedup.
+    App\Manga\Infrastructure\ExternalApi\BnfEditionDiscoveryClient:
+        arguments:
+            $baseUrl: '%env(BNF_SRU_BASE_URL)%'
+        tags:
+            - { name: app.edition_discovery_provider, priority: 150 }
+
+    App\Manga\Infrastructure\ExternalApi\GoogleBooksEditionDiscoveryClient:
+        arguments:
+            $apiKey: '%env(GOOGLE_BOOKS_API_KEY)%'
+        tags:
+            - { name: app.edition_discovery_provider, priority: 100 }
+
+    App\Manga\Infrastructure\ExternalApi\OpenLibraryEditionDiscoveryClient:
+        arguments:
+            $baseUrl: '%env(OPEN_LIBRARY_BASE_URL)%'
+        tags:
+            - { name: app.edition_discovery_provider, priority: 50 }
+
     App\Collection\Domain\CollectionRepositoryInterface:
         alias: App\Collection\Infrastructure\Doctrine\DoctrineCollectionRepository
 
@@ -189,6 +217,23 @@ services:
     App\Stats\Domain\StatsRepositoryInterface:
         alias: App\Stats\Infrastructure\Doctrine\DoctrineStatsRepository
 
+    App\Manga\Domain\ScanSessionAuthorizerInterface:
+        alias: App\Manga\Infrastructure\Mercure\MercureScanSessionAuthorizer
+
+    App\Manga\Infrastructure\Mercure\MercureScanSessionAuthorizer:
+        arguments:
+            $subscriberJwtKey: '%env(MERCURE_SUBSCRIBER_JWT_KEY)%'
+            $publicHubUrlValue: '%env(MERCURE_PUBLIC_URL)%'
+
+    App\Manga\Domain\ScanSessionPublisherInterface:
+        alias: App\Manga\Infrastructure\Mercure\MercureScanSessionPublisher
+
+    App\Manga\Infrastructure\Mercure\MercureScanSessionPublisher:
+        arguments:
+            $hubUrl: '%env(MERCURE_URL)%'
+            $publisherJwtKey: '%env(MERCURE_PUBLISHER_JWT_KEY)%'
+            $logger: '@logger'
+
     App\Manga\Domain\CoverBatchProgressPublisherInterface:
         alias: App\Manga\Infrastructure\Mercure\MercureCoverBatchProgressPublisher
 
@@ -208,6 +253,8 @@ services:
 
 when@test:
     services:
+        App\Manga\Domain\EditionDiscoveryInterface:
+            alias: App\Manga\Infrastructure\ExternalApi\NullEditionDiscoveryClient
         App\Manga\Domain\ExternalApiClientInterface:
             alias: App\Manga\Infrastructure\ExternalApi\NullMangaApiClient
         App\Manga\Domain\MangaCoverProviderInterface:
@@ -227,4 +274,12 @@ when@test:
         App\Manga\Domain\CoverBatchSubscriberAuthorizerInterface:
             alias: App\Tests\Doubles\Manga\StubCoverBatchSubscriberAuthorizer
         App\Tests\Doubles\Manga\StubCoverBatchSubscriberAuthorizer:
+            public: true
+        App\Manga\Domain\ScanSessionAuthorizerInterface:
+            alias: App\Tests\Doubles\Manga\StubScanSessionAuthorizer
+        App\Tests\Doubles\Manga\StubScanSessionAuthorizer:
+            public: true
+        App\Manga\Domain\ScanSessionPublisherInterface:
+            alias: App\Tests\Doubles\Manga\InMemoryScanSessionPublisher
+        App\Tests\Doubles\Manga\InMemoryScanSessionPublisher:
             public: true

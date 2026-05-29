@@ -41,6 +41,9 @@ final readonly class ImportMangaHandler
                 coverUrl: $command->coverUrl,
                 genre: $command->genre !== null ? GenreEnum::from($command->genre) : null,
                 externalId: $command->externalId,
+                publisher: $command->publisher,
+                editionYear: $command->editionYear,
+                externalWorkId: $command->externalWorkId,
             );
 
             // Auto-create volume placeholders when total is known from external API

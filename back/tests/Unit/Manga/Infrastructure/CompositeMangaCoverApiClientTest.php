@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Manga\Infrastructure;
 
+use App\Manga\Domain\EditionContext;
 use App\Manga\Domain\Isbn;
 use App\Manga\Domain\MangaCoverProviderInterface;
 use App\Manga\Domain\MangaVolumeCoverDto;
@@ -23,7 +24,7 @@ final class CompositeMangaCoverApiClientTest extends TestCase
                 return $this->dto;
             }
 
-            public function findByContext(string $mangaTitle, ?string $edition, int $volumeNumber, string $language = 'fr'): ?MangaVolumeCoverDto
+            public function findByContext(EditionContext $context, int $volumeNumber): ?MangaVolumeCoverDto
             {
                 return $this->dto;
             }
@@ -103,7 +104,8 @@ final class CompositeMangaCoverApiClientTest extends TestCase
             new NullLogger(),
         );
 
-        $result = $composite->findByContext('One Piece', null, 1);
+        $context = new EditionContext(mangaTitle: 'One Piece');
+        $result = $composite->findByContext($context, 1);
 
         $this->assertSame($dto, $result);
     }
@@ -115,7 +117,8 @@ final class CompositeMangaCoverApiClientTest extends TestCase
             new NullLogger(),
         );
 
-        $result = $composite->findByContext('Unknown Manga', null, 99);
+        $context = new EditionContext(mangaTitle: 'Unknown Manga');
+        $result = $composite->findByContext($context, 99);
 
         $this->assertNull($result);
     }

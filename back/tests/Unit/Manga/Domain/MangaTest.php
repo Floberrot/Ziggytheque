@@ -23,6 +23,9 @@ final class MangaTest extends TestCase
             coverUrl: 'https://example.com/cover.jpg',
             genre: GenreEnum::Shonen,
             externalId: 'ext-123',
+            publisher: 'Glénat',
+            editionYear: 2019,
+            externalWorkId: 'mal-42',
         );
     }
 
@@ -40,6 +43,9 @@ final class MangaTest extends TestCase
         $this->assertSame('ext-123', $arr['externalId']);
         $this->assertSame(0, $arr['totalVolumes']);
         $this->assertArrayHasKey('createdAt', $arr);
+        $this->assertSame('Glénat', $arr['publisher']);
+        $this->assertSame(2019, $arr['editionYear']);
+        $this->assertSame('mal-42', $arr['externalWorkId']);
     }
 
     public function testToArrayNullableFields(): void
@@ -52,6 +58,9 @@ final class MangaTest extends TestCase
         $this->assertNull($arr['coverUrl']);
         $this->assertNull($arr['genre']);
         $this->assertNull($arr['externalId']);
+        $this->assertNull($arr['publisher']);
+        $this->assertNull($arr['editionYear']);
+        $this->assertNull($arr['externalWorkId']);
     }
 
     public function testAddVolume(): void

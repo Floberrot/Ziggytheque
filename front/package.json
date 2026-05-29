@@ -18,9 +18,11 @@
   "dependencies": {
     "@tanstack/vue-query": "^5.99.0",
     "axios": "^1.16.0",
+    "barcode-detector": "^3.0.0",
     "chart.js": "^4.5.1",
     "lucide-vue-next": "^1.0.0",
     "pinia": "^3.0.4",
+    "qrcode": "^1.5.4",
     "three": "^0.184.0",
     "vue": "^3.5.32",
     "vue-chartjs": "^5.3.3",
@@ -29,6 +31,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/qrcode": "^1.5.5",
     "@types/three": "^0.184.0",
     "@tailwindcss/vite": "^4.2.2",
     "@types/node": "^24.12.2",

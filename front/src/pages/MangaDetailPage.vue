@@ -499,6 +499,8 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                     </button>
                   </div>
                   <span class="badge badge-outline">{{ entry.manga.language.toUpperCase() }}</span>
+                  <span v-if="entry.manga.publisher" class="badge badge-outline text-base-content/60">{{ entry.manga.publisher }}</span>
+                  <span v-if="entry.manga.editionYear" class="badge badge-outline text-base-content/50">{{ entry.manga.editionYear }}</span>
                   <span v-if="entry.manga.genre" class="badge badge-outline capitalize">{{ entry.manga.genre }}</span>
 
                   <!-- Rating : à droite du genre -->
@@ -914,6 +916,8 @@ function volumeOpacityClass(ve: VolumeEntry): string {
         :manga-id="entry.manga.id"
         :manga-title="entry.manga.title"
         :manga-edition="entry.manga.edition"
+        :manga-publisher="entry.manga.publisher"
+        :manga-edition-year="entry.manga.editionYear"
         :volume="modalVolume"
         @close="closeModal"
       />

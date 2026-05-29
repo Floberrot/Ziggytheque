@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Manga\Infrastructure;
 
+use App\Manga\Domain\EditionContext;
 use App\Manga\Domain\Isbn;
 use App\Manga\Domain\MangaVolumeCoverDto;
 use App\Manga\Infrastructure\ExternalApi\OpenLibraryCoversApiClient;
@@ -103,7 +104,8 @@ final class OpenLibraryCoversApiClientTest extends TestCase
     {
         $client = $this->makeClient(new MockHttpClient([]));
 
-        $result = $client->findByContext('One Piece', null, 1);
+        $context = new EditionContext(mangaTitle: 'One Piece');
+        $result = $client->findByContext($context, 1);
 
         $this->assertNull($result);
     }

@@ -21,6 +21,9 @@ export async function importManga(payload: {
   genre?: string
   externalId?: string
   totalVolumes?: number
+  publisher?: string
+  editionYear?: number
+  externalWorkId?: string
 }): Promise<{ id: string }> {
   const res = await client.post('/manga', payload)
   return res.data
@@ -34,6 +37,10 @@ export async function searchVolumeExternal(
   volumeNumber?: number | null,
   edition?: string | null,
   provider: CoverProvider = 'composite',
+  isbn?: string | null,
+  publisher?: string | null,
+  year?: number | null,
+  language = 'fr',
 ): Promise<{
   externalId: string | null
   title: string
@@ -45,16 +52,51 @@ export async function searchVolumeExternal(
   totalVolumes: number | null
   source: string | null
 }[]> {
-  const params: Record<string, string | number> = { q, page, provider }
+  const params: Record<string, string | number> = { q, page, provider, language }
   if (volumeNumber != null) params.volumeNumber = volumeNumber
   if (edition != null) params.edition = edition
+  if (isbn != null) params.isbn = isbn
+  if (publisher != null) params.publisher = publisher
+  if (year != null) params.year = year
   const res = await client.get('/manga/volume-search', { params })
   return res.data
 }
 
+export interface DiscoveredEdition {
+  publisher: string
+  editionLabel: string | null
+  year: number | null
+  language: string
+  coverUrl: string | null
+  volumeCount: number | null
+  sampleIsbn: string | null
+  source: string
+}
+
+export async function discoverEditions(title: string, country = 'FR'): Promise<DiscoveredEdition[]> {
+  const res = await client.get('/manga/editions', { params: { title, country } })
+  return res.data
+}
+
+export interface ScanSessionStartResponse {
+  sessionId: string
+  mercureUrl: string
+  subscriberToken: string
+  topic: string
+}
+
+export async function startScanSession(): Promise<ScanSessionStartResponse> {
+  const res = await client.post('/manga/scan-session')
+  return res.data
+}
+
+export async function postScannedIsbn(sessionId: string, isbn: string): Promise<void> {
+  await client.post(`/manga/scan-session/${sessionId}/isbn`, { isbn })
+}
+
 export async function updateManga(
   id: string,
-  payload: { title?: string; edition?: string; coverUrl?: string },
+  payload: { title?: string; edition?: string; coverUrl?: string; publisher?: string; editionYear?: number },
 ): Promise<void> {
   await client.patch(`/manga/${id}`, payload)
 }
@@ -62,7 +104,7 @@ export async function updateManga(
 export async function updateVolume(
   mangaId: string,
   volumeId: string,
-  payload: { coverUrl?: string; releaseDate?: string; price?: number | null; spineUrl?: string },
+  payload: { coverUrl?: string; releaseDate?: string; price?: number | null; spineUrl?: string; isbn?: string },
 ): Promise<void> {
   await client.patch(`/manga/${mangaId}/volumes/${volumeId}`, payload)
 }

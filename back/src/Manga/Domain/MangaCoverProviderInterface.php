@@ -8,10 +8,5 @@ interface MangaCoverProviderInterface
 {
     public function findByIsbn(Isbn $isbn): ?MangaVolumeCoverDto;
 
-    public function findByContext(
-        string $mangaTitle,
-        ?string $edition,
-        int $volumeNumber,
-        string $language = 'fr',
-    ): ?MangaVolumeCoverDto;
+    public function findByContext(EditionContext $context, int $volumeNumber): ?MangaVolumeCoverDto;
 }

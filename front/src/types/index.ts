@@ -18,6 +18,9 @@ export interface Manga {
   coverUrl: string | null
   genre: string | null
   externalId: string | null
+  publisher: string | null
+  editionYear: number | null
+  externalWorkId: string | null
   totalVolumes: number
   createdAt: string
 }

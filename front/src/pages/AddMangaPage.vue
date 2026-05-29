@@ -4,6 +4,7 @@
   import { useMutation, useQueryClient } from '@tanstack/vue-query'
   import { ArrowLeft, Search, RefreshCw, Book, ImageOff, Star } from 'lucide-vue-next'
   import { importManga } from '@/api/manga'
+  import type { DiscoveredEdition } from '@/api/manga'
   import { addToCollection, addRemainingToWishlist } from '@/api/collection'
   import { useUiStore } from '@/stores/useUiStore'
   import { useI18n } from 'vue-i18n'
@@ -11,13 +12,14 @@
   import type { ExternalMangaResult } from '@/composables/useExternalSearch'
   import { coverUrl } from '@/utils/coverUrl'
   import BaseEditionSelector from '@/components/atoms/BaseEditionSelector.vue'
+  import EditionPicker from '@/components/organisms/EditionPicker.vue'
 
   const router = useRouter()
   const qc = useQueryClient()
   const ui = useUiStore()
   const { t } = useI18n()
 
-  const step = ref<1 | 2 | 3>(1)
+  const step = ref<1 | 2 | 3 | 4>(1)
   const collectionEntryId = ref('')
 
   const {
@@ -49,6 +51,9 @@
     genre: '',
     totalVolumes: '' as string | number,
     externalId: '',
+    publisher: '',
+    editionYear: '' as string | number,
+    externalWorkId: '',
   })
 
   const coverPreview = computed(() => coverUrl(form.value.coverUrl))
@@ -64,14 +69,44 @@
       genre: result.genre ?? '',
       totalVolumes: result.totalVolumes ?? '',
       externalId: result.externalId ?? '',
+      publisher: '',
+      editionYear: '',
+      externalWorkId: '',
     }
     clearSearch()
     step.value = 2
   }
 
+  // The edition step lets the user pick a country (FR/US/JP); map it back to the
+  // form's language select, whose Japanese option uses the legacy 'jp' value.
+  function languageToCountry(language: string): string {
+    if (language === 'en') return 'US'
+    if (language === 'jp' || language === 'ja') return 'JP'
+    return 'FR'
+  }
+
+  function applyEdition(edition: DiscoveredEdition): void {
+    form.value.publisher = edition.publisher
+    form.value.editionYear = edition.year ?? ''
+    form.value.externalWorkId = edition.sampleIsbn ?? ''
+    if (edition.language) form.value.language = edition.language === 'ja' ? 'jp' : edition.language
+    if (edition.coverUrl) form.value.coverUrl = edition.coverUrl
+    if (edition.volumeCount) form.value.totalVolumes = edition.volumeCount
+    step.value = 3
+  }
+
   function goToForm(): void {
     clearSearch()
-    step.value = 2
+    step.value = 3
+  }
+
+  function skipEdition(): void {
+    step.value = 3
+  }
+
+  function goBack(): void {
+    if (step.value === 3) step.value = form.value.title ? 2 : 1
+    else if (step.value === 2) step.value = 1
   }
 
   const importMutation = useMutation({
@@ -86,13 +121,15 @@
         genre: form.value.genre || undefined,
         externalId: form.value.externalId || undefined,
         totalVolumes: form.value.totalVolumes !== '' ? Number(form.value.totalVolumes) : undefined,
+        publisher: form.value.publisher || undefined,
+        editionYear: form.value.editionYear !== '' ? Number(form.value.editionYear) : undefined,
+        externalWorkId: form.value.externalWorkId || undefined,
       }),
     onSuccess: async (data) => {
-      // Always add to collection first (creates the oeuvre tracker with all volumes)
       const res = await addToCollection(data.id)
       collectionEntryId.value = res.id
       qc.invalidateQueries({ queryKey: ['collection'] })
-      step.value = 3
+      step.value = 4
     },
   })
 
@@ -137,9 +174,9 @@
   <div class="p-4 md:p-6 max-w-3xl mx-auto space-y-6">
     <div class="flex items-center gap-3">
       <button
-        v-if="step > 1 && step < 3"
+        v-if="step > 1 && step < 4"
         class="btn btn-ghost btn-sm btn-circle"
-        @click="step = step === 2 ? 1 : 2"
+        @click="goBack"
       >
         <ArrowLeft class="h-5 w-5" />
       </button>
@@ -149,8 +186,9 @@
     <!-- Step indicator -->
     <ul class="steps w-full text-xs">
       <li class="step" :class="step >= 1 ? 'step-primary' : ''">{{ t('add.search') }}</li>
-      <li class="step" :class="step >= 2 ? 'step-primary' : ''">{{ t('add.info') }}</li>
-      <li class="step" :class="step >= 3 ? 'step-primary' : ''">{{ t('add.destination') }}</li>
+      <li class="step" :class="step >= 2 ? 'step-primary' : ''">{{ t('add.edition') }}</li>
+      <li class="step" :class="step >= 3 ? 'step-primary' : ''">{{ t('add.info') }}</li>
+      <li class="step" :class="step >= 4 ? 'step-primary' : ''">{{ t('add.destination') }}</li>
     </ul>
 
     <!-- ── Step 1 : Recherche ── -->
@@ -247,8 +285,18 @@
       </button>
     </div>
 
-    <!-- ── Step 2 : Formulaire ── -->
-    <div v-if="step === 2" class="flex gap-5">
+    <!-- ── Step 2 : Édition ── -->
+    <div v-if="step === 2">
+      <EditionPicker
+        :title="form.title"
+        :initial-country="languageToCountry(form.language)"
+        @select="applyEdition"
+        @skip="skipEdition"
+      />
+    </div>
+
+    <!-- ── Step 3 : Formulaire ── -->
+    <div v-if="step === 3" class="flex gap-5">
       <!-- Cover preview (always visible: horizontal on mobile, sidebar on desktop) -->
       <div class="shrink-0 flex flex-col items-center gap-2">
         <div
@@ -376,8 +424,8 @@
       </form>
     </div>
 
-    <!-- ── Step 3 : Destination ── -->
-    <div v-if="step === 3" class="space-y-4">
+    <!-- ── Step 4 : Destination ── -->
+    <div v-if="step === 4" class="space-y-4">
       <p class="text-sm text-base-content/60 text-center">
         La série a été ajoutée à votre bibliothèque. Que voulez-vous faire ?
       </p>
