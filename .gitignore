@@ -6,6 +6,9 @@ node_modules/
 # Environment
 back/.env.local
 back/.env.*.local
+# Local-only ops config (e.g. staging DB sync URLs) — never commit values
+back/scripts/*.env
+!back/scripts/*.env.example
 
 # Build
 back/var/
