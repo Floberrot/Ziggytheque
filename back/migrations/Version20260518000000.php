@@ -17,7 +17,7 @@ final class Version20260518000000 extends AbstractMigration
     public function up(Schema $schema): void
     {
         $this->addSql(<<<'SQL'
-            CREATE TABLE cache_items (
+            CREATE TABLE IF NOT EXISTS cache_items (
                 item_id       VARCHAR(255) NOT NULL,
                 item_data     BYTEA        NOT NULL,
                 item_lifetime INT          DEFAULT NULL,
@@ -29,6 +29,6 @@ final class Version20260518000000 extends AbstractMigration
 
     public function down(Schema $schema): void
     {
-        $this->addSql('DROP TABLE cache_items');
+        $this->addSql('DROP TABLE IF EXISTS cache_items');
     }
 }
