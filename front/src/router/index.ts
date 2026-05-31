@@ -80,7 +80,13 @@ const router = createRouter({
           path: 'notifications',
           name: 'notifications',
           component: () => import('@/pages/NotificationsPage.vue'),
-          meta: { title: 'Notifications' },
+          meta: { title: 'Actualités' },
+        },
+        {
+          path: 'notification-preferences',
+          name: 'notification-preferences',
+          component: () => import('@/pages/NotificationPreferencesPage.vue'),
+          meta: { title: 'Préférences de notification' },
         },
         {
           path: 'journal',
