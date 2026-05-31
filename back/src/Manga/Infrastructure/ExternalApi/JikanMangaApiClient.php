@@ -14,6 +14,15 @@ final readonly class JikanMangaApiClient implements ExternalApiClientInterface
 {
     private const BASE_URL = 'https://api.jikan.moe/v4';
 
+    /**
+     * MyAnimeList genre IDs that flag adult content: Ecchi (9), Hentai (12),
+     * Erotica (49). Jikan also groups these under the `explicit_genres` array.
+     */
+    private const ADULT_GENRE_IDS = [9, 12, 49];
+
+    /** Case-insensitive genre/theme name fragments that flag adult content. */
+    private const ADULT_GENRE_KEYWORDS = ['hentai', 'erotica', 'ecchi', 'adult'];
+
     public function __construct(
         private HttpClientInterface $httpClient,
         private LoggerInterface $logger,
@@ -34,6 +43,8 @@ final readonly class JikanMangaApiClient implements ExternalApiClientInterface
                     'type' => $type,
                     'limit' => 20,
                     'page' => $page,
+                    // Ask Jikan to drop adult (Rx / Hentai) entries server-side.
+                    'sfw' => 'true',
                 ],
             ]);
 
@@ -82,6 +93,15 @@ final readonly class JikanMangaApiClient implements ExternalApiClientInterface
     /** @param array<string, mixed> $item */
     private function mapToDto(array $item): ?ExternalMangaDto
     {
+        // Defence in depth: drop NSFW / 18+ entries even when they slip past the
+        // server-side `sfw` filter (e.g. Ecchi/Erotica) or come from the by-id
+        // endpoint, which has no such parameter.
+        if ($this->isAdultContent($item)) {
+            $this->logger->info('Jikan: filtered out adult entry', ['mal_id' => $item['mal_id'] ?? null]);
+
+            return null;
+        }
+
         $title = $item['title'] ?? $item['title_english'] ?? null;
         if ($title === null) {
             return null;
@@ -113,6 +133,37 @@ final readonly class JikanMangaApiClient implements ExternalApiClientInterface
                 ? (int) $item['volumes']
                 : null,
         );
+    }
+
+    /**
+     * Detects NSFW / 18+ entries. Jikan exposes adult taxonomy both via the
+     * dedicated `explicit_genres` array and, occasionally, mixed into the
+     * regular `genres`/`themes` lists — so we check all of them by id and name.
+     *
+     * @param array<string, mixed> $item
+     */
+    private function isAdultContent(array $item): bool
+    {
+        if (!empty($item['explicit_genres'])) {
+            return true;
+        }
+
+        foreach (['genres', 'explicit_genres', 'themes'] as $taxonomy) {
+            foreach ($item[$taxonomy] ?? [] as $entry) {
+                if (in_array($entry['mal_id'] ?? null, self::ADULT_GENRE_IDS, true)) {
+                    return true;
+                }
+
+                $name = strtolower((string) ($entry['name'] ?? ''));
+                foreach (self::ADULT_GENRE_KEYWORDS as $keyword) {
+                    if (str_contains($name, $keyword)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     /** @param array<string, mixed> $item */
