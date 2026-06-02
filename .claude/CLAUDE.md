@@ -168,6 +168,7 @@ Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrin
 - Emails: **Resend** — domain `ziggytheque.fr` verified, sender `notifications@ziggytheque.fr`, `MAILER_DSN=resend+api://KEY@default`. Full setup: `docs/resend.md`
 - Frontend nginx proxies `/api` and `/proxy` to the backend via `BACKEND_URL` (internal Railway URL), so the SPA stays same-origin
 - CORS prod value: `CORS_ALLOW_ORIGIN=^https://(www\.)?ziggytheque\.fr$`
+- **Env var sync at deploy**: a `sync-env` job (in both deploy workflows) compares the env vars declared in the repo's `.env` files against what's set on the target Railway environment and creates any **new** one **empty** (`--skip-deploys`, never edits existing values) so it only needs its value typed in Railway. Script + ignore-list: `scripts/railway-sync-env-keys.sh`; full doc: `docs/railway-env-sync.md`. When you add a `back/.env` var whose committed default IS the prod value, add its key to `IGNORE_KEYS` so it isn't shadowed by an empty Railway var.
 
 ## First time setup
 ```
