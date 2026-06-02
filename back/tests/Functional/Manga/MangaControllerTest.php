@@ -226,6 +226,28 @@ final class MangaControllerTest extends AbstractApiTestCase
         $this->assertSame(401, $response->getStatusCode());
     }
 
+    public function testSearchExternalWithJikanProviderReturnsEmpty(): void
+    {
+        // The test locator maps every provider key to NullMangaApiClient → [].
+        $response = $this->jsonRequest('GET', '/api/manga/external?q=test&provider=jikan');
+        $data     = $this->assertJsonStatus(200, $response);
+        $this->assertSame([], $data);
+    }
+
+    public function testSearchExternalWithGoogleBooksProviderReturnsEmpty(): void
+    {
+        $response = $this->jsonRequest('GET', '/api/manga/external?q=test&provider=googlebooks');
+        $data     = $this->assertJsonStatus(200, $response);
+        $this->assertSame([], $data);
+    }
+
+    public function testSearchExternalWithUnknownProviderFallsBackToDefault(): void
+    {
+        $response = $this->jsonRequest('GET', '/api/manga/external?q=test&provider=does-not-exist');
+        $data     = $this->assertJsonStatus(200, $response);
+        $this->assertSame([], $data);
+    }
+
     // ── GET /api/manga/volume-search ─────────────────────────────────────────
 
     public function testVolumeSearchReturnsEmpty(): void

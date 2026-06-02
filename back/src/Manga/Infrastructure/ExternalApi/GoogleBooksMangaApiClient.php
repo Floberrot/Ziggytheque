@@ -57,9 +57,12 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
             'page' => $page
         ]);
 
+        // The raw query is sent as-is. The caller controls any keyword (e.g. an
+        // editable "manga" default surfaced in the search field) — appending
+        // "+manga" here was found to silently narrow results.
         $response = $this->httpClient->request('GET', self::BASE_URL . '/volumes', [
             'query' => $this->withCommonParams([
-                'q' => $query . '+manga',
+                'q' => $query,
                 'printType' => 'books',
                 'langRestrict' => 'fr',
                 'maxResults' => 20,

@@ -97,9 +97,17 @@ services:
     App\Manga\Domain\MangaRepositoryInterface:
         alias: App\Manga\Infrastructure\Doctrine\DoctrineMangaRepository
 
-    # Jikan (MyAnimeList) for series search (AddManga flow)
+    # Jikan (MyAnimeList) for series search (AddManga flow) — the default provider
     App\Manga\Domain\ExternalApiClientInterface:
         alias: App\Manga\Infrastructure\ExternalApi\JikanMangaApiClient
+
+    # Service locator so SearchExternalMangaHandler can target a user-selected
+    # series-search provider (the front exposes the choice next to the search field).
+    App\Manga\Application\SearchExternal\SearchExternalMangaHandler:
+        arguments:
+            $providerLocator: !service_locator
+                jikan: '@App\Manga\Infrastructure\ExternalApi\JikanMangaApiClient'
+                googlebooks: '@App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient'
 
     # Cover provider composite — used for per-volume cover resolution
     App\Manga\Domain\MangaCoverProviderInterface:
@@ -266,6 +274,13 @@ when@test:
     services:
         App\Manga\Domain\ExternalApiClientInterface:
             alias: App\Manga\Infrastructure\ExternalApi\NullMangaApiClient
+        App\Manga\Application\SearchExternal\SearchExternalMangaHandler:
+            autowire: true
+            autoconfigure: true
+            arguments:
+                $providerLocator: !service_locator
+                    jikan: '@App\Manga\Infrastructure\ExternalApi\NullMangaApiClient'
+                    googlebooks: '@App\Manga\Infrastructure\ExternalApi\NullMangaApiClient'
         App\Manga\Domain\MangaCoverProviderInterface:
             alias: App\Tests\Doubles\Manga\StubMangaCoverProvider
         App\Manga\Domain\MultiSourceCoverProviderInterface:
