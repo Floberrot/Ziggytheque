@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { Book } from 'lucide-vue-next'
 import type { CollectionEntry } from '@/types'
 import BaseHeartRating from '@/components/atoms/BaseHeartRating.vue'
+import BaseLazyImage from '@/components/atoms/BaseLazyImage.vue'
 import { coverUrl } from '@/utils/coverUrl'
 
 const props = defineProps<{ entry: CollectionEntry }>()
@@ -73,14 +74,19 @@ function open() {
     >
       <!-- Cover -->
       <div class="aspect-[2/3] overflow-hidden">
-        <img
+        <BaseLazyImage
           v-if="entry.manga.coverUrl"
           :src="coverUrl(entry.manga.coverUrl)!"
           :alt="entry.manga.title"
-          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          class="transition-transform duration-500 group-hover:scale-110"
           :style="coverStyle"
-          loading="lazy"
-        />
+        >
+          <template #fallback>
+            <div class="w-full h-full flex items-center justify-center bg-base-200 text-base-content/15">
+              <Book class="h-12 w-12" stroke-width="1" />
+            </div>
+          </template>
+        </BaseLazyImage>
         <div v-else class="w-full h-full flex items-center justify-center bg-base-200 text-base-content/15">
           <Book class="h-12 w-12" stroke-width="1" />
         </div>

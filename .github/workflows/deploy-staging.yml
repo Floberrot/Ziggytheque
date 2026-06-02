@@ -344,8 +344,12 @@ jobs:
   # (never edits existing values). Fill them in the Railway dashboard afterward.
   # Runs before the deploy jobs so the keys exist when the new code boots.
 
+  # TEMPORARILY DISABLED (set to `if: false`) — env var key sync is skipped for
+  # now and handled manually. Re-enable later: remove `if: false` below and add
+  # `sync-env` back to the `needs` of deploy-api and deploy-front.
   sync-env:
     name: "Staging: Sync env var keys"
+    if: false
     runs-on: ubuntu-latest
     needs: [guard, phpcs, deptrac, phpstan, db-migrations, tests, frontend, docker-build]
     steps:
@@ -362,7 +366,7 @@ jobs:
   deploy-api:
     name: "Staging: Deploy API (worker → backend)"
     runs-on: ubuntu-latest
-    needs: [guard, phpcs, deptrac, phpstan, db-migrations, tests, frontend, docker-build, sync-env]
+    needs: [guard, phpcs, deptrac, phpstan, db-migrations, tests, frontend, docker-build]
     env:
       DEPLOY_MSG: "Staging deploy ${{ inputs.ref || github.ref_name }} (${{ github.sha }})"
     steps:
@@ -403,7 +407,7 @@ jobs:
   deploy-front:
     name: "Staging: Deploy Frontend"
     runs-on: ubuntu-latest
-    needs: [guard, phpcs, deptrac, phpstan, db-migrations, tests, frontend, docker-build, sync-env]
+    needs: [guard, phpcs, deptrac, phpstan, db-migrations, tests, frontend, docker-build]
     env:
       DEPLOY_MSG: "Staging deploy ${{ inputs.ref || github.ref_name }} (${{ github.sha }})"
     steps:

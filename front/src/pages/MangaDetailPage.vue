@@ -24,6 +24,7 @@ import EnrichVolumeModal from '@/components/organisms/EnrichVolumeModal.vue'
 import BaseHeartRating from '@/components/atoms/BaseHeartRating.vue'
 import { FRENCH_EDITIONS } from '@/data/editions'
 import BaseEditionSelector from '@/components/atoms/BaseEditionSelector.vue'
+import BaseLazyImage from '@/components/atoms/BaseLazyImage.vue'
 import type { ReadingStatus, VolumeEntry, VolumeToggleField } from '@/types'
 import { coverUrl } from '@/utils/coverUrl'
 
@@ -325,6 +326,13 @@ const autoFillMutation = useMutation({
           parts.length > 0 ? parts.join(' · ') : 'Terminé',
           p.failed > 0 && p.resolved === 0 ? 'error' : 'success',
         )
+        qc.invalidateQueries({ queryKey: ['collection', id] })
+        qc.invalidateQueries({ queryKey: ['collection'] })
+      },
+      onError: () => {
+        // The SSE stream died or never completed — the covers were still filled
+        // server-side, so resync silently instead of leaving the toast hanging.
+        ui.closeProgressToast(toastId, 'Couvertures mises à jour', 'info')
         qc.invalidateQueries({ queryKey: ['collection', id] })
         qc.invalidateQueries({ queryKey: ['collection'] })
       },
@@ -799,7 +807,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
           <button class="btn btn-xs btn-ghost text-base-content/30" @click="selectedIds = new Set()">Vider</button>
         </div>
 
-        <div v-if="sortedVolumes.length" class="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 xl:grid-cols-11 gap-3">
+        <div v-if="sortedVolumes.length" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-3">
           <div
             v-for="ve in sortedVolumes"
             :key="ve.id"
@@ -831,13 +839,22 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                   : 'group-hover:scale-105 group-hover:shadow-lg group-hover:z-10',
               ]"
             >
-              <img
+              <BaseLazyImage
                 v-if="ve.coverUrl"
                 :src="coverUrl(ve.coverUrl)!"
                 :alt="`Tome ${ve.number}`"
-                class="w-full h-full object-cover"
-                loading="lazy"
-              />
+              >
+                <template #fallback>
+                  <div class="w-full h-full flex items-center justify-center bg-base-200">
+                    <span
+                      class="font-bold text-xl"
+                      :class="ve.isOwned ? 'text-base-content/50' : ve.isWished ? 'text-warning/60' : ve.isAnnounced ? 'text-secondary/50' : 'text-base-content/15'"
+                    >
+                      {{ ve.number }}
+                    </span>
+                  </div>
+                </template>
+              </BaseLazyImage>
               <div
                 v-else
                 class="w-full h-full flex items-center justify-center bg-base-200"

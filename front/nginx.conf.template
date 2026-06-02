@@ -27,6 +27,29 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # Mercure SSE hub — proxied so the SPA's EventSource stays same-origin.
+    # Buffering must be off or nginx would hold the stream and break live updates.
+    location /.well-known/mercure {
+        set $backend ${BACKEND_URL};
+        proxy_pass $backend;
+
+        proxy_ssl_server_name on;
+        proxy_ssl_verify     off;
+
+        proxy_set_header Host              $proxy_host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Server-Sent Events: forward chunks immediately and hold the connection open.
+        proxy_set_header Connection '';
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 24h;
+        chunked_transfer_encoding off;
+    }
+
     # SPA fallback: all unknown routes → index.html
     location / {
         try_files $uri $uri/ /index.html;

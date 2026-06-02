@@ -302,8 +302,12 @@ jobs:
   # deploy jobs so the keys exist when the new code boots.
   # ---------------------------------------------------------------------------
 
+  # TEMPORARILY DISABLED (set to `if: false`) — env var key sync is skipped for
+  # now and handled manually. Re-enable later: remove `if: false` below and point
+  # the `needs` of deploy-api and deploy-front back to `sync-env`.
   sync-env:
     name: "Production: Sync env var keys"
+    if: false
     runs-on: ubuntu-latest
     needs: [approve]
     steps:
@@ -321,7 +325,7 @@ jobs:
   deploy-api:
     name: "Production: Deploy API (worker → backend)"
     runs-on: ubuntu-latest
-    needs: [sync-env]
+    needs: [approve]
     env:
       DEPLOY_MSG: "Deploy ${{ github.ref_name }}"
     steps:
@@ -356,7 +360,7 @@ jobs:
   deploy-front:
     name: "Production: Deploy Frontend"
     runs-on: ubuntu-latest
-    needs: [sync-env]
+    needs: [approve]
     steps:
       - uses: actions/checkout@v5
       - name: Install Railway CLI
