@@ -46,6 +46,27 @@ final class MangaDexMangaApiClientTest extends TestCase
         ]), ['response_headers' => ['Content-Type' => 'application/json']]);
     }
 
+    /** @param array<int, array{volume: string, fileName: string, locale: ?string}> $covers */
+    private function coverListResponseRaw(array $covers): MockResponse
+    {
+        $data = [];
+        foreach ($covers as $index => $cover) {
+            $data[] = [
+                'id' => 'cover-id-' . $index,
+                'attributes' => [
+                    'volume' => $cover['volume'],
+                    'fileName' => $cover['fileName'],
+                    'locale' => $cover['locale'],
+                ],
+            ];
+        }
+
+        return new MockResponse(
+            json_encode(['data' => $data, 'total' => count($data)]),
+            ['response_headers' => ['Content-Type' => 'application/json']],
+        );
+    }
+
     public function testFindByIsbnAlwaysReturnsNull(): void
     {
         $client = $this->makeClient(new MockHttpClient([]));
@@ -73,7 +94,10 @@ final class MangaDexMangaApiClientTest extends TestCase
     public function testFindByContextReturnsNullWhenNoMangaFound(): void
     {
         $httpClient = new MockHttpClient([
-            new MockResponse(json_encode(['data' => []]), ['response_headers' => ['Content-Type' => 'application/json']]),
+            new MockResponse(
+                json_encode(['data' => []]),
+                ['response_headers' => ['Content-Type' => 'application/json']],
+            ),
         ]);
 
         $result = $this->makeClient($httpClient)->findByContext('Unknown Manga', null, 1);
@@ -103,5 +127,65 @@ final class MangaDexMangaApiClientTest extends TestCase
         $result = $this->makeClient($httpClient)->findByContext('Test Manga', null, 1);
 
         $this->assertNull($result);
+    }
+
+    public function testReturnsJapaneseCoverWhenNoFrenchLocaleExists(): void
+    {
+        // Most MangaDex volume covers are the original Japanese art. Restricting to
+        // the French locale (the old behaviour) returned nothing for these series.
+        $httpClient = new MockHttpClient([
+            $this->mangaSearchResponse(self::MANGA_ID),
+            $this->coverListResponseRaw([
+                ['volume' => '1', 'fileName' => 'japanese.jpg', 'locale' => 'ja'],
+            ]),
+        ]);
+
+        $result = $this->makeClient($httpClient)->findByContext('Test Manga', null, 1);
+
+        $this->assertInstanceOf(MangaVolumeCoverDto::class, $result);
+        $this->assertStringContainsString('japanese.jpg', $result->coverUrl);
+    }
+
+    public function testPrefersRequestedLanguageOverJapanese(): void
+    {
+        $httpClient = new MockHttpClient([
+            $this->mangaSearchResponse(self::MANGA_ID),
+            $this->coverListResponseRaw([
+                ['volume' => '1', 'fileName' => 'japanese.jpg', 'locale' => 'ja'],
+                ['volume' => '1', 'fileName' => 'french.jpg', 'locale' => 'fr'],
+            ]),
+        ]);
+
+        $result = $this->makeClient($httpClient)->findByContext('Test Manga', null, 1);
+
+        $this->assertInstanceOf(MangaVolumeCoverDto::class, $result);
+        $this->assertStringContainsString('french.jpg', $result->coverUrl);
+    }
+
+    public function testCleansTitleAndDropsRestrictiveFilters(): void
+    {
+        $capturedUrls = [];
+        $httpClient = new MockHttpClient(function (string $method, string $url) use (&$capturedUrls): MockResponse {
+            $capturedUrls[] = $url;
+
+            return str_contains($url, '/manga')
+                ? $this->mangaSearchResponse(self::MANGA_ID)
+                : $this->coverListResponseRaw([['volume' => '1', 'fileName' => 'cover.jpg', 'locale' => 'ja']]);
+        });
+
+        $result = $this->makeClient($httpClient)->findByContext('One Piece tome 1', 'édition originale', 1);
+
+        $this->assertInstanceOf(MangaVolumeCoverDto::class, $result);
+
+        $mangaUrl = urldecode($capturedUrls[0]);
+        // Title is reduced to the bare series name…
+        $this->assertStringContainsString('title=One Piece', $mangaUrl);
+        $this->assertStringNotContainsStringIgnoringCase('tome', $mangaUrl);
+        $this->assertStringNotContainsStringIgnoringCase('édition', $mangaUrl);
+        // …and the restrictive scanlation-language filter is gone.
+        $this->assertStringNotContainsString('availableTranslatedLanguage', $mangaUrl);
+
+        // Covers must not be locale-restricted (the original Japanese art is wanted).
+        $this->assertStringNotContainsString('locales', urldecode($capturedUrls[1]));
     }
 }

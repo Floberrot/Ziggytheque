@@ -186,5 +186,38 @@
     "delete": "Delete",
     "remove": "Remove",
     "next": "Next"
+  },
+  "enrich": {
+    "tabSearch": "Search",
+    "tabIsbn": "ISBN",
+    "tabScan": "Scan",
+    "findCover": "Find a cover",
+    "isbnOfVolume": "Volume ISBN",
+    "isbnUnknown": "Not set",
+    "isbnHint": "13 digits under the barcode, on the back of the book.",
+    "isbnLabel": "ISBN Code",
+    "isbnPlaceholder": "E.g. 978-2-81164-563-2",
+    "searchIsbn": "Search",
+    "scanCamera": "Scan with camera",
+    "scanPhone": "Scan with my phone",
+    "coverFound": "Cover found",
+    "noCoverForIsbn": "No cover found for this ISBN.",
+    "isbnFromPhone": "ISBN received from phone: {isbn}",
+    "searchByTitle": "Search by title",
+    "cameraError": "Camera unavailable. Check permissions and ensure the page uses HTTPS.",
+    "applyThisCover": "Apply this cover",
+    "applying": "Applying…",
+    "scanLinkTitle": "Open on phone",
+    "scanExpired": "Session expired — regenerate the QR code on your computer.",
+    "scanSuccess": "Barcode sent!"
+  },
+  "scan": {
+    "title": "Scan an ISBN",
+    "instructions": "Point the camera at the book's barcode.",
+    "success": "ISBN sent: {isbn}",
+    "scanAnother": "Scan another",
+    "expired": "This link has expired. Regenerate the QR code from your computer.",
+    "invalidCode": "Barcode not recognized (invalid ISBN).",
+    "cameraError": "Cannot access camera. Check permissions and ensure the page uses HTTPS."
   }
 }

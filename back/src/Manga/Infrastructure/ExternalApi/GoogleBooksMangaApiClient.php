@@ -21,8 +21,29 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
     public function __construct(
         private HttpClientInterface $httpClient,
         private string $apiKey,
-        private LoggerInterface $logger
+        private LoggerInterface $logger,
+        private string $country = '',
     ) {
+    }
+
+    /**
+     * The API key is added only when configured (an empty key would otherwise be
+     * sent verbatim). A `country` is sent only when explicitly set — forcing one
+     * narrows Google's catalogue and was found to hurt text-search relevance.
+     *
+     * @param array<string, scalar> $query
+     * @return array<string, scalar>
+     */
+    private function withCommonParams(array $query): array
+    {
+        if ($this->country !== '') {
+            $query['country'] = $this->country;
+        }
+        if ($this->apiKey !== '') {
+            $query['key'] = $this->apiKey;
+        }
+
+        return $query;
     }
 
     /**
@@ -37,15 +58,14 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
         ]);
 
         $response = $this->httpClient->request('GET', self::BASE_URL . '/volumes', [
-            'query' => [
+            'query' => $this->withCommonParams([
                 'q' => $query . '+manga',
                 'printType' => 'books',
                 'langRestrict' => 'fr',
                 'maxResults' => 20,
                 'startIndex' => ($page - 1) * 20,
                 'orderBy' => 'relevance',
-                'key' => $this->apiKey,
-            ],
+            ]),
         ]);
 
         $this->logger->info(self::PREFIX_LOGGER . 'search by title; REQUESTED.', [
@@ -89,7 +109,7 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
             'externalId' => $externalId
         ]);
         $response = $this->httpClient->request('GET', self::BASE_URL . '/volumes/' . $externalId, [
-            'query' => ['key' => $this->apiKey],
+            'query' => $this->withCommonParams([]),
         ]);
 
         $this->logger->info(self::PREFIX_LOGGER . 'manga by id; DONE.', [
@@ -108,10 +128,7 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
 
         try {
             $response = $this->httpClient->request('GET', self::BASE_URL . '/volumes', [
-                'query' => [
-                    'q' => 'isbn:' . $isbn->value,
-                    'key' => $this->apiKey,
-                ],
+                'query' => $this->withCommonParams(['q' => 'isbn:' . $isbn->value]),
             ]);
             $data = $response->toArray();
 

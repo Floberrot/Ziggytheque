@@ -105,6 +105,10 @@ services:
     App\Manga\Domain\MangaCoverProviderInterface:
         alias: App\Manga\Infrastructure\ExternalApi\CompositeMangaCoverApiClient
 
+    # Aggregates every source's cover for one ISBN (grouped result for the user)
+    App\Manga\Domain\MultiSourceCoverProviderInterface:
+        alias: App\Manga\Infrastructure\ExternalApi\CompositeMangaCoverApiClient
+
     # Service locator so SearchVolumeExternalHandler can target a specific provider
     App\Manga\Application\SearchVolumeExternal\SearchVolumeExternalHandler:
         arguments:
@@ -117,24 +121,60 @@ services:
         arguments:
             $providers: !tagged_iterator { tag: app.manga_cover_provider }
 
-    # Cover providers ordered by priority (highest tried first)
+    # Cover providers ordered by priority (highest tried first).
+    #
+    # findByIsbn (exact, edition-accurate) is served by BnF → OpenLibrary → keyless
+    # Google: the authoritative French catalogues are trusted first (BnF legal
+    # deposit, then OpenLibrary open data), and the keyless Google endpoint is only a
+    # last-resort fallback — it suppresses covers for rights-protected series.
+    # findByContext (title search) is served by MangaDex alone (the ISBN providers
+    # return null for it), so MangaDex stays top priority without affecting the ISBN
+    # cascade order.
     App\Manga\Infrastructure\ExternalApi\MangaDexMangaApiClient:
         arguments:
             $baseUrl: '%env(MANGADEX_BASE_URL)%'
         tags:
             - { name: app.manga_cover_provider, priority: 100 }
 
+    # BnF (French national library) — keyless, authoritative for French editions
+    # (legal deposit). Default source for ISBN cover lookups.
+    App\Manga\Infrastructure\ExternalApi\BnfCoversApiClient:
+        arguments:
+            $baseUrl: '%env(BNF_BASE_URL)%'
+        tags:
+            - { name: app.manga_cover_provider, priority: 80 }
+
+    # OpenLibrary — keyless open data. Second ISBN source, after BnF.
     App\Manga\Infrastructure\ExternalApi\OpenLibraryCoversApiClient:
         arguments:
             $baseUrl: '%env(OPEN_LIBRARY_COVERS_BASE_URL)%'
         tags:
-            - { name: app.manga_cover_provider, priority: 50 }
+            - { name: app.manga_cover_provider, priority: 70 }
 
+    # Keyless Google cover lookup — no API key, not quota-metered. Last-resort
+    # fallback only: it suppresses covers for rights-protected series (e.g. One Piece).
+    App\Manga\Infrastructure\ExternalApi\GoogleBooksDynamicLinksApiClient:
+        arguments:
+            $baseUrl: '%env(GOOGLE_BOOKS_WEB_BASE_URL)%'
+        tags:
+            - { name: app.manga_cover_provider, priority: 60 }
+
+    # Hardcover (community DB) — keyed (Bearer token), ISBN-only. Re-hosts covers on
+    # its own CDN, so it can surface covers publishers hide from Google. No-op (no
+    # request) until HARDCOVER_API_TOKEN is set, so it stays harmless otherwise.
+    App\Manga\Infrastructure\ExternalApi\HardcoverCoversApiClient:
+        arguments:
+            $baseUrl: '%env(HARDCOVER_BASE_URL)%'
+            $apiToken: '%env(HARDCOVER_API_TOKEN)%'
+        tags:
+            - { name: app.manga_cover_provider, priority: 55 }
+
+    # Keyed Google Books API — kept for the explicit "Google Books" search tab, but
+    # NOT in the cover cascade: without a working key it only 429s. Cover lookups
+    # rely on the keyless/working providers above.
     App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient:
         arguments:
             $apiKey: '%env(GOOGLE_BOOKS_API_KEY)%'
-        tags:
-            - { name: app.manga_cover_provider, priority: 10 }
 
     App\Collection\Domain\CollectionRepositoryInterface:
         alias: App\Collection\Infrastructure\Doctrine\DoctrineCollectionRepository
@@ -206,12 +246,32 @@ services:
             $subscriberJwtKey: '%env(MERCURE_SUBSCRIBER_JWT_KEY)%'
             $publicHubUrlValue: '%env(MERCURE_PUBLIC_URL)%'
 
+    App\Manga\Domain\ScanTokenIssuerInterface:
+        alias: App\Manga\Infrastructure\Scan\JwtScanTokenIssuer
+
+    App\Manga\Infrastructure\Scan\JwtScanTokenIssuer:
+        arguments:
+            $secret: '%env(SCAN_TOKEN_SECRET)%'
+
+    App\Manga\Domain\ScanResultPublisherInterface:
+        alias: App\Manga\Infrastructure\Mercure\MercureScanResultPublisher
+
+    App\Manga\Infrastructure\Mercure\MercureScanResultPublisher:
+        arguments:
+            $hubUrl: '%env(MERCURE_URL)%'
+            $publisherJwtKey: '%env(MERCURE_PUBLISHER_JWT_KEY)%'
+            $logger: '@logger'
+
 when@test:
     services:
         App\Manga\Domain\ExternalApiClientInterface:
             alias: App\Manga\Infrastructure\ExternalApi\NullMangaApiClient
         App\Manga\Domain\MangaCoverProviderInterface:
-            alias: App\Manga\Infrastructure\ExternalApi\NullMangaCoverApiClient
+            alias: App\Tests\Doubles\Manga\StubMangaCoverProvider
+        App\Manga\Domain\MultiSourceCoverProviderInterface:
+            alias: App\Tests\Doubles\Manga\StubMangaCoverProvider
+        App\Tests\Doubles\Manga\StubMangaCoverProvider:
+            public: true
         App\Manga\Application\SearchVolumeExternal\SearchVolumeExternalHandler:
             autowire: true
             autoconfigure: true
@@ -227,4 +287,8 @@ when@test:
         App\Manga\Domain\CoverBatchSubscriberAuthorizerInterface:
             alias: App\Tests\Doubles\Manga\StubCoverBatchSubscriberAuthorizer
         App\Tests\Doubles\Manga\StubCoverBatchSubscriberAuthorizer:
+            public: true
+        App\Manga\Domain\ScanResultPublisherInterface:
+            alias: App\Tests\Doubles\Manga\InMemoryScanResultPublisher
+        App\Tests\Doubles\Manga\InMemoryScanResultPublisher:
             public: true

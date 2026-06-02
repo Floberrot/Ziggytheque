@@ -186,5 +186,38 @@
     "delete": "Supprimer",
     "remove": "Retirer",
     "next": "Suivant"
+  },
+  "enrich": {
+    "tabSearch": "Recherche",
+    "tabIsbn": "ISBN",
+    "tabScan": "Scan",
+    "findCover": "Trouver une couverture",
+    "isbnOfVolume": "ISBN du tome",
+    "isbnUnknown": "Non renseigné",
+    "isbnHint": "13 chiffres sous le code-barres, au dos du livre.",
+    "isbnLabel": "Code ISBN",
+    "isbnPlaceholder": "Ex. 978-2-81164-563-2",
+    "searchIsbn": "Rechercher",
+    "scanCamera": "Scanner avec la caméra",
+    "scanPhone": "Scanner avec mon téléphone",
+    "coverFound": "Couverture trouvée",
+    "noCoverForIsbn": "Aucune couverture pour cet ISBN.",
+    "isbnFromPhone": "ISBN reçu du téléphone : {isbn}",
+    "searchByTitle": "Chercher par titre",
+    "cameraError": "Caméra indisponible. Vérifiez les autorisations et que la page est en HTTPS.",
+    "applyThisCover": "Appliquer cette couverture",
+    "applying": "Application…",
+    "scanLinkTitle": "Ouvrir sur le téléphone",
+    "scanExpired": "Session expirée — régénérez le QR code sur l'ordinateur.",
+    "scanSuccess": "Code-barres envoyé !"
+  },
+  "scan": {
+    "title": "Scanner un ISBN",
+    "instructions": "Pointez la caméra vers le code-barres du livre.",
+    "success": "ISBN envoyé : {isbn}",
+    "scanAnother": "Scanner un autre",
+    "expired": "Ce lien a expiré. Régénérez le QR code depuis l'ordinateur.",
+    "invalidCode": "Code-barres non reconnu (ISBN invalide).",
+    "cameraError": "Impossible d'accéder à la caméra. Vérifiez les autorisations et que la page est en HTTPS."
   }
 }

@@ -92,6 +92,34 @@ final class CompositeMangaCoverApiClientTest extends TestCase
         $this->assertNull($result);
     }
 
+    public function testFindAllByIsbnCollectsEveryNonNullResultInOrder(): void
+    {
+        $dtoA = $this->makeDto('provider_a');
+        $dtoC = $this->makeDto('provider_c');
+        $composite = new CompositeMangaCoverApiClient(
+            [
+                $this->makeProvider($dtoA),
+                $this->makeProvider(null),
+                $this->makeProvider($dtoC),
+            ],
+            new NullLogger(),
+        );
+
+        $result = $composite->findAllByIsbn(Isbn::fromString('9782123456780'));
+
+        $this->assertSame([$dtoA, $dtoC], $result);
+    }
+
+    public function testFindAllByIsbnReturnsEmptyArrayWhenAllProvidersReturnNull(): void
+    {
+        $composite = new CompositeMangaCoverApiClient(
+            [$this->makeProvider(null), $this->makeProvider(null)],
+            new NullLogger(),
+        );
+
+        $this->assertSame([], $composite->findAllByIsbn(Isbn::fromString('9782123456780')));
+    }
+
     public function testFindByContextReturnsFirstNonNull(): void
     {
         $dto = $this->makeDto('mangadex');

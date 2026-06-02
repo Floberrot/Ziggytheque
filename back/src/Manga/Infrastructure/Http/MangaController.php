@@ -6,6 +6,7 @@ namespace App\Manga\Infrastructure\Http;
 
 use App\Manga\Application\AddVolume\AddVolumeCommand;
 use App\Manga\Application\AutoCovers\StartCoverBatchCommand;
+use App\Manga\Application\FindCoverByIsbn\FindCoverByIsbnQuery;
 use App\Manga\Application\Get\GetMangaQuery;
 use App\Manga\Application\Import\ImportMangaCommand;
 use App\Manga\Application\Search\SearchMangaQuery;
@@ -46,6 +47,15 @@ final readonly class MangaController
         $page  = max(1, (int) $request->query->get('page', 1));
 
         return new JsonResponse($this->queryBus->ask(new SearchExternalMangaQuery($query, $type, $page)));
+    }
+
+    #[Route('/cover-by-isbn', methods: ['GET'])]
+    public function coverByIsbn(Request $request): JsonResponse
+    {
+        $isbn = $request->query->get('isbn', '');
+
+        // Grouped result: every source's cover for this ISBN (empty array when none).
+        return new JsonResponse($this->queryBus->ask(new FindCoverByIsbnQuery($isbn)));
     }
 
     /** Composite cover search for individual volume covers/metadata */
@@ -132,6 +142,7 @@ final readonly class MangaController
             releaseDate: $request->releaseDate,
             price: $request->price,
             spineUrl: $request->spineUrl,
+            isbn: $request->isbn,
         ));
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);

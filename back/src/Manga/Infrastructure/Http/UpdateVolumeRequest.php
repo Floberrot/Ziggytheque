@@ -14,6 +14,7 @@ final readonly class UpdateVolumeRequest
         #[Assert\PositiveOrZero]
         public ?float $price = null,
         public ?string $spineUrl = null,
+        public ?string $isbn = null,
     ) {
     }
 }
