@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Manga\Application\AutoCovers;
 
+use App\Manga\Application\AutoCovers\AutoCoversBatchMessage;
 use App\Manga\Application\AutoCovers\StartCoverBatchCommand;
 use App\Manga\Application\AutoCovers\StartCoverBatchHandler;
 use App\Manga\Application\AutoCovers\StartCoverBatchResult;
@@ -15,6 +16,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\DelayStamp;
 
 final class StartCoverBatchHandlerTest extends TestCase
 {
@@ -63,6 +65,18 @@ final class StartCoverBatchHandlerTest extends TestCase
         $this->messageBus
             ->expects($this->once())
             ->method('dispatch')
+            ->with(
+                $this->isInstanceOf(AutoCoversBatchMessage::class),
+                $this->callback(static function (array $stamps): bool {
+                    foreach ($stamps as $stamp) {
+                        if ($stamp instanceof DelayStamp && $stamp->getDelay() === 1000) {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                }),
+            )
             ->willReturnCallback(static fn (object $message) => new Envelope($message));
 
         $result = ($this->handler)(new StartCoverBatchCommand(

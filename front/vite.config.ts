@@ -24,6 +24,11 @@ export default defineConfig({
         target: process.env.BACKEND_URL ?? 'http://localhost:8000',
         changeOrigin: true,
       },
+      // Mercure SSE hub — proxied so the EventSource stays same-origin (no CORS).
+      '/.well-known/mercure': {
+        target: process.env.BACKEND_URL ?? 'http://localhost:8000',
+        changeOrigin: true,
+      },
     },
   },
 })
