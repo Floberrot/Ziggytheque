@@ -8,9 +8,10 @@
   import { useUiStore } from '@/stores/useUiStore'
   import { useI18n } from 'vue-i18n'
   import { useExternalSearch } from '@/composables/useExternalSearch'
-  import type { ExternalMangaResult } from '@/composables/useExternalSearch'
+  import type { ExternalMangaResult, SearchProvider } from '@/composables/useExternalSearch'
   import { coverUrl } from '@/utils/coverUrl'
   import BaseEditionSelector from '@/components/atoms/BaseEditionSelector.vue'
+  import BaseProviderLogo from '@/components/atoms/BaseProviderLogo.vue'
 
   const router = useRouter()
   const qc = useQueryClient()
@@ -21,6 +22,8 @@
   const collectionEntryId = ref('')
 
   const {
+    provider,
+    providers,
     query,
     results,
     isLoading: searchLoading,
@@ -31,6 +34,18 @@
     search: runSearch,
     clear: clearSearch,
   } = useExternalSearch()
+
+  const currentProvider = computed(
+    () => providers.find((option) => option.key === provider.value) ?? providers[0],
+  )
+
+  function selectProvider(key: SearchProvider): void {
+    provider.value = key
+    // Close the DaisyUI dropdown by removing focus from the trigger/menu.
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+  }
 
   function onResultsScroll(event: Event) {
     const el = event.target as HTMLElement
@@ -130,7 +145,6 @@
     'sports',
     'other',
   ]
-
 </script>
 
 <template>
@@ -156,6 +170,34 @@
     <!-- ── Step 1 : Recherche ── -->
     <div v-if="step === 1" class="space-y-3">
       <div class="flex gap-2 items-center">
+        <!-- API source picker: logo button + tooltip naming the active API -->
+        <div class="dropdown">
+          <div
+            tabindex="0"
+            role="button"
+            class="btn btn-square btn-outline btn-sm tooltip tooltip-right p-1.5"
+            :data-tip="t('add.searchVia', { name: currentProvider.label })"
+            :aria-label="t('add.searchVia', { name: currentProvider.label })"
+          >
+            <BaseProviderLogo :provider="provider" class="h-full w-full" />
+          </div>
+          <ul
+            tabindex="0"
+            class="dropdown-content menu z-30 mt-1 w-52 rounded-box bg-base-100 p-1 shadow"
+          >
+            <li class="menu-title text-xs">{{ t('add.searchSource') }}</li>
+            <li v-for="option in providers" :key="option.key">
+              <button
+                type="button"
+                :class="{ active: option.key === provider }"
+                @click="selectProvider(option.key)"
+              >
+                <BaseProviderLogo :provider="option.key" class="h-5 w-5 shrink-0" />
+                <span>{{ option.label }}</span>
+              </button>
+            </li>
+          </ul>
+        </div>
         <label class="input input-bordered flex items-center gap-2 flex-1">
           <Search class="h-4 w-4 opacity-50 shrink-0" />
           <input
@@ -268,7 +310,9 @@
             <span class="text-[10px] md:text-xs">Cover</span>
           </div>
         </div>
-        <p class="text-[10px] md:text-xs text-base-content/30 text-center leading-tight hidden md:block">
+        <p
+          class="text-[10px] md:text-xs text-base-content/30 text-center leading-tight hidden md:block"
+        >
           Aperçu<br />automatique
         </p>
       </div>
@@ -276,18 +320,17 @@
       <form class="flex-1 min-w-0 space-y-4" @submit.prevent="importMutation.mutate()">
         <!-- Titre -->
         <div class="space-y-1">
-          <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{ t('manga.title') }} *</label>
-          <input
-            v-model="form.title"
-            type="text"
-            class="input input-bordered w-full"
-            required
-          />
+          <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide"
+            >{{ t('manga.title') }} *</label
+          >
+          <input v-model="form.title" type="text" class="input input-bordered w-full" required />
         </div>
 
         <!-- Edition -->
         <div class="space-y-1">
-          <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{ t('manga.edition') }}</label>
+          <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{
+            t('manga.edition')
+          }}</label>
           <BaseEditionSelector
             :model-value="form.edition || null"
             @update:model-value="form.edition = $event ?? ''"
@@ -297,9 +340,15 @@
         <div class="grid grid-cols-2 gap-3">
           <!-- Auteur -->
           <div class="space-y-1">
-            <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide flex items-center justify-between">
+            <label
+              class="text-xs font-semibold text-base-content/60 uppercase tracking-wide flex items-center justify-between"
+            >
               <span>{{ t('manga.author') }}</span>
-              <span v-if="form.externalId && !form.author" class="text-warning/80 text-[10px] font-normal normal-case">à saisir</span>
+              <span
+                v-if="form.externalId && !form.author"
+                class="text-warning/80 text-[10px] font-normal normal-case"
+                >à saisir</span
+              >
             </label>
             <input
               v-model="form.author"
@@ -310,7 +359,9 @@
           </div>
           <!-- Langue -->
           <div class="space-y-1">
-            <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{ t('manga.language') }}</label>
+            <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{
+              t('manga.language')
+            }}</label>
             <select v-model="form.language" class="select select-bordered select-sm w-full">
               <option value="fr">Français</option>
               <option value="en">English</option>
@@ -322,7 +373,9 @@
         <div class="grid grid-cols-2 gap-3">
           <!-- Genre -->
           <div class="space-y-1">
-            <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{ t('manga.genre') }}</label>
+            <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{
+              t('manga.genre')
+            }}</label>
             <select v-model="form.genre" class="select select-bordered select-sm w-full">
               <option value="">—</option>
               <option v-for="g in genres" :key="g" :value="g" class="capitalize">{{ g }}</option>
@@ -330,9 +383,13 @@
           </div>
           <!-- Nb tomes -->
           <div class="space-y-1">
-            <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide flex items-center justify-between">
+            <label
+              class="text-xs font-semibold text-base-content/60 uppercase tracking-wide flex items-center justify-between"
+            >
               <span>{{ t('manga.totalVolumes') }}</span>
-              <span class="text-base-content/30 text-[10px] font-normal normal-case">optionnel</span>
+              <span class="text-base-content/30 text-[10px] font-normal normal-case"
+                >optionnel</span
+              >
             </label>
             <input
               v-model="form.totalVolumes"
@@ -347,7 +404,9 @@
 
         <!-- URL couverture -->
         <div class="space-y-1">
-          <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{ t('manga.coverUrl') }}</label>
+          <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{
+            t('manga.coverUrl')
+          }}</label>
           <input
             v-model="form.coverUrl"
             type="url"
@@ -358,7 +417,9 @@
 
         <!-- Résumé -->
         <div class="space-y-1">
-          <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{ t('manga.summary') }}</label>
+          <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{
+            t('manga.summary')
+          }}</label>
           <textarea
             v-model="form.summary"
             class="textarea textarea-bordered textarea-sm resize-none w-full"

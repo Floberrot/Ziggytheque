@@ -42,11 +42,12 @@ final readonly class MangaController
     #[Route('/external', methods: ['GET'])]
     public function searchExternal(Request $request): JsonResponse
     {
-        $query = $request->query->get('q', '');
-        $type  = $request->query->get('type', 'manga');
-        $page  = max(1, (int) $request->query->get('page', 1));
+        $query    = $request->query->get('q', '');
+        $type     = $request->query->get('type', 'manga');
+        $page     = max(1, (int) $request->query->get('page', 1));
+        $provider = $request->query->get('provider', '');
 
-        return new JsonResponse($this->queryBus->ask(new SearchExternalMangaQuery($query, $type, $page)));
+        return new JsonResponse($this->queryBus->ask(new SearchExternalMangaQuery($query, $type, $page, $provider)));
     }
 
     #[Route('/cover-by-isbn', methods: ['GET'])]

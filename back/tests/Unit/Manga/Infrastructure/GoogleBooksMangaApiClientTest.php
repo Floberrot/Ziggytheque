@@ -166,4 +166,54 @@ final class GoogleBooksMangaApiClientTest extends TestCase
         $this->assertCount(1, $requestedUrls);
         $this->assertStringNotContainsString('key=', $requestedUrls[0]);
     }
+
+    public function testSearchByTitleSendsRawQueryWithoutForcingMangaKeyword(): void
+    {
+        $requestedUrls = [];
+        $httpClient = new MockHttpClient(function (string $method, string $url) use (&$requestedUrls): MockResponse {
+            $requestedUrls[] = $url;
+            return new MockResponse(json_encode(['items' => []]));
+        });
+
+        $this->makeClient($httpClient)->searchByTitle('naruto');
+
+        $this->assertCount(1, $requestedUrls);
+        // The "+manga" keyword that used to be forced onto every query is gone:
+        // the raw term is sent verbatim so the caller controls any keyword.
+        $this->assertStringContainsString('q=naruto', $requestedUrls[0]);
+        $this->assertStringNotContainsString('manga', $requestedUrls[0]);
+        $this->assertStringContainsString('langRestrict=fr', $requestedUrls[0]);
+    }
+
+    public function testSearchByTitleMapsFrenchMangaResult(): void
+    {
+        $payload = [
+            'items' => [
+                [
+                    'id' => 'gbooks-1',
+                    'volumeInfo' => [
+                        'title' => 'Naruto',
+                        'authors' => ['Masashi Kishimoto'],
+                        'publisher' => 'Kana',
+                        'language' => 'fr',
+                        'description' => 'A ninja story.',
+                        'categories' => ['Comics & Graphic Novels / Manga'],
+                        'imageLinks' => ['thumbnail' => 'http://books.google.com/naruto.jpg'],
+                    ],
+                ],
+            ],
+        ];
+
+        $httpClient = new MockHttpClient([
+            new MockResponse(json_encode($payload)),
+        ]);
+
+        $results = $this->makeClient($httpClient)->searchByTitle('naruto');
+
+        $this->assertCount(1, $results);
+        $this->assertSame('gbooks-1', $results[0]->externalId);
+        $this->assertSame('Naruto', $results[0]->title);
+        $this->assertSame('google', $results[0]->source);
+        $this->assertStringStartsWith('https://', (string) $results[0]->coverUrl);
+    }
 }

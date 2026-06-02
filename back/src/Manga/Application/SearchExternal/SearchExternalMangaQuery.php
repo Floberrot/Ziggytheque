@@ -10,6 +10,7 @@ final readonly class SearchExternalMangaQuery
         public string $query,
         public string $type = 'manga',
         public int $page = 1,
+        public string $provider = '',
     ) {
     }
 }

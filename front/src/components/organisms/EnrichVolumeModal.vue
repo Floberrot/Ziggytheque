@@ -3,12 +3,15 @@ import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { X, Search, RefreshCw, Book, ImageOff, Megaphone, Package, Star, BookOpen, Camera, Smartphone, QrCode, Info } from 'lucide-vue-next'
 import { searchVolumeExternal, updateVolume, createScanSession } from '@/api/manga'
+import type { CoverProvider } from '@/api/manga'
 import { toggleVolume } from '@/api/collection'
 import { useUiStore } from '@/stores/useUiStore'
 import { useIsbnCoverSearch } from '@/composables/useIsbnCoverSearch'
 import { useBarcodeScanner } from '@/composables/useBarcodeScanner'
 import { useScanSession } from '@/composables/useScanSession'
+import { useCoverProvider } from '@/composables/useCoverProvider'
 import BaseQrCode from '@/components/atoms/BaseQrCode.vue'
+import BaseCoverProviderLogo from '@/components/atoms/BaseCoverProviderLogo.vue'
 import { useI18n } from 'vue-i18n'
 import type { VolumeEntry, VolumeToggleField } from '@/types'
 import { coverUrl } from '@/utils/coverUrl'
@@ -51,9 +54,18 @@ const hasMore = ref(false)
 const PAGE_SIZE = 20
 let currentPage = 1
 let lastQuery = ''
-let lastVolumeNumber: number | null = null
-let lastEdition: string | null = null
 let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+const { provider: coverProvider, providers: coverProviders } = useCoverProvider()
+const currentCoverProviderLabel = computed(
+  () => coverProviders.find((option) => option.key === coverProvider.value)?.label ?? 'Auto',
+)
+
+function selectCoverProvider(key: CoverProvider): void {
+  coverProvider.value = key
+  // Close the DaisyUI dropdown by removing focus from the trigger/menu.
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+}
 
 function buildContextQuery(title: string, volumeNumber: number, edition: string | null): string {
   return `${title} tome ${volumeNumber}${edition ? ' ' + edition : ''}`.trim()
@@ -61,13 +73,12 @@ function buildContextQuery(title: string, volumeNumber: number, edition: string 
 
 watch(searchQuery, (val) => {
   if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => {
-    if (val.trim().length >= 2) {
-      lastVolumeNumber = null
-      lastEdition = null
-      runSearch(val)
-    }
-  }, 500)
+  searchTimer = setTimeout(() => runSearch(val), 500)
+})
+
+// Re-run the current search whenever the cover source changes.
+watch(coverProvider, () => {
+  if (searchQuery.value.trim().length >= 2) runSearch(searchQuery.value)
 })
 
 async function runSearch(q: string) {
@@ -76,7 +87,13 @@ async function runSearch(q: string) {
   currentPage = 1
   isSearching.value = true
   try {
-    const data = await searchVolumeExternal(lastQuery, 1, lastVolumeNumber, lastEdition)
+    const data = await searchVolumeExternal(
+      lastQuery,
+      1,
+      props.volume?.number ?? null,
+      props.mangaEdition,
+      coverProvider.value,
+    )
     searchResults.value = data
     hasMore.value = data.length >= PAGE_SIZE
   } catch {
@@ -92,7 +109,13 @@ async function loadMore() {
   if (!hasMore.value || isLoadingMore.value || !lastQuery) return
   isLoadingMore.value = true
   try {
-    const data = await searchVolumeExternal(lastQuery, currentPage + 1, null, null)
+    const data = await searchVolumeExternal(
+      lastQuery,
+      currentPage + 1,
+      props.volume?.number ?? null,
+      props.mangaEdition,
+      coverProvider.value,
+    )
     if (data.length > 0) {
       currentPage++
       searchResults.value = [...searchResults.value, ...data]
@@ -162,10 +185,9 @@ function isbnSourceLabel(source: string): string {
 // search (served by MangaDex), which is far more reliable for manga.
 function fallbackToTitleSearch(): void {
   if (!props.volume) return
-  lastVolumeNumber = props.volume.number
-  lastEdition = props.mangaEdition
   mode.value = 'search'
-  runSearch(buildContextQuery(props.mangaTitle, props.volume.number, props.mangaEdition))
+  // Seeding the field triggers the debounced search below.
+  searchQuery.value = buildContextQuery(props.mangaTitle, props.volume.number, props.mangaEdition)
 }
 
 // Clears every per-tome result so switching tomes never shows the previous one's.
@@ -176,8 +198,6 @@ function resetTransientState(): void {
   hasMore.value = false
   currentPage = 1
   lastQuery = ''
-  lastVolumeNumber = null
-  lastEdition = null
   isbnInput.value = ''
   isbnSearched.value = false
   isbnCovers.value = []
@@ -198,9 +218,9 @@ watch(() => props.volume?.id ?? null, (id, previousId) => {
   resetTransientState()
   const vol = props.volume
   if (props.open && vol && !vol.coverUrl) {
-    lastVolumeNumber = vol.number
-    lastEdition = props.mangaEdition
-    runSearch(buildContextQuery(props.mangaTitle, vol.number, props.mangaEdition))
+    // Seed the field with the default context query — visible and editable —
+    // which triggers the (debounced) search.
+    searchQuery.value = buildContextQuery(props.mangaTitle, vol.number, props.mangaEdition)
   }
 })
 
@@ -437,9 +457,42 @@ const volumeStatus = computed(() => {
                 <!-- Titre : recherche par titre + résultats -->
                 <template v-if="mode === 'search'">
                   <div class="flex gap-2 items-center mb-4">
+                    <!-- Cover source picker: logo + tooltip naming the active source -->
+                    <div class="dropdown">
+                      <div
+                        tabindex="0"
+                        role="button"
+                        class="btn btn-square btn-outline btn-sm tooltip tooltip-right p-1.5"
+                        :data-tip="t('enrich.coverVia', { name: currentCoverProviderLabel })"
+                        :aria-label="t('enrich.coverVia', { name: currentCoverProviderLabel })"
+                      >
+                        <BaseCoverProviderLogo :provider="coverProvider" class="h-full w-full" />
+                      </div>
+                      <ul
+                        tabindex="0"
+                        class="dropdown-content menu z-30 mt-1 w-48 rounded-box bg-base-100 p-1 shadow"
+                      >
+                        <li class="menu-title text-xs">{{ t('enrich.coverSource') }}</li>
+                        <li v-for="option in coverProviders" :key="option.key">
+                          <button
+                            type="button"
+                            :class="{ active: option.key === coverProvider }"
+                            @click="selectCoverProvider(option.key)"
+                          >
+                            <BaseCoverProviderLogo :provider="option.key" class="h-5 w-5 shrink-0" />
+                            <span>{{ option.label }}</span>
+                          </button>
+                        </li>
+                      </ul>
+                    </div>
                     <label class="input input-bordered input-sm flex items-center gap-2 flex-1">
                       <Search class="h-4 w-4 opacity-40 shrink-0" />
-                      <input v-model="searchQuery" type="text" class="grow text-sm" placeholder="Affiner si nécessaire — sinon, laissez vide" />
+                      <input
+                        v-model="searchQuery"
+                        type="text"
+                        class="grow text-sm"
+                        :placeholder="t('enrich.coverSearchPlaceholder')"
+                      />
                       <span v-if="isSearching" class="loading loading-spinner loading-xs opacity-40" />
                     </label>
                     <button class="btn btn-square btn-outline btn-sm shrink-0" :class="{ loading: isSearching }" :disabled="isSearching || searchQuery.trim().length < 2" title="Relancer" @click="runSearch(searchQuery)">
