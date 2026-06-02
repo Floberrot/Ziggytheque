@@ -45,9 +45,9 @@ railway environment                                       # récupère l'id de s
 La duplication copie les variables non-sealed. À ajuster / re-saisir **par
 service** dans le dashboard (onglet *Variables* de chaque service, env staging) :
 
-> 💡 Le job `sync-env` du déploiement crée automatiquement, **vides**, les clés
-> attendues qui manquent sur l'environnement ciblé (dont les **sealed** non
-> copiées) — il ne reste qu'à **saisir leur valeur**. Voir
+> 💡 Le job `sync-env` du déploiement crée automatiquement les clés attendues
+> qui manquent sur l'environnement ciblé (dont les **sealed** non copiées) avec
+> un placeholder `CHANGEME` — il ne reste qu'à **remplacer leur valeur**. Voir
 > [`docs/railway-env-sync.md`](./railway-env-sync.md). Le tableau ci-dessous
 > reste la référence des valeurs à fournir.
 
