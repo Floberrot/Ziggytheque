@@ -108,6 +108,12 @@ const router = createRouter({
         },
       ],
     },
+    {
+      path: '/scan/:token',
+      name: 'scan',
+      component: () => import('@/pages/ScanPage.vue'),
+      meta: { public: true, title: 'Scanner un ISBN' },
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })
@@ -123,7 +129,7 @@ router.beforeEach(async (to) => {
     return { name: 'login' }
   }
 
-  if (to.meta.public && auth.isAuthenticated && to.name !== 'verify-email' && to.name !== 'reset-password') {
+  if (to.meta.public && auth.isAuthenticated && to.name !== 'verify-email' && to.name !== 'reset-password' && to.name !== 'scan') {
     return { name: 'dashboard' }
   }
 

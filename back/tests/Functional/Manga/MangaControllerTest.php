@@ -176,9 +176,32 @@ final class MangaControllerTest extends AbstractApiTestCase
         $response = $this->jsonRequest(
             'PATCH',
             '/api/manga/' . $mangaId . '/volumes/' . $volumeId,
-            ['price' => 7.99],
+            ['price' => 7.99, 'isbn' => '9782811645632'],
         );
         $this->assertSame(204, $response->getStatusCode());
+
+        $detail = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/manga/' . $mangaId));
+        $volume = $detail['volumes'][0];
+        $this->assertSame('9782811645632', $volume['isbn']);
+    }
+
+    public function testUpdateVolumeRejectsInvalidIsbn(): void
+    {
+        $mangaId = $this->importManga();
+
+        $volData = $this->assertJsonStatus(201, $this->jsonRequest(
+            'POST',
+            '/api/manga/' . $mangaId . '/volumes',
+            ['number' => 1],
+        ));
+        $volumeId = $volData['id'];
+
+        $response = $this->jsonRequest(
+            'PATCH',
+            '/api/manga/' . $mangaId . '/volumes/' . $volumeId,
+            ['isbn' => 'xxx'],
+        );
+        $this->assertSame(422, $response->getStatusCode());
     }
 
     public function testUpdateVolumeNotFound(): void

@@ -13,6 +13,7 @@ final readonly class UpdateVolumeCommand
         public ?string $releaseDate = null,
         public ?float $price = null,
         public ?string $spineUrl = null,
+        public ?string $isbn = null,
     ) {
     }
 }

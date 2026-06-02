@@ -23,6 +23,7 @@ services:
       MERCURE_SUBSCRIBER_JWT_KEY: "!ChangeThisLocalMercureSubscriberKey!"
       MERCURE_URL: http://back:80/.well-known/mercure
       MERCURE_PUBLIC_URL: http://localhost:8000/.well-known/mercure
+      SCAN_TOKEN_SECRET: "!ChangeThisLocalScanTokenSecret32c!"
     depends_on:
       db:
         condition: service_healthy

@@ -62,7 +62,7 @@ export async function updateManga(
 export async function updateVolume(
   mangaId: string,
   volumeId: string,
-  payload: { coverUrl?: string; releaseDate?: string; price?: number | null; spineUrl?: string },
+  payload: { coverUrl?: string; releaseDate?: string; price?: number | null; spineUrl?: string; isbn?: string },
 ): Promise<void> {
   await client.patch(`/manga/${mangaId}/volumes/${volumeId}`, payload)
 }
@@ -77,6 +77,36 @@ export async function addVolume(
 ): Promise<{ id: string }> {
   const res = await client.post(`/manga/${mangaId}/volumes`, payload)
   return res.data
+}
+
+export async function coverByIsbn(isbn: string): Promise<{
+  coverUrl: string
+  spineUrl: string | null
+  isbn: string | null
+  source: string
+}[]> {
+  const res = await client.get('/manga/cover-by-isbn', { params: { isbn } })
+  return res.data
+}
+
+export interface ScanSessionResponse {
+  sessionId: string
+  scanToken: string
+  mercureUrl: string
+  subscriberToken: string
+  topic: string
+}
+
+export async function createScanSession(payload: {
+  mangaId: string
+  volumeId: string
+}): Promise<ScanSessionResponse> {
+  const res = await client.post('/scan/sessions', payload)
+  return res.data
+}
+
+export async function submitScan(payload: { scanToken: string; isbn: string }): Promise<void> {
+  await client.post('/scan/submit', payload)
 }
 
 export interface CoverBatchStartResponse {

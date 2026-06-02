@@ -7,9 +7,12 @@ namespace App\Manga\Infrastructure\ExternalApi;
 use App\Manga\Domain\Isbn;
 use App\Manga\Domain\MangaCoverProviderInterface;
 use App\Manga\Domain\MangaVolumeCoverDto;
+use App\Manga\Domain\MultiSourceCoverProviderInterface;
 use Psr\Log\LoggerInterface;
 
-final readonly class CompositeMangaCoverApiClient implements MangaCoverProviderInterface
+final readonly class CompositeMangaCoverApiClient implements
+    MangaCoverProviderInterface,
+    MultiSourceCoverProviderInterface
 {
     /**
      * @param iterable<MangaCoverProviderInterface> $providers ordered by priority (highest first)
@@ -42,6 +45,26 @@ final readonly class CompositeMangaCoverApiClient implements MangaCoverProviderI
         }
 
         return null;
+    }
+
+    public function findAllByIsbn(Isbn $isbn): array
+    {
+        $covers = [];
+
+        foreach ($this->providers as $provider) {
+            $result = $provider->findByIsbn($isbn);
+
+            $this->logger->info('COMPOSITE : findAllByIsbn source result.', [
+                'provider' => $provider::class,
+                'match' => $result !== null,
+            ]);
+
+            if ($result !== null) {
+                $covers[] = $result;
+            }
+        }
+
+        return $covers;
     }
 
     public function findByContext(

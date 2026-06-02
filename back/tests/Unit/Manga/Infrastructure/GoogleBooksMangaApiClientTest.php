@@ -122,4 +122,48 @@ final class GoogleBooksMangaApiClientTest extends TestCase
 
         $this->assertNull($result);
     }
+
+    public function testCountryOmittedByDefault(): void
+    {
+        $requestedUrls = [];
+        $httpClient = new MockHttpClient(function (string $method, string $url) use (&$requestedUrls): MockResponse {
+            $requestedUrls[] = $url;
+            return new MockResponse(json_encode(['totalItems' => 0]));
+        });
+
+        $this->makeClient($httpClient)->findByIsbn($this->makeIsbn());
+
+        $this->assertCount(1, $requestedUrls);
+        $this->assertStringNotContainsString('country=', $requestedUrls[0]);
+    }
+
+    public function testCountrySentOnlyWhenConfigured(): void
+    {
+        $requestedUrls = [];
+        $httpClient = new MockHttpClient(function (string $method, string $url) use (&$requestedUrls): MockResponse {
+            $requestedUrls[] = $url;
+            return new MockResponse(json_encode(['totalItems' => 0]));
+        });
+
+        $client = new GoogleBooksMangaApiClient($httpClient, self::API_KEY, new NullLogger(), 'FR');
+        $client->findByIsbn($this->makeIsbn());
+
+        $this->assertCount(1, $requestedUrls);
+        $this->assertStringContainsString('country=FR', $requestedUrls[0]);
+    }
+
+    public function testKeyIsOmittedFromQueryWhenNotConfigured(): void
+    {
+        $requestedUrls = [];
+        $httpClient = new MockHttpClient(function (string $method, string $url) use (&$requestedUrls): MockResponse {
+            $requestedUrls[] = $url;
+            return new MockResponse(json_encode(['totalItems' => 0]));
+        });
+
+        $keylessClient = new GoogleBooksMangaApiClient($httpClient, '', new NullLogger());
+        $keylessClient->findByIsbn($this->makeIsbn());
+
+        $this->assertCount(1, $requestedUrls);
+        $this->assertStringNotContainsString('key=', $requestedUrls[0]);
+    }
 }
