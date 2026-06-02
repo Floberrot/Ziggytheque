@@ -295,6 +295,25 @@ jobs:
       - run: echo "Production deployment of ${{ github.ref_name }} approved — proceeding"
 
   # ---------------------------------------------------------------------------
+  # Sync env var keys — after approval, before the deploy. Compares the env vars
+  # declared in the repo's .env files against what is already set on production
+  # and creates any missing one EMPTY (never edits existing values), so a new
+  # var only needs its value typed in the Railway dashboard. Runs before the
+  # deploy jobs so the keys exist when the new code boots.
+  # ---------------------------------------------------------------------------
+
+  sync-env:
+    name: "Production: Sync env var keys"
+    runs-on: ubuntu-latest
+    needs: [approve]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      - name: Create empty placeholders for new env vars
+        run: ./scripts/railway-sync-env-keys.sh "$RAILWAY_ENVIRONMENT_ID"
+
+  # ---------------------------------------------------------------------------
   # Deploy to production — single API job: worker first (messenger:consume),
   # then backend (frankenphp run).  Front deploys in parallel.
   # ---------------------------------------------------------------------------
@@ -302,7 +321,7 @@ jobs:
   deploy-api:
     name: "Production: Deploy API (worker → backend)"
     runs-on: ubuntu-latest
-    needs: [approve]
+    needs: [sync-env]
     env:
       DEPLOY_MSG: "Deploy ${{ github.ref_name }}"
     steps:
@@ -337,7 +356,7 @@ jobs:
   deploy-front:
     name: "Production: Deploy Frontend"
     runs-on: ubuntu-latest
-    needs: [approve]
+    needs: [sync-env]
     steps:
       - uses: actions/checkout@v5
       - name: Install Railway CLI
