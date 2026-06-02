@@ -22,6 +22,8 @@ assert_eq() {
     failures=$((failures + 1))
   fi
 }
+assert_true()  { if "$@"; then printf 'ok   - %s\n' "$*"; else printf 'FAIL - expected success: %s\n' "$*"; failures=$((failures + 1)); fi; }
+assert_false() { if "$@"; then printf 'FAIL - expected failure: %s\n' "$*"; failures=$((failures + 1)); else printf 'ok   - ! %s\n' "$*"; fi; }
 
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
@@ -42,16 +44,24 @@ assert_eq "extract_keys parses keys and ignores comments/blanks" \
 
 assert_eq "extract_keys on a missing file is empty" "" "$(extract_keys /no/such/file)"
 
-# --- is_ignored ---------------------------------------------------------------
-if is_ignored "APP_ENV";    then printf 'ok   - is_ignored APP_ENV\n';    else printf 'FAIL - is_ignored APP_ENV\n';    failures=$((failures + 1)); fi
-if is_ignored "DATABASE_URL"; then printf 'ok   - is_ignored DATABASE_URL\n'; else printf 'FAIL - is_ignored DATABASE_URL\n'; failures=$((failures + 1)); fi
-if is_ignored "GATE_PASSWORD"; then printf 'FAIL - GATE_PASSWORD must NOT be ignored\n'; failures=$((failures + 1)); else printf 'ok   - GATE_PASSWORD not ignored\n'; fi
+# --- is_ignored: exact list + glob patterns -----------------------------------
+assert_true  is_ignored "APP_ENV"
+assert_true  is_ignored "DATABASE_URL"
+# *_BASE_URL pattern: public API base URLs must be ignored (their committed
+# default IS the prod value) — this is the BNF_BASE_URL regression.
+assert_true  is_ignored "BNF_BASE_URL"
+assert_true  is_ignored "MANGADEX_BASE_URL"
+assert_true  is_ignored "OPEN_LIBRARY_COVERS_BASE_URL"
+# Secrets / per-env vars must NOT be ignored.
+assert_false is_ignored "GATE_PASSWORD"
+assert_false is_ignored "MERCURE_PUBLIC_URL"
+assert_false is_ignored "DISCORD_WEBHOOK_URL"
 
 # --- compute_missing: expected − ignored − already-present --------------------
-expected=$'APP_SECRET\nGATE_PASSWORD\nDATABASE_URL\nGOOGLE_BOOKS_API_KEY\nAPP_ENV'
+expected=$'APP_SECRET\nGATE_PASSWORD\nDATABASE_URL\nGOOGLE_BOOKS_API_KEY\nAPP_ENV\nBNF_BASE_URL\nMANGADEX_BASE_URL'
 current=$'APP_SECRET\nRAILWAY_SERVICE_NAME\nDATABASE_URL'
-# Missing = GATE_PASSWORD + GOOGLE_BOOKS_API_KEY (APP_SECRET present, DATABASE_URL
-# present + ignored, APP_ENV ignored).
+# Missing = GATE_PASSWORD + GOOGLE_BOOKS_API_KEY only (APP_SECRET present;
+# DATABASE_URL present + ignored; APP_ENV ignored; *_BASE_URL ignored).
 assert_eq "compute_missing returns only new, non-ignored keys" \
   $'GATE_PASSWORD\nGOOGLE_BOOKS_API_KEY' \
   "$(compute_missing "$expected" "$current")"
@@ -61,18 +71,30 @@ assert_eq "compute_missing is empty when nothing new" \
   "$(compute_missing $'APP_SECRET\nAPP_ENV' $'APP_SECRET')"
 
 # --- DRY_RUN end-to-end against the real .env files ---------------------------
-# Exercises main()/sync_service wiring with no Railway calls; just asserts it
-# succeeds and reports at least the known backend secrets as "would create".
+# Exercises main()/sync_service wiring with no Railway calls; asserts it succeeds,
+# uses the sentinel value, and never touches ignored keys.
 out="$(cd "$SCRIPT_DIR/.." && DRY_RUN=1 GITHUB_ACTIONS= GITHUB_STEP_SUMMARY= bash scripts/railway-sync-env-keys.sh 2>&1)"
-if printf '%s' "$out" | grep -q 'would create ziggytheque-back / GATE_PASSWORD='; then
-  printf 'ok   - DRY_RUN flags GATE_PASSWORD for ziggytheque-back\n'
+rc=$?
+assert_eq "DRY_RUN exits 0" "0" "$rc"
+if printf '%s' "$out" | grep -q 'would set ziggytheque-back / GATE_PASSWORD=CHANGEME'; then
+  printf 'ok   - DRY_RUN sets GATE_PASSWORD to the sentinel value\n'
 else
-  printf 'FAIL - DRY_RUN did not flag GATE_PASSWORD\n%s\n' "$out"; failures=$((failures + 1))
+  printf 'FAIL - DRY_RUN did not set GATE_PASSWORD=CHANGEME\n%s\n' "$out"; failures=$((failures + 1))
 fi
-if printf '%s' "$out" | grep -q 'would create .* / DATABASE_URL='; then
-  printf 'FAIL - DATABASE_URL must never be created\n'; failures=$((failures + 1))
+for forbidden in DATABASE_URL MANGADEX_BASE_URL OPEN_LIBRARY_COVERS_BASE_URL APP_ENV; do
+  if printf '%s' "$out" | grep -q "would set .* / ${forbidden}="; then
+    printf 'FAIL - ignored key %s must never be set\n' "$forbidden"; failures=$((failures + 1))
+  else
+    printf 'ok   - DRY_RUN never sets %s\n' "$forbidden"
+  fi
+done
+
+# --- PLACEHOLDER_VALUE override -----------------------------------------------
+out2="$(cd "$SCRIPT_DIR/.." && DRY_RUN=1 PLACEHOLDER_VALUE=__FILL__ GITHUB_ACTIONS= GITHUB_STEP_SUMMARY= bash scripts/railway-sync-env-keys.sh 2>&1)"
+if printf '%s' "$out2" | grep -q 'GATE_PASSWORD=__FILL__'; then
+  printf 'ok   - PLACEHOLDER_VALUE override is honored\n'
 else
-  printf 'ok   - DRY_RUN never creates DATABASE_URL\n'
+  printf 'FAIL - PLACEHOLDER_VALUE override not honored\n'; failures=$((failures + 1))
 fi
 
 echo
