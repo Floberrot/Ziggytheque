@@ -12,6 +12,7 @@ use App\Shared\Application\Bus\CommandBusInterface;
 use App\Shared\Application\Bus\QueryBusInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[Route('/api/wishlist')]
@@ -23,11 +24,20 @@ final readonly class WishlistController
     ) {
     }
 
-    /** Returns all collection entries that have at least one wished (non-owned) volume */
+    /**
+     * Paginated collection entries that have at least one wished (non-owned) volume,
+     * optionally filtered by a manga title search.
+     */
     #[Route('', methods: ['GET'])]
-    public function list(): JsonResponse
+    public function list(#[MapQueryString] WishlistFilterRequest $request): JsonResponse
     {
-        return new JsonResponse($this->queryBus->ask(new GetWishlistQuery()));
+        $query = new GetWishlistQuery(
+            search: $request->search,
+            page:   $request->page,
+            limit:  20,
+        );
+
+        return new JsonResponse($this->queryBus->ask($query));
     }
 
     /** Add all non-owned volumes of a collection entry to the wishlist */

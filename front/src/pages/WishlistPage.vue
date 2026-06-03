@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
-import { CheckSquare, X, Star, Plus, ArrowRight, Check, ShoppingCart, Book } from 'lucide-vue-next'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
+import { CheckSquare, X, Star, Plus, ArrowRight, Check, ShoppingCart, Book, Search } from 'lucide-vue-next'
 import { getWishlist, clearWishlist, purchaseVolume } from '@/api/wishlist'
 import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
@@ -14,9 +14,37 @@ const ui = useUiStore()
 const { t } = useI18n()
 const router = useRouter()
 
-const { data: entries, isPending } = useQuery({ queryKey: ['wishlist'], queryFn: getWishlist })
+// ── Search (debounced) ──
+const searchInput = ref('')
+const search = ref<string | undefined>(undefined)
 
-const totalWished = computed(() => entries.value?.reduce((s, e) => s + wishedVolumes(e).length, 0) ?? 0)
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+watch(searchInput, (val) => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    search.value = val.trim() || undefined
+  }, 300)
+})
+
+// ── Infinite query ──
+const queryKey = computed(() => ['wishlist', { search: search.value }])
+
+const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useInfiniteQuery({
+  queryKey,
+  queryFn: ({ pageParam }) =>
+    getWishlist({ search: search.value, page: pageParam as number }),
+  getNextPageParam: (lastPage) => {
+    const fetched = lastPage.page * lastPage.limit
+    return fetched < lastPage.total ? lastPage.page + 1 : undefined
+  },
+  initialPageParam: 1,
+})
+
+const entries = computed<WishlistEntry[]>(() => data.value?.pages.flatMap((p) => p.items) ?? [])
+const totalSeries = computed(() => data.value?.pages[0]?.total ?? 0)
+const isPending = isLoading
+
+const totalWished = computed(() => entries.value.reduce((sum, entry) => sum + wishedVolumes(entry).length, 0))
 
 function wishedVolumes(entry: WishlistEntry): VolumeEntry[] {
   return entry.volumes.filter((v) => v.isWished && !v.isOwned)
@@ -106,6 +134,24 @@ const purchaseMutation = useMutation({
 function goToDetail(id: string) {
   router.push({ name: 'collection-detail', params: { id } })
 }
+
+// ── Infinite scroll sentinel ──
+const sentinel = ref<HTMLElement | null>(null)
+let observer: IntersectionObserver | null = null
+
+onMounted(() => {
+  observer = new IntersectionObserver(([entry]) => {
+    if (entry.isIntersecting && hasNextPage.value && !isFetchingNextPage.value) {
+      fetchNextPage()
+    }
+  })
+  if (sentinel.value) observer.observe(sentinel.value)
+})
+
+onUnmounted(() => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  observer?.disconnect()
+})
 </script>
 
 <template>
@@ -117,7 +163,7 @@ function goToDetail(id: string) {
           <h1 class="text-3xl font-extrabold tracking-tight">{{ t('wishlist.title') }}</h1>
           <p class="text-base-content/50 text-sm mt-1">
             <template v-if="!isPending">
-              {{ entries?.length ?? 0 }} série{{ (entries?.length ?? 0) !== 1 ? 's' : '' }} ·
+              {{ totalSeries }} série{{ totalSeries !== 1 ? 's' : '' }} ·
               <span class="text-warning font-semibold">{{ totalWished }} tome{{ totalWished !== 1 ? 's' : '' }} souhaité{{ totalWished !== 1 ? 's' : '' }}</span>
             </template>
           </p>
@@ -140,6 +186,27 @@ function goToDetail(id: string) {
         </div>
       </div>
 
+      <!-- Search bar -->
+      <div class="max-w-5xl mx-auto mt-4">
+        <div class="relative">
+          <Search class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/40 pointer-events-none" />
+          <input
+            v-model="searchInput"
+            type="search"
+            class="input input-bordered w-full h-10 pl-10 pr-10 text-sm rounded-xl bg-base-100 focus:outline-none focus:ring-2 focus:ring-warning/30 focus:border-warning transition-all"
+            :placeholder="t('filter.searchPlaceholder')"
+          />
+          <button
+            v-if="searchInput"
+            class="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 flex items-center justify-center rounded-full hover:bg-base-200 text-base-content/40 hover:text-base-content/80 transition"
+            :aria-label="t('filter.reset')"
+            @click="searchInput = ''"
+          >
+            <X class="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+
       <!-- Batch quick-select row -->
       <div v-if="batchMode" class="max-w-5xl mx-auto mt-3 flex flex-wrap gap-2 text-sm">
         <span class="text-xs text-base-content/40 self-center">Sélectionner :</span>
@@ -155,14 +222,20 @@ function goToDetail(id: string) {
       </div>
 
       <!-- Empty -->
-      <div v-else-if="!entries?.length" class="flex flex-col items-center justify-center py-24 gap-4">
+      <div v-else-if="!entries.length" class="flex flex-col items-center justify-center py-24 gap-4">
         <div class="opacity-20">
           <Star class="h-16 w-16" stroke-width="1" />
         </div>
-        <p class="text-base-content/40 text-lg font-medium">{{ t('wishlist.empty') }}</p>
-        <p class="text-base-content/30 text-sm text-center max-w-xs">
-          Depuis la vue collection, marquez des tomes comme souhaités ou utilisez le bouton "Ajouter à la liste"
-        </p>
+        <template v-if="search">
+          <p class="text-base-content/40 text-lg font-medium">Aucun résultat pour « {{ search }} »</p>
+          <button class="btn btn-ghost btn-sm" @click="searchInput = ''">Effacer la recherche</button>
+        </template>
+        <template v-else>
+          <p class="text-base-content/40 text-lg font-medium">{{ t('wishlist.empty') }}</p>
+          <p class="text-base-content/30 text-sm text-center max-w-xs">
+            Depuis la vue collection, marquez des tomes comme souhaités ou utilisez le bouton "Ajouter à la liste"
+          </p>
+        </template>
       </div>
 
       <!-- Wishlist cards -->
@@ -316,6 +389,12 @@ function goToDetail(id: string) {
             </p>
           </div>
         </div>
+      </div>
+
+      <!-- Infinite scroll sentinel + loading indicator -->
+      <div ref="sentinel" class="h-4" />
+      <div v-if="isFetchingNextPage" class="flex justify-center py-6">
+        <span class="loading loading-spinner loading-md text-warning" />
       </div>
     </div>
   </div>
