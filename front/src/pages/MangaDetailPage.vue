@@ -352,9 +352,8 @@ const autoFillMutation = useMutation({
 // ── Batch operations ──
 const isBatchProcessing = ref(false)
 
-async function batchToggle(field: 'isOwned' | 'isRead' | 'isWished' | 'isAnnounced') {
+async function batchToggle(field: 'isOwned' | 'isRead' | 'isAnnounced') {
   if (selectedIds.value.size === 0) return
-  const count = selectedIds.value.size
   const ids = [...selectedIds.value]
   isBatchProcessing.value = true
   try {
@@ -364,7 +363,6 @@ async function batchToggle(field: 'isOwned' | 'isRead' | 'isWished' | 'isAnnounc
     await qc.invalidateQueries({ queryKey: ['wishlist'] })
     await qc.invalidateQueries({ queryKey: ['stats'] })
     selectedIds.value = new Set()
-    ui.addToast(`${count} tome${count > 1 ? 's' : ''} mis à jour`, 'success')
   } finally {
     isBatchProcessing.value = false
   }
@@ -1073,13 +1071,13 @@ function volumeOpacityClass(ve: VolumeEntry): string {
               Marquer possédés
             </button>
             <button
-              v-if="selectedVolumes.some((v) => !v.isOwned && !v.isWished)"
-              class="btn btn-warning btn-sm btn-outline gap-1.5"
+              v-if="selectedVolumes.some((v) => v.isOwned)"
+              class="btn btn-success btn-sm btn-outline gap-1.5"
               :disabled="isBatchProcessing"
-              @click="batchToggle('isWished')"
+              @click="batchToggle('isOwned')"
             >
-              <Star class="h-4 w-4" />
-              Wishlist
+              <Package class="h-4 w-4" />
+              Marquer non possédés
             </button>
             <button
               v-if="selectedVolumes.some((v) => !v.isOwned && !v.isAnnounced)"
