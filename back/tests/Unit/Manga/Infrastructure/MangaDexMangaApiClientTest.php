@@ -67,6 +67,28 @@ final class MangaDexMangaApiClientTest extends TestCase
         );
     }
 
+    /**
+     * @param list<array{id: string, titles: array<string, string>, altTitles?: list<array<string, string>>}> $candidates
+     */
+    private function mangaSearchResponseMulti(array $candidates): MockResponse
+    {
+        $data = [];
+        foreach ($candidates as $candidate) {
+            $data[] = [
+                'id' => $candidate['id'],
+                'attributes' => [
+                    'title' => $candidate['titles'],
+                    'altTitles' => $candidate['altTitles'] ?? [],
+                ],
+            ];
+        }
+
+        return new MockResponse(
+            json_encode(['data' => $data]),
+            ['response_headers' => ['Content-Type' => 'application/json']],
+        );
+    }
+
     public function testFindByIsbnAlwaysReturnsNull(): void
     {
         $client = $this->makeClient(new MockHttpClient([]));
@@ -160,6 +182,62 @@ final class MangaDexMangaApiClientTest extends TestCase
 
         $this->assertInstanceOf(MangaVolumeCoverDto::class, $result);
         $this->assertStringContainsString('french.jpg', $result->coverUrl);
+    }
+
+    public function testFindByContextPicksExactTitleMatchOverFuzzyTopHit(): void
+    {
+        // MangaDex ranks a spin-off first for the common term "Naruto"; the real
+        // series sits lower. Taking the top hit would resolve covers for the wrong
+        // (much shorter) series — the exact-title match must win instead.
+        $httpClient = new MockHttpClient([
+            $this->mangaSearchResponseMulti([
+                ['id' => 'spinoff-id', 'titles' => ['en' => "Naruto: Sasuke's Story"]],
+                ['id' => 'real-naruto-id', 'titles' => ['en' => 'Naruto'], 'altTitles' => [['ja' => 'ナルト']]],
+            ]),
+            $this->coverListResponseRaw([['volume' => '1', 'fileName' => 'cover.jpg', 'locale' => 'ja']]),
+        ]);
+
+        $result = $this->makeClient($httpClient)->findByContext('Naruto', null, 1);
+
+        $this->assertInstanceOf(MangaVolumeCoverDto::class, $result);
+        $this->assertStringContainsString('real-naruto-id', $result->coverUrl);
+        $this->assertStringNotContainsString('spinoff-id', $result->coverUrl);
+    }
+
+    public function testFindByContextMatchesOnAltTitleAndIgnoresAccents(): void
+    {
+        // The query matches a lower candidate only via an alt-title, and only once
+        // accents/punctuation are normalised ("NARUTO -ナルト-" vs "Naruto").
+        $httpClient = new MockHttpClient([
+            $this->mangaSearchResponseMulti([
+                ['id' => 'unrelated-id', 'titles' => ['en' => 'Boruto']],
+                ['id' => 'real-id', 'titles' => ['ja' => 'NARUTO -ナルト-'], 'altTitles' => [['fr' => 'Náruto']]],
+            ]),
+            $this->coverListResponseRaw([['volume' => '1', 'fileName' => 'cover.jpg', 'locale' => 'ja']]),
+        ]);
+
+        $result = $this->makeClient($httpClient)->findByContext('naruto', null, 1);
+
+        $this->assertInstanceOf(MangaVolumeCoverDto::class, $result);
+        $this->assertStringContainsString('real-id', $result->coverUrl);
+    }
+
+    public function testFindByContextFallsBackToTopHitWhenNoExactTitleMatch(): void
+    {
+        // No candidate title matches exactly → keep MangaDex's relevance ranking
+        // (top hit) rather than returning nothing.
+        $httpClient = new MockHttpClient([
+            $this->mangaSearchResponseMulti([
+                ['id' => 'top-hit-id', 'titles' => ['en' => 'Some Manga Vol. 1 Deluxe']],
+                ['id' => 'other-id', 'titles' => ['en' => 'Another Series']],
+            ]),
+            $this->coverListResponseRaw([['volume' => '1', 'fileName' => 'cover.jpg', 'locale' => 'ja']]),
+        ]);
+
+        $result = $this->makeClient($httpClient)->findByContext('Some Manga', null, 1);
+
+        $this->assertInstanceOf(MangaVolumeCoverDto::class, $result);
+        $this->assertStringContainsString('top-hit-id', $result->coverUrl);
     }
 
     public function testCleansTitleAndDropsRestrictiveFilters(): void

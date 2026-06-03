@@ -16,6 +16,9 @@ final readonly class MangaDexMangaApiClient implements MangaCoverProviderInterfa
     private const string PREFIX_LOGGER = 'MANGADEX : ';
     private const string UPLOADS_BASE_URL = 'https://uploads.mangadex.org/covers';
     private const int COVER_PAGE_SIZE = 100;
+    // Candidates fetched per title search: enough to find the exact series when a
+    // fuzzy match (spin-off, doujinshi, colour edition) outranks it.
+    private const int SEARCH_PAGE_SIZE = 10;
     // Safety cap on cover pagination (~5 pages) for very long series (e.g. One Piece, 100+ volumes).
     private const int COVER_MAX_OFFSET = 500;
 
@@ -107,14 +110,77 @@ final readonly class MangaDexMangaApiClient implements MangaCoverProviderInterfa
         $response = $this->httpClient->request('GET', $this->baseUrl . '/manga', [
             'query' => [
                 'title' => $mangaTitle,
-                'limit' => 5,
+                'limit' => self::SEARCH_PAGE_SIZE,
+                'order[relevance]' => 'desc',
             ],
         ]);
 
         $data = $response->toArray();
         $results = $data['data'] ?? [];
 
+        if ($results === []) {
+            return null;
+        }
+
+        // MangaDex's title search is fuzzy and relevance-ordered, so for a common
+        // term ("Naruto") a spin-off, doujinshi or unrelated series can rank first.
+        // Blindly taking the top hit then resolves covers for the WRONG series.
+        // Prefer a candidate whose own title (or any alt-title) matches the query
+        // exactly once normalised; only fall back to the top hit when none does.
+        $normalizedQuery = $this->normalizeTitle($mangaTitle);
+
+        foreach ($results as $candidate) {
+            foreach ($this->candidateTitles($candidate) as $candidateTitle) {
+                if ($this->normalizeTitle($candidateTitle) === $normalizedQuery) {
+                    return $candidate['id'] ?? null;
+                }
+            }
+        }
+
         return $results[0]['id'] ?? null;
+    }
+
+    /**
+     * Every title string MangaDex exposes for a manga: the localised main titles
+     * plus every alt-title, flattened across locales.
+     *
+     * @param array<string, mixed> $candidate
+     * @return list<string>
+     */
+    private function candidateTitles(array $candidate): array
+    {
+        $attributes = $candidate['attributes'] ?? [];
+        $titles = [];
+
+        foreach ((array) ($attributes['title'] ?? []) as $title) {
+            if (is_string($title) && $title !== '') {
+                $titles[] = $title;
+            }
+        }
+
+        foreach ((array) ($attributes['altTitles'] ?? []) as $altTitle) {
+            foreach ((array) $altTitle as $title) {
+                if (is_string($title) && $title !== '') {
+                    $titles[] = $title;
+                }
+            }
+        }
+
+        return $titles;
+    }
+
+    /**
+     * Lower-cases, strips accents and reduces punctuation to spaces so that
+     * "NARUTO -ナルト-" and "Naruto" compare equal, while "Naruto: Sasuke's Story"
+     * stays distinct.
+     */
+    private function normalizeTitle(string $title): string
+    {
+        $lowered = mb_strtolower(trim($title), 'UTF-8');
+        $deAccented = transliterator_transliterate('Any-Latin; Latin-ASCII', $lowered) ?? $lowered;
+        $alphaNumeric = preg_replace('/[^a-z0-9]+/u', ' ', $deAccented) ?? $deAccented;
+
+        return trim(preg_replace('/\s+/u', ' ', $alphaNumeric) ?? $alphaNumeric);
     }
 
     private function findVolumeCover(string $mangaId, int $volumeNumber, string $language): ?MangaVolumeCoverDto
