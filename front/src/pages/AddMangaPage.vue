@@ -2,7 +2,7 @@
   import { ref, computed } from 'vue'
   import { useRouter } from 'vue-router'
   import { useMutation, useQueryClient } from '@tanstack/vue-query'
-  import { ArrowLeft, Search, RefreshCw, Book, ImageOff, Star } from 'lucide-vue-next'
+  import { ArrowLeft, Search, RefreshCw, Book, ImageOff, Star, HelpCircle } from 'lucide-vue-next'
   import { importManga } from '@/api/manga'
   import { addToCollection, addRemainingToWishlist } from '@/api/collection'
   import { useUiStore } from '@/stores/useUiStore'
@@ -12,12 +12,14 @@
   import { coverUrl } from '@/utils/coverUrl'
   import BaseEditionSelector from '@/components/atoms/BaseEditionSelector.vue'
   import BaseProviderLogo from '@/components/atoms/BaseProviderLogo.vue'
+  import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
 
   const router = useRouter()
   const qc = useQueryClient()
   const ui = useUiStore()
   const { t } = useI18n()
 
+  const showGuide = ref(false)
   const step = ref<1 | 2 | 3>(1)
   const collectionEntryId = ref('')
 
@@ -158,6 +160,17 @@
         <ArrowLeft class="h-5 w-5" />
       </button>
       <h1 class="text-2xl font-bold">{{ t('add.title') }}</h1>
+
+      <button
+        type="button"
+        class="btn btn-ghost btn-sm gap-1.5 ml-auto text-base-content/60 hover:text-primary"
+        :title="t('guide.openTooltip')"
+        :aria-label="t('guide.openTooltip')"
+        @click="showGuide = true"
+      >
+        <HelpCircle class="h-4 w-4" />
+        <span class="hidden sm:inline">{{ t('guide.openLabel') }}</span>
+      </button>
     </div>
 
     <!-- Step indicator -->
@@ -471,5 +484,7 @@
         </button>
       </div>
     </div>
+
+    <CollectionGuideModal :open="showGuide" @close="showGuide = false" />
   </div>
 </template>

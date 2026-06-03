@@ -97,6 +97,8 @@
     "noFollowed": "Enable notifications on a series to see its news",
     "follow": "Follow",
     "following": "Following ✓",
+    "followOn": "You're following this series — we'll let you know about new releases.",
+    "followOff": "You're no longer following this series.",
     "markRead": "Mark as read",
     "systemTitle": "System notifications",
     "settings": {
@@ -206,9 +208,9 @@
     "coverSearchPlaceholder": "Volume title (editable)…",
     "isbnOfVolume": "Volume ISBN",
     "isbnUnknown": "Not set",
-    "isbnHint": "13 digits under the barcode, on the back of the book.",
+    "isbnHint": "10 or 13 digits, on the back of the book, near the barcode.",
     "isbnLabel": "ISBN Code",
-    "isbnPlaceholder": "E.g. 978-2-81164-563-2",
+    "isbnPlaceholder": "E.g. 978-2-81164-563-2 or 2-81164-563-X",
     "searchIsbn": "Search",
     "scanCamera": "Scan with camera",
     "scanPhone": "Scan with my phone",
@@ -249,6 +251,7 @@
     "title": "Guide & help",
     "subtitle": "Statuses, calculations & covers",
     "openTooltip": "Open the guide (statuses, calculations, covers)",
+    "openLabel": "Help",
     "gotIt": "Got it",
     "tabStatuses": "Statuses",
     "tabDashboard": "Dashboard",
@@ -322,6 +325,14 @@
     },
     "priceNote": "Values rely on each volume’s price. Set it per volume, or apply one price to the whole series at once with “Unit price (bulk)”. A volume with no price counts as €0.",
     "coversIntro": "Several ways to find the right cover for a volume. Pick whichever suits you.",
+    "isbnExplainer": {
+      "title": "What is an ISBN?",
+      "line1": "It’s a book’s unique number. It comes in two lengths: 10 digits (older books) or 13 digits. Ziggythèque accepts both.",
+      "line2": "You’ll find it on the back of the book, just above or below the barcode.",
+      "barcodeLabel": "barcode on the back of the book",
+      "badge10": "ISBN-10 — 10 digits",
+      "badge13": "ISBN-13 — 13 digits"
+    },
     "cover": {
       "search": {
         "name": "Search by title",
@@ -332,8 +343,8 @@
       },
       "isbn": {
         "name": "Search by ISBN",
-        "desc": "The ISBN is the 13 digits under the barcode on the back of the book. The most accurate method.",
-        "step1": "Enter the ISBN (13 digits) then run the search.",
+        "desc": "The ISBN is the 10 or 13 digits on the back of the book, near the barcode. The most accurate method.",
+        "step1": "Enter the ISBN (10 or 13 digits) then run the search.",
         "step2": "We query several databases and group the results by source.",
         "step3": "Click the cover you prefer to apply it."
       },

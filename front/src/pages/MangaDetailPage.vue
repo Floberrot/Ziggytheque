@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import {
-  ArrowLeft, Star, Book, BookOpen, Check, CheckSquare, Pencil, Trash2, Eye, Tag, Megaphone, Package, Info, Bell, BellOff, Plus, Sparkles, HelpCircle, Languages,
+  ArrowLeft, Star, Book, BookOpen, Check, CheckSquare, Pencil, Trash2, Eye, Tag, Megaphone, Package, Info, Bell, BellOff, Plus, Sparkles, HelpCircle, Languages, MoreHorizontal, ChevronDown, X,
 } from 'lucide-vue-next'
 import {
   getCollectionEntry,
@@ -21,11 +21,12 @@ import { useCoverBatchProgress } from '@/composables/useCoverBatchProgress'
 import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
 import EnrichVolumeModal from '@/components/organisms/EnrichVolumeModal.vue'
+import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
 import BaseHeartRating from '@/components/atoms/BaseHeartRating.vue'
 import { FRENCH_EDITIONS } from '@/data/editions'
 import BaseEditionSelector from '@/components/atoms/BaseEditionSelector.vue'
 import BaseLazyImage from '@/components/atoms/BaseLazyImage.vue'
-import type { ReadingStatus, VolumeEntry, VolumeToggleField } from '@/types'
+import type { CollectionEntryDetail, ReadingStatus, VolumeEntry, VolumeToggleField } from '@/types'
 import { coverUrl } from '@/utils/coverUrl'
 
 const route = useRoute()
@@ -35,6 +36,9 @@ const ui = useUiStore()
 const { t } = useI18n()
 
 const id = route.params.id as string
+
+// ── Guide / help modal ──
+const showGuide = ref(false)
 
 const { data: entry, isPending } = useQuery({
   queryKey: ['collection', id],
@@ -133,34 +137,58 @@ const STATUS_OPTIONS = [
   {
     value: 'not_started' as ReadingStatus,
     label: 'À lire',
+    dot: 'bg-base-content/40',
     activeClass: 'bg-base-content/15 text-base-content border-base-content/20',
     hoverClass: 'hover:bg-base-content/10',
   },
   {
     value: 'in_progress' as ReadingStatus,
     label: 'En cours',
+    dot: 'bg-primary',
     activeClass: 'bg-primary text-primary-content border-primary',
     hoverClass: 'hover:bg-primary/10 hover:text-primary hover:border-primary/40',
   },
   {
     value: 'on_hold' as ReadingStatus,
     label: 'Pause',
+    dot: 'bg-warning',
     activeClass: 'bg-warning text-warning-content border-warning',
     hoverClass: 'hover:bg-warning/10 hover:text-warning hover:border-warning/40',
   },
   {
     value: 'completed' as ReadingStatus,
     label: 'Terminé',
+    dot: 'bg-success',
     activeClass: 'bg-success text-success-content border-success',
     hoverClass: 'hover:bg-success/10 hover:text-success hover:border-success/40',
   },
   {
     value: 'dropped' as ReadingStatus,
     label: 'Abandonné',
+    dot: 'bg-error',
     activeClass: 'bg-error text-error-content border-error',
     hoverClass: 'hover:bg-error/10 hover:text-error hover:border-error/40',
   },
 ] as const
+
+const currentStatusOption = computed(
+  () => STATUS_OPTIONS.find((s) => s.value === entry.value?.readingStatus) ?? STATUS_OPTIONS[0],
+)
+
+// ── Action bar : progressive-disclosure menus & on-demand price ──
+const statusMenuOpen = ref(false)
+const moreMenuOpen = ref(false)
+const showPrice = ref(false)
+
+function closeActionMenus() {
+  statusMenuOpen.value = false
+  moreMenuOpen.value = false
+}
+
+function pickStatus(status: ReadingStatus) {
+  if (entry.value && entry.value.readingStatus !== status) statusMutation.mutate(status)
+  statusMenuOpen.value = false
+}
 
 // ── Batch price ──
 // v-model.number yields the raw string ('') when the input is empty or
@@ -272,15 +300,68 @@ const statusMutation = useMutation({
   onSuccess: () => qc.invalidateQueries({ queryKey: ['collection', id] }),
 })
 
+// Mirrors the backend ToggleVolumeHandler rules so the optimistic cache update
+// matches exactly what the server persists (no flicker once the refetch settles).
+function applyToggleField(volume: VolumeEntry, field: VolumeToggleField): VolumeEntry {
+  const next = { ...volume }
+  if (field === 'isOwned') {
+    next.isOwned = !volume.isOwned
+    if (next.isOwned) {
+      next.isWished = false
+      next.isAnnounced = false
+    }
+  } else if (field === 'isRead') {
+    next.isRead = !volume.isRead
+  } else if (field === 'isWished') {
+    next.isWished = !volume.isWished
+  } else {
+    next.isAnnounced = !volume.isAnnounced
+  }
+  return next
+}
+
+function recomputeDetailCounts(volumes: VolumeEntry[]) {
+  return {
+    ownedCount:  volumes.filter((v) => v.isOwned).length,
+    readCount:   volumes.filter((v) => v.isRead).length,
+    wishedCount: volumes.filter((v) => v.isWished && !v.isOwned).length,
+    ownedValue:  volumes.reduce((sum, v) => sum + (v.isOwned ? (v.price ?? 0) : 0), 0),
+  }
+}
+
+const TOGGLE_MUTATION_KEY = ['toggle-volume', id]
+
 const toggleMutation = useMutation({
+  mutationKey: TOGGLE_MUTATION_KEY,
   mutationFn: ({ veId, field }: { veId: string; field: VolumeToggleField }) =>
     toggleVolume(id, veId, field),
-  onSuccess: () => {
-    qc.invalidateQueries({ queryKey: ['collection', id] })
-    qc.invalidateQueries({ queryKey: ['collection'] })
-    qc.invalidateQueries({ queryKey: ['wishlist'] })
-    qc.invalidateQueries({ queryKey: ['stats'] })
+  // Optimistic update so the volume reacts instantly, even on a slow request —
+  // the previous behaviour only refetched on success, so a click could feel dead.
+  onMutate: async ({ veId, field }: { veId: string; field: VolumeToggleField }) => {
+    const key = ['collection', id]
+    await qc.cancelQueries({ queryKey: key })
+    const previous = qc.getQueryData<CollectionEntryDetail>(key)
+    qc.setQueryData<CollectionEntryDetail>(key, (old) => {
+      if (!old) return old
+      const volumes = old.volumes.map((v) => (v.id === veId ? applyToggleField(v, field) : v))
+      return { ...old, volumes, ...recomputeDetailCounts(volumes) }
+    })
     closeContextMenu()
+    return { previous, key }
+  },
+  onError: (_error, _vars, context) => {
+    if (context?.previous) qc.setQueryData(context.key, context.previous)
+    ui.addToast(t('enrich.statusUpdateError'), 'error')
+  },
+  onSettled: () => {
+    // Only refetch once the last rapid toggle has settled — an in-flight refetch
+    // from an earlier toggle would otherwise clobber the newer optimistic state.
+    if (qc.isMutating({ mutationKey: TOGGLE_MUTATION_KEY }) === 1) {
+      qc.invalidateQueries({ queryKey: ['collection', id] })
+      qc.invalidateQueries({ queryKey: ['collection'] })
+      qc.invalidateQueries({ queryKey: ['wishlist'] })
+      qc.invalidateQueries({ queryKey: ['stats'] })
+    }
   },
 })
 
@@ -318,11 +399,22 @@ const updateMangaMutation = useMutation({
   onError: () => ui.addToast('Erreur lors de la mise à jour', 'error'),
 })
 
+// Bell wiggles on every click; the animation is keyed so rapid clicks restart it.
+const bellRinging = ref(false)
+function onFollowClick() {
+  bellRinging.value = true
+  followMutation.mutate()
+}
+
 const followMutation = useMutation({
   mutationFn: () => toggleFollow(id),
-  onSuccess: () => {
+  onSuccess: (data) => {
     qc.invalidateQueries({ queryKey: ['collection'] })
     qc.invalidateQueries({ queryKey: ['collection', id] })
+    ui.addToast(
+      data.notificationsEnabled ? t('notifications.followOn') : t('notifications.followOff'),
+      data.notificationsEnabled ? 'success' : 'info',
+    )
   },
 })
 
@@ -420,20 +512,23 @@ function volumeOpacityClass(ve: VolumeEntry): string {
 </script>
 
 <template>
-  <div class="min-h-screen" @click="closeContextMenu(); cancelEditCover()">
+  <div class="min-h-screen" @click="closeContextMenu(); cancelEditCover(); closeActionMenus()">
     <div v-if="isPending" class="flex justify-center py-20">
       <span class="loading loading-spinner loading-lg" />
     </div>
 
     <template v-else-if="entry">
       <!-- Hero header with blurred cover bg -->
-      <div class="relative overflow-hidden">
-        <div
-          v-if="entry.manga.coverUrl"
-          class="absolute inset-0 bg-cover bg-center blur-3xl scale-110 opacity-20 pointer-events-none"
-          :style="{ backgroundImage: `url(${coverUrl(entry.manga.coverUrl)})` }"
-        />
-        <div class="absolute inset-0 bg-gradient-to-b from-base-100/60 to-base-100 pointer-events-none" />
+      <div class="relative">
+        <!-- Clip only the blurred background, so action-bar menus can overflow the hero -->
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+          <div
+            v-if="entry.manga.coverUrl"
+            class="absolute inset-0 bg-cover bg-center blur-3xl scale-110 opacity-20"
+            :style="{ backgroundImage: `url(${coverUrl(entry.manga.coverUrl)})` }"
+          />
+          <div class="absolute inset-0 bg-gradient-to-b from-base-100/60 to-base-100" />
+        </div>
 
         <div class="relative max-w-5xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-6">
           <RouterLink
@@ -560,137 +655,194 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                 <p v-if="entry.manga.author" class="text-sm text-base-content/60 mt-1.5 font-medium">{{ entry.manga.author }}</p>
               </div>
 
-              <!-- Stats -->
-              <div class="flex flex-wrap gap-4 text-sm">
-                <span class="flex items-center gap-1.5">
-                  <span class="w-2.5 h-2.5 rounded-full bg-success inline-block" />
-                  <span class="font-bold text-success">{{ entry.ownedCount }}</span>
-                  <span class="text-base-content/50">possédé{{ entry.ownedCount !== 1 ? 's' : '' }}</span>
-                </span>
-                <span v-if="entry.wishedCount > 0" class="flex items-center gap-1.5">
-                  <span class="w-2.5 h-2.5 rounded-full bg-warning inline-block" />
-                  <span class="font-bold text-warning">{{ entry.wishedCount }}</span>
-                  <span class="text-base-content/50">souhaité{{ entry.wishedCount !== 1 ? 's' : '' }}</span>
-                </span>
-                <span class="flex items-center gap-1.5">
-                  <span class="w-2.5 h-2.5 rounded-full bg-info inline-block" />
-                  <span class="font-bold text-info">{{ entry.readCount }}</span>
-                  <span class="text-base-content/50">lu{{ entry.readCount !== 1 ? 's' : '' }}</span>
-                </span>
-                <span class="text-base-content/30">/ {{ entry.totalVolumes }} tomes</span>
-              </div>
-
-              <!-- Status pill selector -->
-              <div>
-                <div class="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-base-content/40 mb-1.5">
-                  Statut de lecture
-                  <div class="tooltip tooltip-right" data-tip="Indique où tu en es dans la lecture de cette série">
-                    <HelpCircle class="h-3 w-3 cursor-help" />
+              <!-- Stats — progress meters (possédés / lus, + souhaités when relevant) -->
+              <div class="flex flex-wrap gap-x-8 gap-y-4">
+                <div class="flex-1 min-w-[150px]">
+                  <div class="flex items-baseline gap-1.5 mb-2 whitespace-nowrap">
+                    <b class="text-success font-extrabold text-lg leading-none">{{ entry.ownedCount }}</b>
+                    <span class="text-sm text-base-content/70 font-semibold">possédé{{ entry.ownedCount !== 1 ? 's' : '' }}</span>
+                    <span class="text-xs text-base-content/40 font-bold">/ {{ entry.totalVolumes }}</span>
+                  </div>
+                  <div class="h-1.5 rounded-full bg-base-content/10 overflow-hidden">
+                    <div
+                      class="h-full rounded-full bg-success/80 transition-[width] duration-500"
+                      :style="{ width: (entry.totalVolumes ? Math.round((entry.ownedCount / entry.totalVolumes) * 100) : 0) + '%' }"
+                    />
                   </div>
                 </div>
-                <div class="flex gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1 sm:flex-wrap sm:overflow-visible">
-                  <button
-                    v-for="s in STATUS_OPTIONS"
-                    :key="s.value"
-                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all duration-150 cursor-pointer"
-                    :class="entry.readingStatus === s.value
-                      ? s.activeClass
-                      : ['border-base-content/10 text-base-content/35 bg-transparent', s.hoverClass]"
-                    :disabled="statusMutation.isPending.value"
-                    @click="entry.readingStatus !== s.value && statusMutation.mutate(s.value)"
-                  >
-                    <span
-                      v-if="statusMutation.isPending.value && entry.readingStatus === s.value"
-                      class="loading loading-spinner w-2.5 h-2.5"
+                <div class="flex-1 min-w-[150px]">
+                  <div class="flex items-baseline gap-1.5 mb-2 whitespace-nowrap">
+                    <b class="text-info font-extrabold text-lg leading-none">{{ entry.readCount }}</b>
+                    <span class="text-sm text-base-content/70 font-semibold">lu{{ entry.readCount !== 1 ? 's' : '' }}</span>
+                    <span class="text-xs text-base-content/40 font-bold">/ {{ entry.totalVolumes }}</span>
+                  </div>
+                  <div class="h-1.5 rounded-full bg-base-content/10 overflow-hidden">
+                    <div
+                      class="h-full rounded-full bg-info/80 transition-[width] duration-500"
+                      :style="{ width: (entry.totalVolumes ? Math.round((entry.readCount / entry.totalVolumes) * 100) : 0) + '%' }"
                     />
-                    {{ s.label }}
-                  </button>
+                  </div>
+                </div>
+                <div v-if="entry.wishedCount > 0" class="flex-1 min-w-[150px]">
+                  <div class="flex items-baseline gap-1.5 mb-2 whitespace-nowrap">
+                    <b class="text-warning font-extrabold text-lg leading-none">{{ entry.wishedCount }}</b>
+                    <span class="text-sm text-base-content/70 font-semibold">souhaité{{ entry.wishedCount !== 1 ? 's' : '' }}</span>
+                    <span class="text-xs text-base-content/40 font-bold">/ {{ entry.totalVolumes }}</span>
+                  </div>
+                  <div class="h-1.5 rounded-full bg-base-content/10 overflow-hidden">
+                    <div
+                      class="h-full rounded-full bg-warning/80 transition-[width] duration-500"
+                      :style="{ width: (entry.totalVolumes ? Math.round((entry.wishedCount / entry.totalVolumes) * 100) : 0) + '%' }"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <!-- Actions row : volume management + side actions -->
-              <div class="flex flex-wrap items-center gap-2">
-                <!-- Wishlist all missing (only when there are missing volumes) -->
-                <div
-                  v-if="missingVolumes.length > 0"
-                  class="tooltip tooltip-top tooltip-warning"
-                  :data-tip="`Ajoute en un clic les ${missingVolumes.length} tome${missingVolumes.length > 1 ? 's' : ''} manquant${missingVolumes.length > 1 ? 's' : ''} à ta liste de souhaits`"
+              <!-- Action bar — progressive disclosure: primary action + status menu + follow + overflow -->
+              <div class="flex flex-wrap items-center gap-2.5">
+                <!-- Primary : add volumes (toggles the sync panel) -->
+                <button
+                  class="btn btn-sm gap-1.5"
+                  :class="showSyncPanel ? 'btn-primary' : 'btn-outline btn-primary'"
+                  @click="showSyncPanel = !showSyncPanel"
                 >
+                  <Plus class="h-4 w-4" stroke-width="2.4" />
+                  Ajouter des tomes
+                </button>
+
+                <!-- Reading status dropdown -->
+                <div class="relative" @click.stop>
                   <button
-                    class="btn btn-warning btn-sm gap-1.5"
-                    :class="{ loading: addToWishlistMutation.isPending.value }"
-                    @click="addToWishlistMutation.mutate()"
+                    class="inline-flex items-center gap-2 h-9 pl-3 pr-2.5 rounded-full border bg-base-100/60 text-sm font-bold transition-colors"
+                    :class="statusMenuOpen ? 'border-primary' : 'border-base-content/15 hover:border-base-content/30'"
+                    :disabled="statusMutation.isPending.value"
+                    aria-haspopup="menu"
+                    :aria-expanded="statusMenuOpen"
+                    @click="statusMenuOpen = !statusMenuOpen; moreMenuOpen = false"
                   >
-                    <Star class="h-4 w-4" />
-                    Souhaiter les {{ missingVolumes.length }} manquant{{ missingVolumes.length > 1 ? 's' : '' }}
+                    <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="currentStatusOption.dot" />
+                    <span>{{ currentStatusOption.label }}</span>
+                    <span v-if="statusMutation.isPending.value" class="loading loading-spinner w-3 h-3" />
+                    <ChevronDown v-else class="h-3.5 w-3.5 text-base-content/40 transition-transform" :class="statusMenuOpen ? 'rotate-180' : ''" />
                   </button>
+                  <Transition name="menu-pop">
+                    <div
+                      v-if="statusMenuOpen"
+                      class="absolute left-0 top-[calc(100%+6px)] z-30 min-w-[230px] rounded-2xl border border-base-300 bg-base-100 shadow-2xl p-1.5"
+                      role="menu"
+                    >
+                      <div class="px-2.5 py-2 text-[10px] font-bold uppercase tracking-widest text-base-content/40 flex items-center justify-between">
+                        Statut de lecture
+                        <button class="text-base-content/35 hover:text-primary" :aria-label="t('guide.openTooltip')" @click="statusMenuOpen = false; showGuide = true">
+                          <HelpCircle class="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <button
+                        v-for="s in STATUS_OPTIONS"
+                        :key="s.value"
+                        class="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200"
+                        :class="entry.readingStatus === s.value ? 'text-base-content' : 'text-base-content/70'"
+                        role="menuitem"
+                        @click="pickStatus(s.value)"
+                      >
+                        <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="s.dot" />
+                        {{ s.label }}
+                        <Check v-if="entry.readingStatus === s.value" class="h-4 w-4 ml-auto text-primary" />
+                      </button>
+                    </div>
+                  </Transition>
                 </div>
 
-                <!-- Add volumes (creates new T2, T3, … entries) -->
-                <div
-                  class="tooltip tooltip-top"
-                  data-tip="Crée de nouveaux tomes vierges dans cette série (utile si la série est encore en publication)"
-                >
-                  <button
-                    class="btn btn-sm gap-1.5"
-                    :class="showSyncPanel ? 'btn-primary' : 'btn-outline btn-primary'"
-                    @click="showSyncPanel = !showSyncPanel"
-                  >
-                    <Plus class="h-4 w-4" />
-                    Ajouter des tomes
-                  </button>
-                </div>
+                <div class="flex-1 min-w-2" />
 
-                <!-- Auto-fill covers -->
-                <div
-                  class="tooltip tooltip-top"
-                  data-tip="Recherche automatiquement les couvertures manquantes (MangaDex, Google Books, Open Library)"
-                >
-                  <button
-                    class="btn btn-outline btn-sm gap-1.5"
-                    :class="{ loading: autoFillMutation.isPending.value }"
-                    :disabled="autoFillMutation.isPending.value || (batchProgress.progress.value !== null && !batchProgress.progress.value.done)"
-                    @click="autoFillMutation.mutate()"
-                  >
-                    <Sparkles v-if="!autoFillMutation.isPending.value" class="h-4 w-4" />
-                    Compléter les couvertures
-                  </button>
-                </div>
-
-                <!-- Follow / unfollow -->
+                <!-- Follow / unfollow (icon button) -->
                 <div
                   class="tooltip tooltip-top"
                   :data-tip="entry.notificationsEnabled
-                    ? 'Vous serez notifié quand un nouveau tome sort. Cliquer pour arrêter de suivre.'
-                    : 'Recevoir une notification à la sortie d\'un nouveau tome'"
+                    ? 'Suivi — tu seras notifié des sorties. Cliquer pour arrêter.'
+                    : 'Suivre les sorties de nouveaux tomes'"
                 >
                   <button
-                    class="btn btn-sm gap-1.5"
-                    :class="entry.notificationsEnabled ? 'btn-secondary' : 'btn-ghost border border-base-300'"
+                    class="btn btn-circle btn-sm w-9 h-9"
+                    :class="entry.notificationsEnabled ? 'btn-secondary' : 'btn-ghost border border-base-content/15'"
                     :disabled="followMutation.isPending.value"
-                    @click="followMutation.mutate()"
+                    :aria-label="entry.notificationsEnabled ? t('notifications.following') : t('notifications.follow')"
+                    @click="onFollowClick()"
                   >
-                    <BellOff v-if="entry.notificationsEnabled" class="h-4 w-4" />
-                    <Bell v-else class="h-4 w-4" />
-                    {{ entry.notificationsEnabled ? t('notifications.following') : t('notifications.follow') }}
+                    <Bell
+                      class="h-4 w-4 origin-top"
+                      :class="{ 'bell-ring': bellRinging }"
+                      :fill="entry.notificationsEnabled ? 'currentColor' : 'none'"
+                      @animationend="bellRinging = false"
+                    />
                   </button>
                 </div>
 
-                <!-- Push remove to the right -->
-                <div class="flex-1 min-w-0" />
-
-                <!-- Remove from collection (destructive, visually de-emphasized) -->
-                <div
-                  class="tooltip tooltip-top tooltip-error"
-                  data-tip="Retirer définitivement cette série et tous ses tomes de votre bibliothèque"
-                >
-                  <button
-                    class="btn btn-ghost btn-sm gap-1.5 text-error/70 hover:text-error hover:bg-error/10"
-                    @click.stop="showDeleteConfirm = true"
-                  >
-                    <Trash2 class="h-4 w-4" />
-                    {{ t('common.remove') }}
-                  </button>
+                <!-- Overflow menu : secondary actions tucked away -->
+                <div class="relative" @click.stop>
+                  <div class="tooltip tooltip-top" data-tip="Plus d'options">
+                    <button
+                      class="btn btn-circle btn-sm w-9 h-9"
+                      :class="moreMenuOpen ? 'btn-active border border-base-content/30' : 'btn-ghost border border-base-content/15'"
+                      aria-haspopup="menu"
+                      :aria-expanded="moreMenuOpen"
+                      aria-label="Plus d'options"
+                      @click="moreMenuOpen = !moreMenuOpen; statusMenuOpen = false"
+                    >
+                      <MoreHorizontal class="h-5 w-5" />
+                    </button>
+                  </div>
+                  <Transition name="menu-pop">
+                    <div
+                      v-if="moreMenuOpen"
+                      class="absolute right-0 top-[calc(100%+6px)] z-30 min-w-[250px] rounded-2xl border border-base-300 bg-base-100 shadow-2xl p-1.5"
+                      role="menu"
+                    >
+                      <button
+                        v-if="missingVolumes.length > 0"
+                        class="flex items-center gap-3 w-full px-2.5 py-2.5 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200"
+                        role="menuitem"
+                        @click="moreMenuOpen = false; addToWishlistMutation.mutate()"
+                      >
+                        <Star class="h-[18px] w-[18px] text-base-content/50" />
+                        Souhaiter les {{ missingVolumes.length }} manquant{{ missingVolumes.length > 1 ? 's' : '' }}
+                      </button>
+                      <button
+                        class="flex items-center gap-3 w-full px-2.5 py-2.5 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200 disabled:opacity-50"
+                        role="menuitem"
+                        :disabled="autoFillMutation.isPending.value || (batchProgress.progress.value !== null && !batchProgress.progress.value.done)"
+                        @click="moreMenuOpen = false; autoFillMutation.mutate()"
+                      >
+                        <Sparkles class="h-[18px] w-[18px] text-base-content/50" />
+                        Compléter les couvertures
+                      </button>
+                      <button
+                        class="flex items-center gap-3 w-full px-2.5 py-2.5 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200"
+                        role="menuitem"
+                        @click="moreMenuOpen = false; showPrice = true"
+                      >
+                        <Tag class="h-[18px] w-[18px] text-base-content/50" />
+                        Définir le prix (en lot)
+                      </button>
+                      <div class="h-px bg-base-200 my-1 mx-2" />
+                      <button
+                        class="flex items-center gap-3 w-full px-2.5 py-2.5 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200"
+                        role="menuitem"
+                        @click="moreMenuOpen = false; showGuide = true"
+                      >
+                        <HelpCircle class="h-[18px] w-[18px] text-base-content/50" />
+                        {{ t('guide.openLabel') }}
+                      </button>
+                      <button
+                        class="flex items-center gap-3 w-full px-2.5 py-2.5 rounded-xl text-sm font-semibold text-left transition-colors text-error hover:bg-error/10"
+                        role="menuitem"
+                        @click="moreMenuOpen = false; showDeleteConfirm = true"
+                      >
+                        <Trash2 class="h-[17px] w-[17px]" />
+                        Retirer la série
+                      </button>
+                    </div>
+                  </Transition>
                 </div>
               </div>
 
@@ -746,55 +898,60 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                 </div>
               </Transition>
 
-              <!-- Batch price : full section, clear label + apply-to-all CTA -->
-              <div class="rounded-xl bg-base-200/40 border border-base-content/8 p-3 flex flex-wrap items-center gap-3">
-                <div class="flex items-center gap-2.5 min-w-0">
-                  <div class="w-8 h-8 rounded-lg bg-secondary/15 text-secondary flex items-center justify-center shrink-0">
-                    <Tag class="h-4 w-4" />
-                  </div>
-                  <div class="min-w-0">
-                    <div class="text-sm font-semibold leading-tight flex items-center gap-1.5">
-                      Prix unitaire (en lot)
-                      <div class="tooltip tooltip-top" data-tip="Définit le même prix pour tous les tomes de la série en une seule action. Tu peux toujours ajuster le prix d'un tome individuellement.">
-                        <HelpCircle class="h-3.5 w-3.5 text-base-content/35 cursor-help" />
+              <!-- Batch price : revealed on demand via the overflow menu -->
+              <Transition name="panel-fade">
+                <div v-if="showPrice" class="rounded-xl bg-base-200/40 border border-base-content/8 p-3 flex flex-wrap items-center gap-3">
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="w-8 h-8 rounded-lg bg-secondary/15 text-secondary flex items-center justify-center shrink-0">
+                      <Tag class="h-4 w-4" />
+                    </div>
+                    <div class="min-w-0">
+                      <div class="text-sm font-semibold leading-tight flex items-center gap-1.5">
+                        Prix unitaire (en lot)
+                        <div class="tooltip tooltip-top" data-tip="Définit le même prix pour tous les tomes de la série en une seule action. Tu peux toujours ajuster le prix d'un tome individuellement.">
+                          <HelpCircle class="h-3.5 w-3.5 text-base-content/35 cursor-help" />
+                        </div>
+                      </div>
+                      <div class="text-[11px] text-base-content/50 leading-tight mt-0.5">
+                        S'applique à tous les tomes ({{ entry.totalVolumes }})
                       </div>
                     </div>
-                    <div class="text-[11px] text-base-content/50 leading-tight mt-0.5">
-                      S'applique à tous les tomes ({{ entry.totalVolumes }})
+                  </div>
+                  <div class="flex items-center gap-2 ml-auto">
+                    <div class="relative">
+                      <input
+                        v-model.number="batchPrice"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        class="input input-sm input-bordered w-28 pr-7 tabular-nums font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                        placeholder="0.00"
+                        @keydown.enter="batchPriceValue !== null && batchPriceMutation.mutate(batchPriceValue)"
+                      />
+                      <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-base-content/40 pointer-events-none font-medium">€</span>
                     </div>
-                  </div>
-                </div>
-                <div class="flex items-center gap-2 ml-auto">
-                  <div class="relative">
-                    <input
-                      v-model.number="batchPrice"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      class="input input-sm input-bordered w-28 pr-7 tabular-nums font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
-                      placeholder="0.00"
-                      @keydown.enter="batchPriceValue !== null && batchPriceMutation.mutate(batchPriceValue)"
-                    />
-                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-base-content/40 pointer-events-none font-medium">€</span>
-                  </div>
-                  <div
-                    class="tooltip tooltip-top tooltip-secondary"
-                    :data-tip="batchPriceValue === null
-                      ? 'Saisis un prix pour activer'
-                      : `Appliquer ${batchPriceValue.toFixed(2)} € à chaque tome`"
-                  >
-                    <button
-                      class="btn btn-secondary btn-sm gap-1.5"
-                      :class="{ loading: batchPriceMutation.isPending.value }"
-                      :disabled="batchPriceValue === null || batchPriceMutation.isPending.value"
-                      @click="batchPriceValue !== null && batchPriceMutation.mutate(batchPriceValue)"
+                    <div
+                      class="tooltip tooltip-top tooltip-secondary"
+                      :data-tip="batchPriceValue === null
+                        ? 'Saisis un prix pour activer'
+                        : `Appliquer ${batchPriceValue.toFixed(2)} € à chaque tome`"
                     >
-                      <Check v-if="!batchPriceMutation.isPending.value" class="h-3.5 w-3.5" stroke-width="3" />
-                      Appliquer à tous
+                      <button
+                        class="btn btn-secondary btn-sm gap-1.5"
+                        :class="{ loading: batchPriceMutation.isPending.value }"
+                        :disabled="batchPriceValue === null || batchPriceMutation.isPending.value"
+                        @click="batchPriceValue !== null && batchPriceMutation.mutate(batchPriceValue)"
+                      >
+                        <Check v-if="!batchPriceMutation.isPending.value" class="h-3.5 w-3.5" stroke-width="3" />
+                        Appliquer à tous
+                      </button>
+                    </div>
+                    <button class="btn btn-ghost btn-sm btn-circle" aria-label="Fermer" @click="showPrice = false">
+                      <X class="h-4 w-4" />
                     </button>
                   </div>
                 </div>
-              </div>
+              </Transition>
             </div>
           </div>
 
@@ -985,6 +1142,9 @@ function volumeOpacityClass(ve: VolumeEntry): string {
         :volume="modalVolume"
         @close="closeModal"
       />
+
+      <!-- Guide / help modal -->
+      <CollectionGuideModal :open="showGuide" @close="showGuide = false" />
     </template>
   </div>
 
@@ -1222,5 +1382,30 @@ function volumeOpacityClass(ve: VolumeEntry): string {
   opacity: 0;
   transform: translateY(-4px);
   max-height: 0;
+}
+
+.menu-pop-enter-active,
+.menu-pop-leave-active {
+  transition: opacity 0.14s ease, transform 0.16s cubic-bezier(0.22, 0.61, 0.36, 1);
+  transform-origin: top;
+}
+.menu-pop-enter-from,
+.menu-pop-leave-to {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.97);
+}
+
+/* Bell wiggle on follow toggle */
+.bell-ring {
+  animation: bell-ring 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+@keyframes bell-ring {
+  0% { transform: rotate(0); }
+  15% { transform: rotate(14deg); }
+  30% { transform: rotate(-12deg); }
+  45% { transform: rotate(9deg); }
+  60% { transform: rotate(-6deg); }
+  75% { transform: rotate(3deg); }
+  100% { transform: rotate(0); }
 }
 </style>

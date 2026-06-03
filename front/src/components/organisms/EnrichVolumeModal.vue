@@ -320,7 +320,10 @@ function recomputeCounts(volumes: VolumeEntry[]) {
 
 const detailKey = computed(() => ['collection', props.collectionEntryId])
 
+const toggleMutationKey = computed(() => ['toggle-volume', props.collectionEntryId])
+
 const toggleMutation = useMutation({
+  mutationKey: ['toggle-volume', props.collectionEntryId],
   mutationFn: ({ field }: { field: VolumeToggleField }) =>
     toggleVolume(props.collectionEntryId, props.volume!.id, field),
   // Optimistic update — the toggle feels instant instead of waiting on a round trip.
@@ -341,10 +344,15 @@ const toggleMutation = useMutation({
     ui.addToast(t('enrich.statusUpdateError'), 'error')
   },
   onSettled: () => {
-    qc.invalidateQueries({ queryKey: ['collection', props.collectionEntryId] })
-    qc.invalidateQueries({ queryKey: ['collection'] })
-    qc.invalidateQueries({ queryKey: ['wishlist'] })
-    qc.invalidateQueries({ queryKey: ['stats'] })
+    // Only refetch once the last rapid toggle has settled — an in-flight refetch
+    // from an earlier toggle would otherwise overwrite the newer optimistic state,
+    // making a quick second tap on "Lu" appear to do nothing.
+    if (qc.isMutating({ mutationKey: toggleMutationKey.value }) === 1) {
+      qc.invalidateQueries({ queryKey: ['collection', props.collectionEntryId] })
+      qc.invalidateQueries({ queryKey: ['collection'] })
+      qc.invalidateQueries({ queryKey: ['wishlist'] })
+      qc.invalidateQueries({ queryKey: ['stats'] })
+    }
   },
 })
 
@@ -409,18 +417,16 @@ const STATUS_TOGGLES: Record<VolumeToggleField, StatusToggleConfig> = {
   },
 }
 
-// Which toggles are shown, and whether each is active, depend on the volume:
-// "Possédé" is always offered; reading only makes sense once owned; wishing /
-// announcing only make sense while not owned.
-const visibleToggles = computed<{ config: StatusToggleConfig; active: boolean }[]>(() => {
+// Possession cards (Possédé / Souhaité / Annoncé). "Possédé" is always offered;
+// wishing / announcing only make sense while not owned. Reading is intentionally
+// excluded here — it is rendered as a separate switch (possession ≠ lecture).
+const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean }[]>(() => {
   const v = props.volume
   if (!v) return []
   const list: { config: StatusToggleConfig; active: boolean }[] = [
     { config: STATUS_TOGGLES.isOwned, active: v.isOwned },
   ]
-  if (v.isOwned) {
-    list.push({ config: STATUS_TOGGLES.isRead, active: v.isRead })
-  } else {
+  if (!v.isOwned) {
     list.push({ config: STATUS_TOGGLES.isWished, active: v.isWished })
     list.push({ config: STATUS_TOGGLES.isAnnounced, active: v.isAnnounced })
   }
@@ -524,15 +530,15 @@ const visibleToggles = computed<{ config: StatusToggleConfig; active: boolean }[
                     </button>
                   </div>
 
+                  <!-- Possession cards (Possédé / Souhaité / Annoncé) -->
                   <button
-                    v-for="{ config, active } in visibleToggles"
+                    v-for="{ config, active } in possessionToggles"
                     :key="config.field"
                     type="button"
                     class="group/status relative flex items-center gap-3 w-full rounded-xl border p-2.5 text-left transition-all duration-150 active:scale-[0.98]"
                     :class="active
                       ? config.activeCard
                       : 'border-base-300/70 bg-base-100 hover:border-base-content/20 hover:bg-base-200/40'"
-                    :disabled="toggleMutation.isPending.value"
                     @click="toggleMutation.mutate({ field: config.field })"
                   >
                     <span
@@ -552,6 +558,39 @@ const visibleToggles = computed<{ config: StatusToggleConfig; active: boolean }[
                     >
                       <Check v-if="active" class="h-3 w-3" stroke-width="3" />
                       <Plus v-else class="h-3 w-3 text-base-content/30" stroke-width="3" />
+                    </span>
+                  </button>
+
+                  <!-- "Lu" — an independent switch (a volume is read or not, regardless of how it's owned) -->
+                  <button
+                    v-if="volume.isOwned"
+                    type="button"
+                    class="group/read flex items-center gap-3 w-full rounded-xl border p-2.5 text-left transition-all duration-150 active:scale-[0.98]"
+                    :class="volume.isRead
+                      ? 'border-info bg-info/10 ring-1 ring-info/30'
+                      : 'border-base-300/70 bg-base-100 hover:border-base-content/20 hover:bg-base-200/40'"
+                    :aria-pressed="volume.isRead"
+                    @click="toggleMutation.mutate({ field: 'isRead' })"
+                  >
+                    <span
+                      class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
+                      :class="volume.isRead ? 'bg-info/15 text-info' : 'bg-base-200 text-base-content/40 group-hover/read:text-base-content/60'"
+                    >
+                      <BookOpen class="h-4 w-4" />
+                    </span>
+                    <span class="min-w-0 flex-1">
+                      <span class="block text-sm font-semibold leading-tight">{{ t('enrich.statusReadLabel') }}</span>
+                      <span class="block text-[11px] text-base-content/50 leading-snug mt-0.5">{{ t('enrich.statusReadDesc') }}</span>
+                    </span>
+                    <!-- Switch -->
+                    <span
+                      class="relative w-10 h-6 rounded-full shrink-0 transition-colors duration-200"
+                      :class="volume.isRead ? 'bg-info' : 'bg-base-300'"
+                    >
+                      <span
+                        class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-base-100 shadow transition-transform duration-200"
+                        :class="volume.isRead ? 'translate-x-4' : ''"
+                      />
                     </span>
                   </button>
 
@@ -643,11 +682,12 @@ const visibleToggles = computed<{ config: StatusToggleConfig; active: boolean }[
                   <p v-if="!searchResults.length && !isSearching" class="text-sm text-base-content/30 text-center py-10">
                     Suggestions de couvertures — appuyez sur une couverture pour l'appliquer
                   </p>
-                  <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  <TransitionGroup name="cover-pop" tag="div" class="grid grid-cols-2 sm:grid-cols-3 gap-4" appear>
                     <button
                       v-for="(result, idx) in searchResults"
                       :key="result.externalId ?? result.coverUrl ?? idx"
                       class="group flex flex-col gap-1.5 text-left"
+                      :style="{ transitionDelay: Math.min(idx, 8) * 35 + 'ms' }"
                       :disabled="!result.coverUrl"
                       @click="result.coverUrl && enrichMutation.mutate({ coverUrl: result.coverUrl, spineUrl: result.spineUrl ?? undefined, isbn: result.isbn ?? undefined })"
                     >
@@ -667,7 +707,7 @@ const visibleToggles = computed<{ config: StatusToggleConfig; active: boolean }[
                         <p v-if="result.edition" class="text-[10px] text-base-content/40 truncate">{{ result.edition }}</p>
                       </div>
                     </button>
-                  </div>
+                  </TransitionGroup>
                   <div v-if="isLoadingMore || hasMore" class="py-3 flex items-center justify-center gap-2 text-xs text-base-content/40">
                     <span v-if="isLoadingMore" class="loading loading-spinner loading-xs" />
                     <span v-else>Défiler pour plus</span>
@@ -692,24 +732,27 @@ const visibleToggles = computed<{ config: StatusToggleConfig; active: boolean }[
                 </template>
 
                 <!-- Résultats ISBN/Scan regroupés par source — affichés EN PRIORITÉ, au-dessus du scan -->
-                <div v-if="mode !== 'search' && isbnCovers.length" :class="mode === 'isbn' ? 'mt-4' : ''">
-                  <p class="text-sm font-medium mb-2">{{ t('enrich.coverFound') }}</p>
-                  <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                    <button
-                      v-for="(cover, idx) in isbnCovers"
-                      :key="cover.source + idx"
-                      class="group flex flex-col gap-1.5 text-left"
-                      :disabled="enrichMutation.isPending.value"
-                      @click="applyIsbnCover(cover)"
-                    >
-                      <div class="w-full aspect-[2/3] rounded-lg overflow-hidden bg-base-200 ring-2 ring-transparent transition-all duration-150 cursor-pointer group-hover:ring-primary group-hover:scale-[1.03] group-hover:shadow-lg active:scale-95">
-                        <img :src="coverUrl(cover.coverUrl)!" :alt="cover.source" class="w-full h-full object-cover" />
-                      </div>
-                      <span class="badge badge-sm badge-ghost w-full justify-center font-medium">{{ isbnSourceLabel(cover.source) }}</span>
-                    </button>
+                <Transition name="fade">
+                  <div v-if="mode !== 'search' && isbnCovers.length" :class="mode === 'isbn' ? 'mt-4' : ''">
+                    <p class="text-sm font-medium mb-2">{{ t('enrich.coverFound') }}</p>
+                    <TransitionGroup name="cover-pop" tag="div" class="grid grid-cols-2 sm:grid-cols-3 gap-4" appear>
+                      <button
+                        v-for="(cover, idx) in isbnCovers"
+                        :key="cover.source + idx"
+                        class="group flex flex-col gap-1.5 text-left"
+                        :style="{ transitionDelay: Math.min(idx, 8) * 35 + 'ms' }"
+                        :disabled="enrichMutation.isPending.value"
+                        @click="applyIsbnCover(cover)"
+                      >
+                        <div class="w-full aspect-[2/3] rounded-lg overflow-hidden bg-base-200 ring-2 ring-transparent transition-all duration-150 cursor-pointer group-hover:ring-primary group-hover:scale-[1.03] group-hover:shadow-lg active:scale-95">
+                          <img :src="coverUrl(cover.coverUrl)!" :alt="cover.source" class="w-full h-full object-cover" />
+                        </div>
+                        <span class="badge badge-sm badge-ghost w-full justify-center font-medium">{{ isbnSourceLabel(cover.source) }}</span>
+                      </button>
+                    </TransitionGroup>
                   </div>
-                </div>
-                <div v-else-if="mode === 'isbn' && isbnSearched && !isbnLoading && !isbnError && !isbnCovers.length" class="mt-4 flex flex-col gap-2 items-start">
+                </Transition>
+                <div v-if="mode === 'isbn' && isbnSearched && !isbnLoading && !isbnError && !isbnCovers.length" class="mt-4 flex flex-col gap-2 items-start">
                   <p class="text-sm text-base-content/40">{{ t('enrich.noCoverForIsbn') }}</p>
                   <button class="btn btn-sm btn-outline gap-2" @click="fallbackToTitleSearch()">
                     <Search class="h-4 w-4" />
@@ -801,10 +844,25 @@ const visibleToggles = computed<{ config: StatusToggleConfig; active: boolean }[
 }
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.15s ease;
+  transition: opacity 0.18s ease;
 }
 .fade-enter-from,
 .fade-leave-to {
+  opacity: 0;
+}
+
+/* Cover suggestions appear with a soft, slightly staggered fade-in instead of popping in */
+.cover-pop-enter-active {
+  transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.cover-pop-leave-active {
+  transition: opacity 0.15s ease;
+}
+.cover-pop-enter-from {
+  opacity: 0;
+  transform: scale(0.94) translateY(8px);
+}
+.cover-pop-leave-to {
   opacity: 0;
 }
 </style>

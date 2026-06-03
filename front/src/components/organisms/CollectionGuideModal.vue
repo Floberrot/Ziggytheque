@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import {
   X, Package, BookOpen, Star, Megaphone, CircleDashed,
   BookMarked, Layers, CheckCircle2, Gift, Wallet, PieChart, TrendingUp,
-  Search, QrCode, Camera, Link2, Sparkles, Lightbulb, Info,
+  Search, QrCode, Camera, Link2, Sparkles, Lightbulb, Info, Barcode, BookOpenText,
 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
@@ -180,6 +180,32 @@ const COVER_SOURCES = ['mangadex', 'googlebooks', 'bnf', 'openlibrary', 'hardcov
             <!-- ── Covers ── -->
             <div v-else class="space-y-4">
               <p class="text-sm text-base-content/60 leading-relaxed">{{ t('guide.coversIntro') }}</p>
+
+              <!-- ── What is an ISBN? — illustrated explainer (mirrors the volume "ISBN du tome" hint) ── -->
+              <div class="rounded-xl border border-secondary/20 bg-secondary/5 p-3.5">
+                <div class="flex items-start gap-3">
+                  <div class="w-9 h-9 rounded-lg bg-secondary/15 text-secondary flex items-center justify-center shrink-0">
+                    <BookOpenText class="h-5 w-5" />
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <p class="font-semibold text-sm leading-tight">{{ t('guide.isbnExplainer.title') }}</p>
+                    <p class="text-xs text-base-content/60 mt-1 leading-snug">{{ t('guide.isbnExplainer.line1') }}</p>
+                    <p class="text-xs text-base-content/60 mt-1 leading-snug">{{ t('guide.isbnExplainer.line2') }}</p>
+
+                    <!-- Mock back-of-book label : barcode + ISBN, like the real thing -->
+                    <div class="mt-3 inline-flex flex-col items-center gap-1 rounded-lg bg-base-100 border border-base-300 px-4 py-2.5 shadow-sm">
+                      <Barcode class="h-9 w-16 text-base-content/80" stroke-width="1.25" />
+                      <span class="font-mono text-[11px] tracking-widest text-base-content/70">9 782811 645632</span>
+                      <span class="text-[9px] uppercase tracking-wider text-base-content/35">{{ t('guide.isbnExplainer.barcodeLabel') }}</span>
+                    </div>
+
+                    <div class="flex flex-wrap gap-1.5 mt-3">
+                      <span class="badge badge-sm bg-secondary/15 text-secondary border-0 font-medium">{{ t('guide.isbnExplainer.badge13') }}</span>
+                      <span class="badge badge-sm bg-base-content/10 text-base-content/60 border-0 font-medium">{{ t('guide.isbnExplainer.badge10') }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               <div
                 v-for="method in COVER_METHODS"
