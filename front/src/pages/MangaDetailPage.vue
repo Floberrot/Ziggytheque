@@ -131,7 +131,15 @@ const STATUS_OPTIONS = [
 ] as const
 
 // ── Batch price ──
-const batchPrice = ref<number | null>(null)
+// v-model.number yields the raw string ('') when the input is empty or
+// non-numeric, so the model can hold number | string | null. batchPriceValue
+// normalises it to a usable number (or null) for guards and the mutation.
+const batchPrice = ref<number | string | null>(null)
+const batchPriceValue = computed<number | null>(() =>
+  typeof batchPrice.value === 'number' && !Number.isNaN(batchPrice.value)
+    ? batchPrice.value
+    : null,
+)
 
 const batchPriceMutation = useMutation({
   mutationFn: (price: number) => batchSetVolumePrice(id, price),
@@ -733,21 +741,21 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                       min="0"
                       class="input input-sm input-bordered w-28 pr-7 tabular-nums font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
                       placeholder="0.00"
-                      @keydown.enter="batchPrice !== null && batchPriceMutation.mutate(batchPrice)"
+                      @keydown.enter="batchPriceValue !== null && batchPriceMutation.mutate(batchPriceValue)"
                     />
                     <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-base-content/40 pointer-events-none font-medium">€</span>
                   </div>
                   <div
                     class="tooltip tooltip-top tooltip-secondary"
-                    :data-tip="batchPrice === null
+                    :data-tip="batchPriceValue === null
                       ? 'Saisis un prix pour activer'
-                      : `Appliquer ${batchPrice.toFixed(2)} € à chaque tome`"
+                      : `Appliquer ${batchPriceValue.toFixed(2)} € à chaque tome`"
                   >
                     <button
                       class="btn btn-secondary btn-sm gap-1.5"
                       :class="{ loading: batchPriceMutation.isPending.value }"
-                      :disabled="batchPrice === null || batchPriceMutation.isPending.value"
-                      @click="batchPrice !== null && batchPriceMutation.mutate(batchPrice)"
+                      :disabled="batchPriceValue === null || batchPriceMutation.isPending.value"
+                      @click="batchPriceValue !== null && batchPriceMutation.mutate(batchPriceValue)"
                     >
                       <Check v-if="!batchPriceMutation.isPending.value" class="h-3.5 w-3.5" stroke-width="3" />
                       Appliquer à tous
