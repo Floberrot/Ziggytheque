@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
-import { X, Search, RefreshCw, Book, ImageOff, Megaphone, Package, Star, BookOpen, Camera, Smartphone, QrCode, Info } from 'lucide-vue-next'
+import { X, Search, RefreshCw, Book, ImageOff, Megaphone, Package, Star, BookOpen, Camera, Smartphone, QrCode, Info, HelpCircle, Check, Plus } from 'lucide-vue-next'
 import { searchVolumeExternal, updateVolume, createScanSession } from '@/api/manga'
 import type { CoverProvider } from '@/api/manga'
 import { toggleVolume } from '@/api/collection'
@@ -12,8 +12,9 @@ import { useScanSession } from '@/composables/useScanSession'
 import { useCoverProvider } from '@/composables/useCoverProvider'
 import BaseQrCode from '@/components/atoms/BaseQrCode.vue'
 import BaseCoverProviderLogo from '@/components/atoms/BaseCoverProviderLogo.vue'
+import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
 import { useI18n } from 'vue-i18n'
-import type { VolumeEntry, VolumeToggleField } from '@/types'
+import type { CollectionEntryDetail, VolumeEntry, VolumeToggleField } from '@/types'
 import { coverUrl } from '@/utils/coverUrl'
 
 const { t } = useI18n()
@@ -32,12 +33,14 @@ const emit = defineEmits<{ close: [] }>()
 const qc = useQueryClient()
 const ui = useUiStore()
 
-// ── Escape key + lightbox ──
+// ── Escape key + lightbox + guide ──
 const lightboxOpen = ref(false)
+const showGuide = ref(false)
 
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
-    if (lightboxOpen.value) { lightboxOpen.value = false }
+    if (showGuide.value) { showGuide.value = false }
+    else if (lightboxOpen.value) { lightboxOpen.value = false }
     else if (props.open) { emit('close') }
   }
 }
@@ -285,10 +288,59 @@ const enrichMutation = useMutation({
 })
 
 // ── Toggle mutations ──
+// Mirrors the backend ToggleVolumeHandler rules so the optimistic cache update
+// matches exactly what the server will persist (no flicker on settle).
+function applyToggleField(volume: VolumeEntry, field: VolumeToggleField): VolumeEntry {
+  const next = { ...volume }
+  if (field === 'isOwned') {
+    next.isOwned = !volume.isOwned
+    // Owning a volume removes it from the wishlist and announced lists.
+    if (next.isOwned) {
+      next.isWished = false
+      next.isAnnounced = false
+    }
+  } else if (field === 'isRead') {
+    next.isRead = !volume.isRead
+  } else if (field === 'isWished') {
+    next.isWished = !volume.isWished
+  } else {
+    next.isAnnounced = !volume.isAnnounced
+  }
+  return next
+}
+
+function recomputeCounts(volumes: VolumeEntry[]) {
+  return {
+    ownedCount:  volumes.filter((v) => v.isOwned).length,
+    readCount:   volumes.filter((v) => v.isRead).length,
+    wishedCount: volumes.filter((v) => v.isWished && !v.isOwned).length,
+    ownedValue:  volumes.reduce((sum, v) => sum + (v.isOwned ? (v.price ?? 0) : 0), 0),
+  }
+}
+
+const detailKey = computed(() => ['collection', props.collectionEntryId])
+
 const toggleMutation = useMutation({
   mutationFn: ({ field }: { field: VolumeToggleField }) =>
     toggleVolume(props.collectionEntryId, props.volume!.id, field),
-  onSuccess: () => {
+  // Optimistic update — the toggle feels instant instead of waiting on a round trip.
+  onMutate: async ({ field }: { field: VolumeToggleField }) => {
+    const key = detailKey.value
+    const volumeEntryId = props.volume!.id
+    await qc.cancelQueries({ queryKey: key })
+    const previous = qc.getQueryData<CollectionEntryDetail>(key)
+    qc.setQueryData<CollectionEntryDetail>(key, (old) => {
+      if (!old) return old
+      const volumes = old.volumes.map((v) => (v.id === volumeEntryId ? applyToggleField(v, field) : v))
+      return { ...old, volumes, ...recomputeCounts(volumes) }
+    })
+    return { previous, key }
+  },
+  onError: (_error, _vars, context) => {
+    if (context?.previous) qc.setQueryData(context.key, context.previous)
+    ui.addToast(t('enrich.statusUpdateError'), 'error')
+  },
+  onSettled: () => {
     qc.invalidateQueries({ queryKey: ['collection', props.collectionEntryId] })
     qc.invalidateQueries({ queryKey: ['collection'] })
     qc.invalidateQueries({ queryKey: ['wishlist'] })
@@ -303,6 +355,76 @@ const volumeStatus = computed(() => {
   if (v.isOwned) return 'owned'
   if (v.isWished) return 'wished'
   return 'none'
+})
+
+// ── Status toggle controls (the "owned / read / wishlist / announced" panel) ──
+// Static class literals per field so Tailwind keeps them; visibility + active
+// state are derived from the current volume below.
+interface StatusToggleConfig {
+  field: VolumeToggleField
+  icon: typeof Package
+  labelKey: string
+  descKey: string
+  activeCard: string
+  iconChip: string
+  dotActive: string
+}
+
+const STATUS_TOGGLES: Record<VolumeToggleField, StatusToggleConfig> = {
+  isOwned: {
+    field: 'isOwned',
+    icon: Package,
+    labelKey: 'enrich.statusOwnedLabel',
+    descKey: 'enrich.statusOwnedDesc',
+    activeCard: 'border-success bg-success/10 ring-1 ring-success/30',
+    iconChip: 'bg-success/15 text-success',
+    dotActive: 'bg-success text-success-content',
+  },
+  isRead: {
+    field: 'isRead',
+    icon: BookOpen,
+    labelKey: 'enrich.statusReadLabel',
+    descKey: 'enrich.statusReadDesc',
+    activeCard: 'border-info bg-info/10 ring-1 ring-info/30',
+    iconChip: 'bg-info/15 text-info',
+    dotActive: 'bg-info text-info-content',
+  },
+  isWished: {
+    field: 'isWished',
+    icon: Star,
+    labelKey: 'enrich.statusWishedLabel',
+    descKey: 'enrich.statusWishedDesc',
+    activeCard: 'border-warning bg-warning/10 ring-1 ring-warning/30',
+    iconChip: 'bg-warning/15 text-warning',
+    dotActive: 'bg-warning text-warning-content',
+  },
+  isAnnounced: {
+    field: 'isAnnounced',
+    icon: Megaphone,
+    labelKey: 'enrich.statusAnnouncedLabel',
+    descKey: 'enrich.statusAnnouncedDesc',
+    activeCard: 'border-secondary bg-secondary/10 ring-1 ring-secondary/30',
+    iconChip: 'bg-secondary/15 text-secondary',
+    dotActive: 'bg-secondary text-secondary-content',
+  },
+}
+
+// Which toggles are shown, and whether each is active, depend on the volume:
+// "Possédé" is always offered; reading only makes sense once owned; wishing /
+// announcing only make sense while not owned.
+const visibleToggles = computed<{ config: StatusToggleConfig; active: boolean }[]>(() => {
+  const v = props.volume
+  if (!v) return []
+  const list: { config: StatusToggleConfig; active: boolean }[] = [
+    { config: STATUS_TOGGLES.isOwned, active: v.isOwned },
+  ]
+  if (v.isOwned) {
+    list.push({ config: STATUS_TOGGLES.isRead, active: v.isRead })
+  } else {
+    list.push({ config: STATUS_TOGGLES.isWished, active: v.isWished })
+    list.push({ config: STATUS_TOGGLES.isAnnounced, active: v.isAnnounced })
+  }
+  return list
 })
 </script>
 
@@ -346,9 +468,20 @@ const volumeStatus = computed(() => {
               </span>
               <span v-else class="badge badge-ghost">Non suivi</span>
             </div>
-            <button class="btn btn-ghost btn-sm btn-circle" @click="emit('close')">
-              <X class="h-4 w-4" />
-            </button>
+            <div class="flex items-center gap-1">
+              <div class="tooltip tooltip-left" :data-tip="t('guide.openTooltip')">
+                <button
+                  class="btn btn-ghost btn-sm btn-circle text-base-content/60 hover:text-primary"
+                  :aria-label="t('guide.openTooltip')"
+                  @click="showGuide = true"
+                >
+                  <HelpCircle class="h-5 w-5" />
+                </button>
+              </div>
+              <button class="btn btn-ghost btn-sm btn-circle" :aria-label="t('common.close')" @click="emit('close')">
+                <X class="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           <!-- Layout: stacked on mobile (cover→search→url), side-by-side on desktop -->
@@ -362,61 +495,69 @@ const volumeStatus = computed(() => {
                 <div
                   class="shrink-0 w-28 sm:w-44 sm:mx-auto aspect-[2/3] rounded-xl overflow-hidden ring-2 bg-base-200 transition-transform duration-150 relative"
                   :class="[
-                    volumeStatus === 'owned' ? 'ring-success/60' : volumeStatus === 'wished' ? 'ring-warning/60' : volumeStatus === 'announced' ? 'ring-base-content/40 ring-dashed' : 'ring-base-300',
+                    volumeStatus === 'owned' ? 'ring-success/60' : volumeStatus === 'wished' ? 'ring-warning/60' : volumeStatus === 'announced' ? 'ring-secondary/50 ring-dashed' : 'ring-base-300',
                     volume.coverUrl ? 'cursor-zoom-in hover:scale-105' : ''
                   ]"
                   @click="volume.coverUrl && (lightboxOpen = true)"
                 >
                   <img v-if="volume.coverUrl" :src="coverUrl(volume.coverUrl)!" :alt="`Tome ${volume.number}`" class="w-full h-full object-cover" />
                   <div v-else-if="volume.isAnnounced && !volume.isOwned" class="w-full h-full flex items-end justify-center bg-base-300" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,.06) 4px, rgba(0,0,0,.06) 8px);">
-                    <span class="badge badge-neutral mb-2 text-[9px]">Annoncé</span>
+                    <span class="badge badge-secondary mb-2 text-[9px]">Annoncé</span>
                   </div>
                   <div v-else class="w-full h-full flex items-center justify-center text-base-content/20">
                     <Book class="h-10 w-10" stroke-width="1.5" />
                   </div>
                 </div>
 
-                <!-- Status toggles -->
-                <div class="flex flex-col gap-2 flex-1 justify-center sm:justify-start">
+                <!-- ── Status toggles — clear, self-explanatory cards ── -->
+                <div class="flex flex-col gap-2.5 flex-1 min-w-0 justify-center sm:justify-start">
+                  <div class="flex items-center justify-between gap-2">
+                    <p class="text-[11px] font-bold uppercase tracking-wide text-base-content/45">
+                      {{ t('enrich.statusTitle') }}
+                    </p>
+                    <button
+                      class="text-[11px] font-medium text-primary/70 hover:text-primary inline-flex items-center gap-0.5"
+                      @click="showGuide = true"
+                    >
+                      <HelpCircle class="h-3 w-3" />
+                      {{ t('enrich.statusHelp') }}
+                    </button>
+                  </div>
+
                   <button
-                    v-if="!volume.isOwned"
-                    class="btn btn-sm gap-2"
-                    :class="volume.isAnnounced ? 'btn-neutral' : 'btn-neutral btn-outline'"
+                    v-for="{ config, active } in visibleToggles"
+                    :key="config.field"
+                    type="button"
+                    class="group/status relative flex items-center gap-3 w-full rounded-xl border p-2.5 text-left transition-all duration-150 active:scale-[0.98]"
+                    :class="active
+                      ? config.activeCard
+                      : 'border-base-300/70 bg-base-100 hover:border-base-content/20 hover:bg-base-200/40'"
                     :disabled="toggleMutation.isPending.value"
-                    @click="toggleMutation.mutate({ field: 'isAnnounced' })"
+                    @click="toggleMutation.mutate({ field: config.field })"
                   >
-                    <Megaphone class="h-4 w-4" />
-                    Annoncé
+                    <span
+                      class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
+                      :class="active ? config.iconChip : 'bg-base-200 text-base-content/40 group-hover/status:text-base-content/60'"
+                    >
+                      <component :is="config.icon" class="h-4 w-4" />
+                    </span>
+                    <span class="min-w-0 flex-1">
+                      <span class="block text-sm font-semibold leading-tight">{{ t(config.labelKey) }}</span>
+                      <span class="block text-[11px] text-base-content/50 leading-snug mt-0.5">{{ t(config.descKey) }}</span>
+                    </span>
+                    <!-- State indicator: filled check when active, empty ring otherwise -->
+                    <span
+                      class="w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all"
+                      :class="active ? config.dotActive : 'border-2 border-base-300 text-transparent group-hover/status:border-base-content/30'"
+                    >
+                      <Check v-if="active" class="h-3 w-3" stroke-width="3" />
+                      <Plus v-else class="h-3 w-3 text-base-content/30" stroke-width="3" />
+                    </span>
                   </button>
-                  <button
-                    class="btn btn-sm gap-2"
-                    :class="volume.isOwned ? 'btn-success' : 'btn-success btn-outline'"
-                    :disabled="toggleMutation.isPending.value"
-                    @click="toggleMutation.mutate({ field: 'isOwned' })"
-                  >
-                    <Package class="h-4 w-4" />
-                    Possédé
-                  </button>
-                  <button
-                    v-if="!volume.isOwned"
-                    class="btn btn-sm gap-2"
-                    :class="volume.isWished ? 'btn-warning' : 'btn-warning btn-outline'"
-                    :disabled="toggleMutation.isPending.value"
-                    @click="toggleMutation.mutate({ field: 'isWished' })"
-                  >
-                    <Star class="h-4 w-4" />
-                    Wishlist
-                  </button>
-                  <button
-                    v-if="volume.isOwned"
-                    class="btn btn-sm gap-2"
-                    :class="volume.isRead ? 'btn-info' : 'btn-info btn-outline'"
-                    :disabled="toggleMutation.isPending.value"
-                    @click="toggleMutation.mutate({ field: 'isRead' })"
-                  >
-                    <BookOpen class="h-4 w-4" />
-                    Lu
-                  </button>
+
+                  <p class="text-[11px] text-base-content/40 leading-snug px-0.5">
+                    {{ volume.isOwned ? t('enrich.statusHintOwned') : t('enrich.statusHintNotOwned') }}
+                  </p>
                 </div>
               </div>
 
@@ -637,6 +778,9 @@ const volumeStatus = computed(() => {
       </div>
     </Transition>
   </Teleport>
+
+  <!-- Guide / tutorial -->
+  <CollectionGuideModal :open="showGuide" @close="showGuide = false" />
 </template>
 
 <style scoped>

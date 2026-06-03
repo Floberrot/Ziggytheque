@@ -177,7 +177,10 @@ final readonly class MangaDexMangaApiClient implements MangaCoverProviderInterfa
     private function normalizeTitle(string $title): string
     {
         $lowered = mb_strtolower(trim($title), 'UTF-8');
-        $deAccented = transliterator_transliterate('Any-Latin; Latin-ASCII', $lowered) ?? $lowered;
+        // transliterator_transliterate() returns string|false, so a ?? fallback
+        // would leave `false` in place — guard explicitly to keep $deAccented a string.
+        $transliterated = transliterator_transliterate('Any-Latin; Latin-ASCII', $lowered);
+        $deAccented = $transliterated !== false ? $transliterated : $lowered;
         $alphaNumeric = preg_replace('/[^a-z0-9]+/u', ' ', $deAccented) ?? $deAccented;
 
         return trim(preg_replace('/\s+/u', ' ', $alphaNumeric) ?? $alphaNumeric);
