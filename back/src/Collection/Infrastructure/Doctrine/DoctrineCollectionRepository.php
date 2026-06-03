@@ -8,6 +8,7 @@ use App\Collection\Application\Get\GetCollectionQuery;
 use App\Collection\Domain\CollectionEntry;
 use App\Collection\Domain\CollectionRepositoryInterface;
 use App\Collection\Domain\CollectionSortEnum;
+use App\Collection\Domain\VolumeEntry;
 use Doctrine\ORM\EntityManagerInterface;
 
 final readonly class DoctrineCollectionRepository implements CollectionRepositoryInterface
@@ -70,6 +71,30 @@ final readonly class DoctrineCollectionRepository implements CollectionRepositor
 
         if ($query->followedOnly) {
             $qb->andWhere('ce.notificationsEnabled = true');
+        }
+
+        // Volume-state filters — EXISTS keeps the parent row count intact (no join
+        // fan-out) so they compose cleanly with pagination and the other filters.
+        if ($query->hasOwned) {
+            $qb->andWhere(
+                'EXISTS (SELECT ownedVolume.id FROM ' . VolumeEntry::class . ' ownedVolume '
+                . 'WHERE ownedVolume.collectionEntry = ce AND ownedVolume.isOwned = true)',
+            );
+        }
+
+        if ($query->hasRead) {
+            $qb->andWhere(
+                'EXISTS (SELECT readVolume.id FROM ' . VolumeEntry::class . ' readVolume '
+                . 'WHERE readVolume.collectionEntry = ce AND readVolume.isRead = true)',
+            );
+        }
+
+        if ($query->hasWished) {
+            $qb->andWhere(
+                'EXISTS (SELECT wishedVolume.id FROM ' . VolumeEntry::class . ' wishedVolume '
+                . 'WHERE wishedVolume.collectionEntry = ce '
+                . 'AND wishedVolume.isWished = true AND wishedVolume.isOwned = false)',
+            );
         }
 
         // Count total before sorting/pagination

@@ -157,7 +157,10 @@ function open() {
               <span class="tabular-nums font-medium">{{ entry.wishedCount }}</span>
             </span>
           </div>
-          <span v-if="entry.ownedValue > 0" class="text-[10px] text-white/45 shrink-0 tabular-nums">
+          <span
+            v-if="entry.ownedValue > 0"
+            class="text-[10px] text-white/55 shrink-0 tabular-nums opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          >
             {{ entry.ownedValue.toFixed(2) }} €
           </span>
         </div>

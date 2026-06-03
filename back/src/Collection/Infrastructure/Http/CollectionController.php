@@ -44,6 +44,9 @@ final readonly class CollectionController
             readingStatus: $request->readingStatus,
             sort:          $request->sort,
             followedOnly:  $request->followed,
+            hasOwned:      $request->hasOwned,
+            hasRead:       $request->hasRead,
+            hasWished:     $request->hasWished,
             page:          $request->page,
             limit:         20,
         );

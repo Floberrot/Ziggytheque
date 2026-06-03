@@ -18,6 +18,9 @@ final readonly class GetCollectionQuery extends AbstractPaginatedQuery
         public ?ReadingStatusEnum $readingStatus = null,
         public ?CollectionSortEnum $sort = null,
         public bool $followedOnly = false,
+        public bool $hasOwned = false,
+        public bool $hasRead = false,
+        public bool $hasWished = false,
         int $page = 1,
         int $limit = 20,
     ) {

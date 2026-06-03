@@ -55,6 +55,24 @@ final class GetCollectionFilterTest extends AbstractApiTestCase
         return $this->assertJsonStatus(200, $response);
     }
 
+    /** @return list<array<string, mixed>> Volume entries of the collection entry */
+    private function volumeEntries(string $entryId): array
+    {
+        $response = $this->jsonRequest('GET', '/api/collection/' . $entryId);
+        $detail   = $this->assertJsonStatus(200, $response);
+
+        return $detail['volumes'];
+    }
+
+    private function toggleVolume(string $entryId, string $volumeEntryId, string $field): void
+    {
+        $this->jsonRequest(
+            'PATCH',
+            '/api/collection/' . $entryId . '/volumes/' . $volumeEntryId . '/toggle',
+            ['field' => $field],
+        );
+    }
+
     // ── Response shape ───────────────────────────────────────────────────────
 
     public function testNoParamsReturnsPaginatedShape(): void
@@ -166,6 +184,65 @@ final class GetCollectionFilterTest extends AbstractApiTestCase
         $this->assertTrue($data['items'][0]['notificationsEnabled']);
     }
 
+    // ── Volume-state filters (owned / read / wished) ───────────────────────────
+
+    public function testHasOwnedFilterReturnsOnlyEntriesWithOwnedVolumes(): void
+    {
+        $ownedId = $this->addToCollection($this->createManga($this->pfx . 'Owned', volumes: 2));
+        $this->addToCollection($this->createManga($this->pfx . 'Untouched', volumes: 2));
+
+        $volumes = $this->volumeEntries($ownedId);
+        $this->toggleVolume($ownedId, $volumes[0]['id'], 'isOwned');
+
+        $data = $this->listCollection(['search' => $this->pfx, 'hasOwned' => 'true']);
+
+        $this->assertSame(1, $data['total']);
+        $this->assertGreaterThan(0, $data['items'][0]['ownedCount']);
+    }
+
+    public function testHasReadFilterReturnsOnlyEntriesWithReadVolumes(): void
+    {
+        $readId = $this->addToCollection($this->createManga($this->pfx . 'Read', volumes: 2));
+        $this->addToCollection($this->createManga($this->pfx . 'Unread', volumes: 2));
+
+        $volumes = $this->volumeEntries($readId);
+        $this->toggleVolume($readId, $volumes[0]['id'], 'isRead');
+
+        $data = $this->listCollection(['search' => $this->pfx, 'hasRead' => 'true']);
+
+        $this->assertSame(1, $data['total']);
+        $this->assertGreaterThan(0, $data['items'][0]['readCount']);
+    }
+
+    public function testHasWishedFilterReturnsOnlyEntriesWithWishedVolumes(): void
+    {
+        $wishedId = $this->addToCollection($this->createManga($this->pfx . 'Wished', volumes: 2));
+        $this->addToCollection($this->createManga($this->pfx . 'Plain', volumes: 2));
+
+        $volumes = $this->volumeEntries($wishedId);
+        $this->toggleVolume($wishedId, $volumes[0]['id'], 'isWished');
+
+        $data = $this->listCollection(['search' => $this->pfx, 'hasWished' => 'true']);
+
+        $this->assertSame(1, $data['total']);
+        $this->assertGreaterThan(0, $data['items'][0]['wishedCount']);
+    }
+
+    public function testHasWishedFilterExcludesOwnedVolumes(): void
+    {
+        // A volume that is both wished and owned must NOT count as wished — mirrors
+        // the wishedCount aggregation (isWished AND NOT isOwned).
+        $entryId = $this->addToCollection($this->createManga($this->pfx . 'OwnedWish', volumes: 1));
+
+        $volumes = $this->volumeEntries($entryId);
+        $this->toggleVolume($entryId, $volumes[0]['id'], 'isWished');
+        $this->toggleVolume($entryId, $volumes[0]['id'], 'isOwned');
+
+        $data = $this->listCollection(['search' => $this->pfx, 'hasWished' => 'true']);
+
+        $this->assertSame(0, $data['total']);
+    }
+
     // ── Sort ─────────────────────────────────────────────────────────────────
 
     public function testSortRatingDescFirstItemHasHighestRating(): void
@@ -217,7 +294,7 @@ final class GetCollectionFilterTest extends AbstractApiTestCase
         $this->jsonRequest('PATCH', '/api/collection/' . $matchId . '/follow');
 
         $this->addToCollection($this->createManga($this->pfx . 'Another Shonen', 'shonen'));
-        $this->addToCollection($this->createManga($this->pfx . 'Seinen Entry',   'seinen'));
+        $this->addToCollection($this->createManga($this->pfx . 'Seinen Entry', 'seinen'));
 
         $data = $this->listCollection([
             'search'        => $this->pfx . 'Dragon',

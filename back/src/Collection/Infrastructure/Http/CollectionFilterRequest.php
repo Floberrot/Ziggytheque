@@ -17,6 +17,9 @@ final class CollectionFilterRequest
     public ?ReadingStatusEnum $readingStatus = null;
     public ?CollectionSortEnum $sort = null;
     public bool $followed = false;
+    public bool $hasOwned = false;
+    public bool $hasRead = false;
+    public bool $hasWished = false;
 
     #[Assert\Positive]
     public int $page = 1;
