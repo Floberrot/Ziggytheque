@@ -184,6 +184,14 @@ services:
         arguments:
             $apiKey: '%env(GOOGLE_BOOKS_API_KEY)%'
 
+    # Keyless summary translation (Google "gtx" web endpoint) — English → French.
+    App\Manga\Domain\SummaryTranslatorInterface:
+        alias: App\Manga\Infrastructure\Translation\GoogleTranslateSummaryTranslator
+
+    App\Manga\Infrastructure\Translation\GoogleTranslateSummaryTranslator:
+        arguments:
+            $baseUrl: '%env(GOOGLE_TRANSLATE_BASE_URL)%'
+
     App\Collection\Domain\CollectionRepositoryInterface:
         alias: App\Collection\Infrastructure\Doctrine\DoctrineCollectionRepository
 
@@ -274,6 +282,8 @@ when@test:
     services:
         App\Manga\Domain\ExternalApiClientInterface:
             alias: App\Manga\Infrastructure\ExternalApi\NullMangaApiClient
+        App\Manga\Domain\SummaryTranslatorInterface:
+            alias: App\Manga\Infrastructure\Translation\NullSummaryTranslator
         App\Manga\Application\SearchExternal\SearchExternalMangaHandler:
             autowire: true
             autoconfigure: true

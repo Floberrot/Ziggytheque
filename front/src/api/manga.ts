@@ -11,6 +11,12 @@ export async function getManga(id: string): Promise<MangaDetail> {
   return res.data
 }
 
+/** Translate a summary into French (English → French for now). */
+export async function translateSummary(text: string): Promise<string> {
+  const res = await client.post('/manga/translate-summary', { text })
+  return res.data.translated
+}
+
 export async function importManga(payload: {
   title: string
   language: string

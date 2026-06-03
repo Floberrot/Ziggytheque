@@ -77,7 +77,10 @@
     "genre": "Genre",
     "coverUrl": "Cover URL",
     "summary": "Summary",
-    "totalVolumes": "Total volumes"
+    "totalVolumes": "Total volumes",
+    "translate": "Translate to French",
+    "showOriginal": "Show original",
+    "translateError": "Translation failed"
   },
   "volume": {
     "price": "Price (€)",
