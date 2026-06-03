@@ -326,4 +326,29 @@ final class MangaControllerTest extends AbstractApiTestCase
         $this->assertSame(2, $completedEvent->failed);
         $this->assertSame(0, $completedEvent->resolved);
     }
+
+    // ── POST /api/manga/translate-summary ─────────────────────────────────────
+
+    public function testTranslateSummaryRequiresAuth(): void
+    {
+        $response = $this->jsonRequest('POST', '/api/manga/translate-summary', ['text' => 'Pirates.'], auth: false);
+        $this->assertSame(401, $response->getStatusCode());
+    }
+
+    public function testTranslateSummaryReturnsTranslatedText(): void
+    {
+        // The test translator (NullSummaryTranslator) echoes the input back, so the
+        // assertion proves the endpoint → query bus → handler → translator wiring.
+        $response = $this->jsonRequest('POST', '/api/manga/translate-summary', ['text' => 'A pirate story.']);
+        $data     = $this->assertJsonStatus(200, $response);
+
+        $this->assertArrayHasKey('translated', $data);
+        $this->assertSame('A pirate story.', $data['translated']);
+    }
+
+    public function testTranslateSummaryRejectsBlankText(): void
+    {
+        $response = $this->jsonRequest('POST', '/api/manga/translate-summary', ['text' => '']);
+        $this->assertSame(422, $response->getStatusCode());
+    }
 }

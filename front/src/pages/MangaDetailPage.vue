@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import {
-  ArrowLeft, Star, Book, BookOpen, Check, CheckSquare, Pencil, Trash2, Eye, Tag, Megaphone, Package, Info, Bell, BellOff, Plus, Sparkles, HelpCircle,
+  ArrowLeft, Star, Book, BookOpen, Check, CheckSquare, Pencil, Trash2, Eye, Tag, Megaphone, Package, Info, Bell, BellOff, Plus, Sparkles, HelpCircle, Languages,
 } from 'lucide-vue-next'
 import {
   getCollectionEntry,
@@ -16,7 +16,7 @@ import {
   updateCollectionRating,
   toggleFollow,
 } from '@/api/collection'
-import { updateManga, autoFillCovers } from '@/api/manga'
+import { updateManga, autoFillCovers, translateSummary } from '@/api/manga'
 import { useCoverBatchProgress } from '@/composables/useCoverBatchProgress'
 import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
@@ -50,6 +50,38 @@ const sortedVolumes = computed<VolumeEntry[]>(() =>
 )
 
 const missingVolumes = computed(() => sortedVolumes.value.filter((v) => !v.isOwned && !v.isWished))
+
+// ── Summary translation (EN → FR, on demand) ──
+const showTranslation = ref(false)
+const translatedSummary = ref<string | null>(null)
+
+const translateMutation = useMutation({
+  mutationFn: (text: string) => translateSummary(text),
+  onSuccess: (text) => {
+    translatedSummary.value = text
+    showTranslation.value = true
+  },
+  onError: () => ui.addToast(t('manga.translateError'), 'error'),
+})
+
+const displayedSummary = computed(() =>
+  showTranslation.value && translatedSummary.value
+    ? translatedSummary.value
+    : entry.value?.manga.summary ?? '',
+)
+
+function toggleTranslation() {
+  if (showTranslation.value) {
+    showTranslation.value = false
+    return
+  }
+  if (translatedSummary.value) {
+    showTranslation.value = true
+    return
+  }
+  const summary = entry.value?.manga.summary
+  if (summary) translateMutation.mutate(summary)
+}
 
 // ── Modal state ──
 const modalVolumeId = ref<string | null>(null)
@@ -766,9 +798,20 @@ function volumeOpacityClass(ve: VolumeEntry): string {
             </div>
           </div>
 
-          <p v-if="entry.manga.summary" class="mt-4 text-sm text-base-content/60 line-clamp-3 max-w-2xl">
-            {{ entry.manga.summary }}
-          </p>
+          <div v-if="entry.manga.summary" class="mt-4 max-w-2xl">
+            <p class="text-sm text-base-content/60 line-clamp-3">
+              {{ displayedSummary }}
+            </p>
+            <button
+              class="btn btn-ghost btn-xs gap-1 mt-1 px-1 text-base-content/50 hover:text-base-content"
+              :class="{ loading: translateMutation.isPending.value }"
+              :disabled="translateMutation.isPending.value"
+              @click="toggleTranslation"
+            >
+              <Languages v-if="!translateMutation.isPending.value" class="h-3 w-3" />
+              {{ showTranslation ? t('manga.showOriginal') : t('manga.translate') }}
+            </button>
+          </div>
         </div>
       </div>
 

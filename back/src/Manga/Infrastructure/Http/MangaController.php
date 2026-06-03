@@ -12,6 +12,7 @@ use App\Manga\Application\Import\ImportMangaCommand;
 use App\Manga\Application\Search\SearchMangaQuery;
 use App\Manga\Application\SearchExternal\SearchExternalMangaQuery;
 use App\Manga\Application\SearchVolumeExternal\SearchVolumeExternalQuery;
+use App\Manga\Application\TranslateSummary\TranslateSummaryQuery;
 use App\Manga\Application\Update\UpdateMangaCommand;
 use App\Manga\Application\UpdateVolume\UpdateVolumeCommand;
 use App\Shared\Application\Bus\CommandBusInterface;
@@ -78,6 +79,13 @@ final readonly class MangaController
             edition: $edition,
             provider: $provider,
         )));
+    }
+
+    /** Translate a manga summary into French (English → French for now). */
+    #[Route('/translate-summary', methods: ['POST'])]
+    public function translateSummary(#[MapRequestPayload] TranslateSummaryRequest $request): JsonResponse
+    {
+        return new JsonResponse($this->queryBus->ask(new TranslateSummaryQuery($request->text)));
     }
 
     #[Route('/{id}', methods: ['GET'])]
