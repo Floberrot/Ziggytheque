@@ -97,6 +97,8 @@
     "noFollowed": "Activez le suivi sur une série pour voir ses actualités",
     "follow": "Suivre",
     "following": "Suivi ✓",
+    "followOn": "Tu suis cette série — on te préviendra des nouvelles sorties.",
+    "followOff": "Tu ne suis plus cette série.",
     "markRead": "Marquer comme lu",
     "systemTitle": "Notifications système",
     "settings": {
@@ -206,9 +208,9 @@
     "coverSearchPlaceholder": "Titre du tome (modifiable)…",
     "isbnOfVolume": "ISBN du tome",
     "isbnUnknown": "Non renseigné",
-    "isbnHint": "13 chiffres sous le code-barres, au dos du livre.",
+    "isbnHint": "10 ou 13 chiffres, au dos du livre, sous le code-barres.",
     "isbnLabel": "Code ISBN",
-    "isbnPlaceholder": "Ex. 978-2-81164-563-2",
+    "isbnPlaceholder": "Ex. 978-2-81164-563-2 ou 2-81164-563-X",
     "searchIsbn": "Rechercher",
     "scanCamera": "Scanner avec la caméra",
     "scanPhone": "Scanner avec mon téléphone",
@@ -249,6 +251,7 @@
     "title": "Guide & aide",
     "subtitle": "Statuts, calculs et couvertures",
     "openTooltip": "Ouvrir le guide (statuts, calculs, couvertures)",
+    "openLabel": "Aide",
     "gotIt": "J’ai compris",
     "tabStatuses": "Statuts",
     "tabDashboard": "Tableau de bord",
@@ -322,6 +325,14 @@
     },
     "priceNote": "Les valeurs dépendent du prix de chaque tome. Définis-le tome par tome, ou applique un prix à toute la série d’un coup avec « Prix unitaire (en lot) ». Un tome sans prix compte pour 0 €.",
     "coversIntro": "Plusieurs façons de trouver la bonne couverture d’un tome. Choisis celle qui te convient.",
+    "isbnExplainer": {
+      "title": "C’est quoi un ISBN ?",
+      "line1": "C’est le numéro unique d’un livre. Il en existe deux longueurs : 10 chiffres (anciens livres) ou 13 chiffres. Ziggythèque accepte les deux.",
+      "line2": "On le trouve au dos du livre, juste au-dessus ou en dessous du code-barres.",
+      "barcodeLabel": "code-barres au dos du livre",
+      "badge10": "ISBN-10 — 10 chiffres",
+      "badge13": "ISBN-13 — 13 chiffres"
+    },
     "cover": {
       "search": {
         "name": "Recherche par titre",
@@ -332,8 +343,8 @@
       },
       "isbn": {
         "name": "Recherche par ISBN",
-        "desc": "L’ISBN, ce sont les 13 chiffres sous le code-barres au dos du livre. C’est la méthode la plus précise.",
-        "step1": "Saisis l’ISBN (13 chiffres) puis lance la recherche.",
+        "desc": "L’ISBN, ce sont les 10 ou 13 chiffres au dos du livre, près du code-barres. C’est la méthode la plus précise.",
+        "step1": "Saisis l’ISBN (10 ou 13 chiffres) puis lance la recherche.",
         "step2": "On interroge plusieurs bases et les résultats sont regroupés par source.",
         "step3": "Clique la couverture que tu préfères pour l’appliquer."
       },

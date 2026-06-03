@@ -4,11 +4,14 @@ import { useInfiniteQuery } from '@tanstack/vue-query'
 import {
   Search, Plus, Book, X, RotateCcw, SlidersHorizontal, ChevronDown,
   BookOpen, CheckCircle2, PauseCircle, BookmarkPlus, Ban, Heart, Bell,
-  Library, BookCheck, Gift,
+  Library, BookCheck, Gift, HelpCircle,
 } from 'lucide-vue-next'
 import { getCollection, type CollectionFilters } from '@/api/collection'
 import { useI18n } from 'vue-i18n'
 import MangaCard from '@/components/organisms/MangaCard.vue'
+import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
+
+const showGuide = ref(false)
 
 const { t } = useI18n()
 
@@ -257,7 +260,17 @@ onUnmounted(() => {
             </p>
           </div>
 
-          <div class="flex gap-3 flex-wrap items-center">
+          <div class="flex gap-2 flex-wrap items-center">
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm gap-1.5 text-base-content/60 hover:text-primary"
+              :title="t('guide.openTooltip')"
+              :aria-label="t('guide.openTooltip')"
+              @click="showGuide = true"
+            >
+              <HelpCircle class="h-4 w-4" />
+              <span class="hidden sm:inline">{{ t('guide.openLabel') }}</span>
+            </button>
             <RouterLink to="/add" class="btn btn-primary btn-sm gap-1.5 shadow">
               <Plus class="h-4 w-4" stroke-width="2.5" />
               {{ t('collection.add') }}
@@ -437,6 +450,8 @@ onUnmounted(() => {
         <span class="loading loading-spinner loading-md text-primary" />
       </div>
     </div>
+
+    <CollectionGuideModal :open="showGuide" @close="showGuide = false" />
   </div>
 </template>
 

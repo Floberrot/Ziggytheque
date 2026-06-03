@@ -60,6 +60,10 @@ describe('CollectionGuideModal', () => {
     expect(text).toContain('Recherche par titre')
     expect(text).toContain('Recherche par ISBN')
     expect(text).toContain('Scan du code-barres')
+    // The "what is an ISBN" explainer documents both accepted lengths
+    expect(text).toContain('C’est quoi un ISBN ?')
+    expect(text).toContain('ISBN-10 — 10 chiffres')
+    expect(text).toContain('ISBN-13 — 13 chiffres')
   })
 
   it('emits close when the footer button is clicked', async () => {
