@@ -14,12 +14,16 @@ final readonly class GetWishlistHandler
     {
     }
 
-    /** @return array<int, array<string, mixed>> */
+    /** @return array{items: list<array<string, mixed>>, total: int, page: int, limit: int} */
     public function __invoke(GetWishlistQuery $query): array
     {
-        return array_map(
-            static fn ($entry) => $entry->toDetailArray(),
-            $this->repository->findWithWishedVolumes(),
-        );
+        $result = $this->repository->findWishedFiltered($query);
+
+        return (new WishlistPaginatedResult(
+            items: $result['items'],
+            total: $result['total'],
+            page:  $query->page,
+            limit: $query->limit,
+        ))->toArray();
     }
 }

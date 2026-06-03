@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Collection\Infrastructure\Doctrine;
 
 use App\Collection\Application\Get\GetCollectionQuery;
+use App\Collection\Application\GetWishlist\GetWishlistQuery;
 use App\Collection\Domain\CollectionEntry;
 use App\Collection\Domain\CollectionRepositoryInterface;
 use App\Collection\Domain\CollectionSortEnum;
@@ -123,17 +124,41 @@ final readonly class DoctrineCollectionRepository implements CollectionRepositor
         return ['items' => $items, 'total' => $total];
     }
 
-    public function findWithWishedVolumes(): array
+    public function findWishedFiltered(GetWishlistQuery $query): array
     {
-        return $this->em->createQueryBuilder()
-            ->select('DISTINCT c')
-            ->from(CollectionEntry::class, 'c')
-            ->join('c.volumeEntries', 've')
-            ->where('ve.isWished = true')
-            ->andWhere('ve.isOwned = false')
-            ->orderBy('c.addedAt', 'DESC')
+        // EXISTS keeps the parent row count intact (no join fan-out) so the wished
+        // filter composes cleanly with the title search and pagination.
+        $qb = $this->em->createQueryBuilder()
+            ->select('ce')
+            ->from(CollectionEntry::class, 'ce')
+            ->join('ce.manga', 'm')
+            ->where(
+                'EXISTS (SELECT wishedVolume.id FROM ' . VolumeEntry::class . ' wishedVolume '
+                . 'WHERE wishedVolume.collectionEntry = ce '
+                . 'AND wishedVolume.isWished = true AND wishedVolume.isOwned = false)',
+            );
+
+        if ($query->search !== null && $query->search !== '') {
+            $qb->andWhere('LOWER(m.title) LIKE LOWER(:search)')
+               ->setParameter('search', '%' . $query->search . '%');
+        }
+
+        // Count total before pagination
+        $countQb = clone $qb;
+        $countQb->select('COUNT(ce.id)');
+        $total = (int) $countQb->getQuery()->getSingleScalarResult();
+
+        $offset = ($query->page - 1) * $query->limit;
+
+        /** @var list<CollectionEntry> $items */
+        $items = $qb
+            ->orderBy('ce.addedAt', 'DESC')
+            ->setFirstResult($offset)
+            ->setMaxResults($query->limit)
             ->getQuery()
             ->getResult();
+
+        return ['items' => $items, 'total' => $total];
     }
 
     public function findFollowed(): array

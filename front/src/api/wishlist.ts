@@ -1,9 +1,21 @@
 import client from './client'
 import type { WishlistEntry } from '@/types'
 
-/** Returns collection entries that have at least one wished (non-owned) volume */
-export async function getWishlist(): Promise<WishlistEntry[]> {
-  const res = await client.get('/wishlist')
+export interface WishlistFilters {
+  search?: string
+  page?: number
+}
+
+export interface WishlistPage {
+  items: WishlistEntry[]
+  total: number
+  page: number
+  limit: number
+}
+
+/** Returns a page of collection entries that have at least one wished (non-owned) volume */
+export async function getWishlist(filters: WishlistFilters = {}): Promise<WishlistPage> {
+  const res = await client.get('/wishlist', { params: filters })
   return res.data
 }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Collection\Domain;
 
 use App\Collection\Application\Get\GetCollectionQuery;
+use App\Collection\Application\GetWishlist\GetWishlistQuery;
 
 interface CollectionRepositoryInterface
 {
@@ -18,8 +19,12 @@ interface CollectionRepositoryInterface
     /** @return array{items: list<CollectionEntry>, total: int} */
     public function findFiltered(GetCollectionQuery $query): array;
 
-    /** @return CollectionEntry[] Only entries that have at least one wished (non-owned) volume */
-    public function findWithWishedVolumes(): array;
+    /**
+     * Entries with at least one wished (non-owned) volume, filtered by title search and paginated.
+     *
+     * @return array{items: list<CollectionEntry>, total: int}
+     */
+    public function findWishedFiltered(GetWishlistQuery $query): array;
 
     /** @return CollectionEntry[] Only entries with notificationsEnabled = true */
     public function findFollowed(): array;
