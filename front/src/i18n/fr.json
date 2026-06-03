@@ -190,7 +190,8 @@
     "edit": "Modifier",
     "delete": "Supprimer",
     "remove": "Retirer",
-    "next": "Suivant"
+    "next": "Suivant",
+    "close": "Fermer"
   },
   "enrich": {
     "tabSearch": "Recherche",
@@ -217,7 +218,20 @@
     "applying": "Application…",
     "scanLinkTitle": "Ouvrir sur le téléphone",
     "scanExpired": "Session expirée — régénérez le QR code sur l'ordinateur.",
-    "scanSuccess": "Code-barres envoyé !"
+    "scanSuccess": "Code-barres envoyé !",
+    "statusTitle": "Statut de ce tome",
+    "statusHelp": "Aide",
+    "statusUpdateError": "Échec de la mise à jour du statut — réessayez.",
+    "statusOwnedLabel": "Possédé",
+    "statusOwnedDesc": "Ce tome est dans ta bibliothèque.",
+    "statusReadLabel": "Lu",
+    "statusReadDesc": "Tu as fini de le lire.",
+    "statusWishedLabel": "Souhaité",
+    "statusWishedDesc": "À acheter — ajouté à ta liste de souhaits.",
+    "statusAnnouncedLabel": "Annoncé",
+    "statusAnnouncedDesc": "Pas encore sorti, sa parution est prévue.",
+    "statusHintOwned": "« Lu » compte dans ta progression de lecture.",
+    "statusHintNotOwned": "Passe-le en « Possédé » dès que tu l’as : il quittera automatiquement les souhaits."
   },
   "scan": {
     "title": "Scanner un ISBN",
@@ -227,5 +241,123 @@
     "expired": "Ce lien a expiré. Régénérez le QR code depuis l'ordinateur.",
     "invalidCode": "Code-barres non reconnu (ISBN invalide).",
     "cameraError": "Impossible d'accéder à la caméra. Vérifiez les autorisations et que la page est en HTTPS."
+  },
+  "guide": {
+    "title": "Guide & aide",
+    "subtitle": "Statuts, calculs et couvertures",
+    "openTooltip": "Ouvrir le guide (statuts, calculs, couvertures)",
+    "gotIt": "J’ai compris",
+    "tabStatuses": "Statuts",
+    "tabDashboard": "Tableau de bord",
+    "tabCovers": "Couvertures",
+    "statusesIntro": "Chaque tome porte un statut. C’est lui qui alimente tes compteurs et la valeur de ta collection.",
+    "status": {
+      "owned": {
+        "name": "Possédé",
+        "desc": "Tu as ce tome dans ta bibliothèque. Il compte dans « tomes possédés » et dans la valeur de ta collection."
+      },
+      "read": {
+        "name": "Lu",
+        "desc": "Tu as terminé ce tome. Disponible uniquement sur un tome possédé ; alimente ta progression de lecture."
+      },
+      "wished": {
+        "name": "Souhaité",
+        "desc": "Un tome que tu veux acheter. Il rejoint ta liste de souhaits et la valeur souhaitée."
+      },
+      "announced": {
+        "name": "Annoncé",
+        "desc": "Un tome à paraître, pas encore disponible à l’achat. Utile pour suivre les sorties à venir."
+      },
+      "untracked": {
+        "name": "Non suivi",
+        "desc": "Aucun statut : le tome existe dans la série mais n’entre dans aucun compteur."
+      }
+    },
+    "rulesTitle": "Règles à connaître",
+    "rule1": "Marquer un tome « Possédé » le retire automatiquement des souhaits et des annonces.",
+    "rule2": "« Lu » n’est proposé que sur un tome possédé.",
+    "rule3": "« Souhaité » et « Annoncé » ne sont proposés que sur un tome non possédé.",
+    "rule4": "Le statut de lecture de la série (En cours, Terminé…) se met à jour tout seul selon les tomes possédés et lus.",
+    "dashboardIntro": "Le tableau de bord agrège tous tes tomes en temps réel. Voici comment chaque chiffre est calculé.",
+    "metric": {
+      "series": {
+        "name": "Séries",
+        "formula": "Le nombre d’œuvres dans ta collection."
+      },
+      "owned": {
+        "name": "Tomes possédés",
+        "formula": "Le total des tomes marqués « Possédé », toutes séries confondues."
+      },
+      "read": {
+        "name": "Tomes lus",
+        "formula": "Le total des tomes marqués « Lu »."
+      },
+      "progress": {
+        "name": "Progression de lecture",
+        "formula": "Tomes lus ÷ tomes possédés, en pourcentage."
+      },
+      "wishlist": {
+        "name": "Wishlist",
+        "formula": "Les tomes « Souhaité » qui ne sont pas encore possédés."
+      },
+      "ownedValue": {
+        "name": "Valeur possédée",
+        "formula": "La somme des prix de tous les tomes possédés."
+      },
+      "wishlistValue": {
+        "name": "Valeur souhaitée",
+        "formula": "La somme des prix des tomes souhaités non possédés."
+      },
+      "totalValue": {
+        "name": "Valeur totale",
+        "formula": "Valeur possédée + valeur souhaitée."
+      },
+      "genre": {
+        "name": "Répartition par genre",
+        "formula": "Le nombre de séries regroupées par genre."
+      }
+    },
+    "priceNote": "Les valeurs dépendent du prix de chaque tome. Définis-le tome par tome, ou applique un prix à toute la série d’un coup avec « Prix unitaire (en lot) ». Un tome sans prix compte pour 0 €.",
+    "coversIntro": "Plusieurs façons de trouver la bonne couverture d’un tome. Choisis celle qui te convient.",
+    "cover": {
+      "search": {
+        "name": "Recherche par titre",
+        "desc": "La méthode la plus rapide pour les mangas. On cherche par titre + numéro de tome et on affiche des suggestions de couvertures.",
+        "step1": "Le champ est pré-rempli avec le titre et le tome — ajuste-le si besoin.",
+        "step2": "Choisis la source via le logo à gauche : Auto (cascade intelligente), MangaDex ou Google Books.",
+        "step3": "Clique une vignette pour appliquer la couverture au tome."
+      },
+      "isbn": {
+        "name": "Recherche par ISBN",
+        "desc": "L’ISBN, ce sont les 13 chiffres sous le code-barres au dos du livre. C’est la méthode la plus précise.",
+        "step1": "Saisis l’ISBN (13 chiffres) puis lance la recherche.",
+        "step2": "On interroge plusieurs bases et les résultats sont regroupés par source.",
+        "step3": "Clique la couverture que tu préfères pour l’appliquer."
+      },
+      "scan": {
+        "name": "Scan du code-barres",
+        "desc": "Scanne le code-barres pour récupérer l’ISBN automatiquement, sans rien taper.",
+        "step1": "Caméra de l’ordinateur : autorise la caméra et présente le code-barres.",
+        "step2": "Ou « Scanner avec mon téléphone » : un QR code s’affiche, ouvre-le sur ton téléphone.",
+        "step3": "Le code-barres lu sur le téléphone est renvoyé instantanément ici et la recherche se lance."
+      },
+      "url": {
+        "name": "Coller une URL",
+        "desc": "Tu as déjà l’image ? Colle son URL en bas de la fenêtre et applique-la directement."
+      },
+      "auto": {
+        "name": "Compléter automatiquement",
+        "desc": "Depuis la page de la série, le bouton « Compléter les couvertures » remplit en une fois toutes les couvertures manquantes des tomes."
+      }
+    },
+    "coverSourcesTitle": "Sources interrogées",
+    "coverSource": {
+      "mangadex": "MangaDex",
+      "googlebooks": "Google Books",
+      "bnf": "BnF",
+      "openlibrary": "Open Library",
+      "hardcover": "Hardcover"
+    },
+    "coverSourcesNote": "Recherche par titre : MangaDex et Google Books. Recherche par ISBN : toutes les sources ci-dessus, regroupées par fournisseur."
   }
 }

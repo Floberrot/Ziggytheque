@@ -190,7 +190,8 @@
     "edit": "Edit",
     "delete": "Delete",
     "remove": "Remove",
-    "next": "Next"
+    "next": "Next",
+    "close": "Close"
   },
   "enrich": {
     "tabSearch": "Search",
@@ -217,7 +218,20 @@
     "applying": "Applying…",
     "scanLinkTitle": "Open on phone",
     "scanExpired": "Session expired — regenerate the QR code on your computer.",
-    "scanSuccess": "Barcode sent!"
+    "scanSuccess": "Barcode sent!",
+    "statusTitle": "This volume’s status",
+    "statusHelp": "Help",
+    "statusUpdateError": "Could not update the status — please retry.",
+    "statusOwnedLabel": "Owned",
+    "statusOwnedDesc": "This volume is in your library.",
+    "statusReadLabel": "Read",
+    "statusReadDesc": "You have finished reading it.",
+    "statusWishedLabel": "Wished",
+    "statusWishedDesc": "To buy — added to your wishlist.",
+    "statusAnnouncedLabel": "Announced",
+    "statusAnnouncedDesc": "Not released yet, publication is scheduled.",
+    "statusHintOwned": "“Read” counts toward your reading progress.",
+    "statusHintNotOwned": "Switch it to “Owned” once you have it: it will leave the wishlist automatically."
   },
   "scan": {
     "title": "Scan an ISBN",
@@ -227,5 +241,123 @@
     "expired": "This link has expired. Regenerate the QR code from your computer.",
     "invalidCode": "Barcode not recognized (invalid ISBN).",
     "cameraError": "Cannot access camera. Check permissions and ensure the page uses HTTPS."
+  },
+  "guide": {
+    "title": "Guide & help",
+    "subtitle": "Statuses, calculations & covers",
+    "openTooltip": "Open the guide (statuses, calculations, covers)",
+    "gotIt": "Got it",
+    "tabStatuses": "Statuses",
+    "tabDashboard": "Dashboard",
+    "tabCovers": "Covers",
+    "statusesIntro": "Every volume carries a status. It drives your counters and the value of your collection.",
+    "status": {
+      "owned": {
+        "name": "Owned",
+        "desc": "You have this volume in your library. It counts toward “owned volumes” and your collection value."
+      },
+      "read": {
+        "name": "Read",
+        "desc": "You finished this volume. Only available on an owned volume; feeds your reading progress."
+      },
+      "wished": {
+        "name": "Wished",
+        "desc": "A volume you want to buy. It joins your wishlist and the wished value."
+      },
+      "announced": {
+        "name": "Announced",
+        "desc": "An upcoming volume, not yet on sale. Handy to track future releases."
+      },
+      "untracked": {
+        "name": "Untracked",
+        "desc": "No status: the volume exists in the series but counts toward nothing."
+      }
+    },
+    "rulesTitle": "Good to know",
+    "rule1": "Marking a volume “Owned” automatically removes it from the wishlist and announced lists.",
+    "rule2": "“Read” is only offered on an owned volume.",
+    "rule3": "“Wished” and “Announced” are only offered on a volume you don’t own.",
+    "rule4": "The series reading status (In progress, Completed…) updates itself based on owned and read volumes.",
+    "dashboardIntro": "The dashboard aggregates all your volumes in real time. Here is how each number is computed.",
+    "metric": {
+      "series": {
+        "name": "Series",
+        "formula": "The number of works in your collection."
+      },
+      "owned": {
+        "name": "Owned volumes",
+        "formula": "The total of volumes marked “Owned” across all series."
+      },
+      "read": {
+        "name": "Read volumes",
+        "formula": "The total of volumes marked “Read”."
+      },
+      "progress": {
+        "name": "Reading progress",
+        "formula": "Read volumes ÷ owned volumes, as a percentage."
+      },
+      "wishlist": {
+        "name": "Wishlist",
+        "formula": "The “Wished” volumes you do not own yet."
+      },
+      "ownedValue": {
+        "name": "Owned value",
+        "formula": "The sum of the prices of all owned volumes."
+      },
+      "wishlistValue": {
+        "name": "Wished value",
+        "formula": "The sum of the prices of wished, not-owned volumes."
+      },
+      "totalValue": {
+        "name": "Total value",
+        "formula": "Owned value + wished value."
+      },
+      "genre": {
+        "name": "Genre breakdown",
+        "formula": "The number of series grouped by genre."
+      }
+    },
+    "priceNote": "Values rely on each volume’s price. Set it per volume, or apply one price to the whole series at once with “Unit price (bulk)”. A volume with no price counts as €0.",
+    "coversIntro": "Several ways to find the right cover for a volume. Pick whichever suits you.",
+    "cover": {
+      "search": {
+        "name": "Search by title",
+        "desc": "The fastest method for manga. We search by title + volume number and show cover suggestions.",
+        "step1": "The field is pre-filled with the title and volume — tweak it if needed.",
+        "step2": "Pick the source via the logo on the left: Auto (smart cascade), MangaDex or Google Books.",
+        "step3": "Click a thumbnail to apply the cover to the volume."
+      },
+      "isbn": {
+        "name": "Search by ISBN",
+        "desc": "The ISBN is the 13 digits under the barcode on the back of the book. The most accurate method.",
+        "step1": "Enter the ISBN (13 digits) then run the search.",
+        "step2": "We query several databases and group the results by source.",
+        "step3": "Click the cover you prefer to apply it."
+      },
+      "scan": {
+        "name": "Barcode scan",
+        "desc": "Scan the barcode to grab the ISBN automatically, without typing anything.",
+        "step1": "Computer camera: allow the camera and show the barcode.",
+        "step2": "Or “Scan with my phone”: a QR code appears, open it on your phone.",
+        "step3": "The barcode read on the phone is sent here instantly and the search starts."
+      },
+      "url": {
+        "name": "Paste a URL",
+        "desc": "Already have the image? Paste its URL at the bottom of the window and apply it directly."
+      },
+      "auto": {
+        "name": "Auto-complete",
+        "desc": "From the series page, the “Complete covers” button fills all missing volume covers at once."
+      }
+    },
+    "coverSourcesTitle": "Sources queried",
+    "coverSource": {
+      "mangadex": "MangaDex",
+      "googlebooks": "Google Books",
+      "bnf": "BnF",
+      "openlibrary": "Open Library",
+      "hardcover": "Hardcover"
+    },
+    "coverSourcesNote": "Title search: MangaDex and Google Books. ISBN search: all sources above, grouped by provider."
   }
 }
