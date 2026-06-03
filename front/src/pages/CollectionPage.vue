@@ -2,8 +2,9 @@
 import { ref, reactive, computed, watch, onMounted, onUnmounted, type Component } from 'vue'
 import { useInfiniteQuery } from '@tanstack/vue-query'
 import {
-  Search, Plus, Book, X, RotateCcw,
+  Search, Plus, Book, X, RotateCcw, SlidersHorizontal, ChevronDown,
   BookOpen, CheckCircle2, PauseCircle, BookmarkPlus, Ban, Heart, Bell,
+  Library, BookCheck, Gift,
 } from 'lucide-vue-next'
 import { getCollection, type CollectionFilters } from '@/api/collection'
 import { useI18n } from 'vue-i18n'
@@ -28,6 +29,9 @@ const filters = reactive<CollectionFilters>({
   readingStatus: undefined,
   sort:          undefined,
   followed:      false,
+  hasOwned:      false,
+  hasRead:       false,
+  hasWished:     false,
 })
 
 // Debounce search input (300 ms)
@@ -40,18 +44,24 @@ watch(searchInput, (val) => {
 })
 
 const hasActiveFilters = computed(
-  () => !!(filters.search || filters.genre || filters.edition || filters.readingStatus || filters.sort || filters.followed),
+  () => !!(
+    filters.search || filters.genre || filters.edition || filters.readingStatus
+    || filters.sort || filters.followed || filters.hasOwned || filters.hasRead || filters.hasWished
+  ),
 )
 
 function resetFilters() {
   if (debounceTimer) clearTimeout(debounceTimer)
-  searchInput.value    = ''
+  searchInput.value     = ''
   filters.search        = undefined
   filters.genre         = undefined
   filters.edition       = undefined
   filters.readingStatus = undefined
   filters.sort          = undefined
   filters.followed      = false
+  filters.hasOwned      = false
+  filters.hasRead       = false
+  filters.hasWished     = false
 }
 
 // ── Preset filters (quick-access chips) ───────────────────────────────────────
@@ -60,7 +70,7 @@ interface FilterPreset {
   id: string
   labelKey: string
   icon: Component
-  group: 'status' | 'special'
+  group: 'status' | 'content' | 'special'
   match: (filters: CollectionFilters) => boolean
   apply: (filters: CollectionFilters) => void
   clear: (filters: CollectionFilters) => void
@@ -113,6 +123,33 @@ const PRESETS: FilterPreset[] = [
     clear: f => { f.readingStatus = undefined },
   },
   {
+    id: 'owned',
+    labelKey: 'filter.owned',
+    icon: Library,
+    group: 'content',
+    match: f => !!f.hasOwned,
+    apply: f => { f.hasOwned = true },
+    clear: f => { f.hasOwned = false },
+  },
+  {
+    id: 'read',
+    labelKey: 'filter.read',
+    icon: BookCheck,
+    group: 'content',
+    match: f => !!f.hasRead,
+    apply: f => { f.hasRead = true },
+    clear: f => { f.hasRead = false },
+  },
+  {
+    id: 'wished',
+    labelKey: 'filter.wished',
+    icon: Gift,
+    group: 'content',
+    match: f => !!f.hasWished,
+    apply: f => { f.hasWished = true },
+    clear: f => { f.hasWished = false },
+  },
+  {
     id: 'favorites',
     labelKey: 'filter.favorites',
     icon: Heart,
@@ -142,6 +179,20 @@ function togglePreset(preset: FilterPreset) {
 
 const activePresetCount = computed(() => PRESETS.filter(p => p.match(filters)).length)
 
+// ── Advanced (refine) filters — collapsed by default to keep the bar tidy ──────
+
+const showAdvanced = ref(false)
+
+const advancedActiveCount = computed(
+  () => (filters.genre ? 1 : 0) + (filters.sort ? 1 : 0) + (filters.edition ? 1 : 0),
+)
+
+// Reveal the advanced panel automatically when a refine filter is already applied
+// (e.g. restored from a previous visit) so active criteria are never hidden.
+watch(advancedActiveCount, (count) => {
+  if (count > 0) showAdvanced.value = true
+}, { immediate: true })
+
 // ── Infinite query ────────────────────────────────────────────────────────────
 
 const queryKey = computed(() => [
@@ -153,6 +204,9 @@ const queryKey = computed(() => [
     readingStatus: filters.readingStatus,
     sort:          filters.sort,
     followed:      filters.followed,
+    hasOwned:      filters.hasOwned,
+    hasRead:       filters.hasRead,
+    hasWished:     filters.hasWished,
   },
 ])
 
@@ -217,9 +271,9 @@ onUnmounted(() => {
     <div class="sticky top-0 z-10 bg-base-100/90 backdrop-blur-md border-b border-base-200/70 shadow-[0_1px_0_0_rgba(0,0,0,0.02)]">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 space-y-3">
 
-        <!-- Row 1: Search + reset -->
+        <!-- Row 1: Search + refine toggle + reset -->
         <div class="flex items-center gap-2">
-          <div class="relative flex-1 max-w-xl">
+          <div class="relative flex-1">
             <Search class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/40 pointer-events-none" />
             <input
               v-model="searchInput"
@@ -237,7 +291,24 @@ onUnmounted(() => {
             </button>
           </div>
 
-          <div class="flex-1" />
+          <!-- Refine toggle — keeps genre/sort/edition out of the way until needed -->
+          <button
+            type="button"
+            class="h-10 px-3 inline-flex items-center gap-1.5 rounded-xl text-sm font-medium border transition-all shrink-0 active:scale-95"
+            :class="showAdvanced || advancedActiveCount > 0
+              ? 'bg-primary/10 border-primary/40 text-primary'
+              : 'bg-base-100 border-base-300/80 text-base-content/70 hover:border-primary/40 hover:bg-primary/5'"
+            :aria-expanded="showAdvanced"
+            @click="showAdvanced = !showAdvanced"
+          >
+            <SlidersHorizontal class="h-4 w-4" stroke-width="2.25" />
+            <span class="hidden sm:inline">{{ t('filter.advanced') }}</span>
+            <span
+              v-if="advancedActiveCount > 0"
+              class="flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-primary text-primary-content text-[10px] font-bold leading-none"
+            >{{ advancedActiveCount }}</span>
+            <ChevronDown class="h-3.5 w-3.5 transition-transform duration-200" :class="showAdvanced ? 'rotate-180' : ''" />
+          </button>
 
           <button
             v-if="hasActiveFilters"
@@ -249,22 +320,18 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <!-- Row 2: Preset chips -->
-        <div class="flex flex-wrap items-center gap-1.5">
-          <span class="text-[11px] uppercase tracking-wider text-base-content/40 font-semibold mr-1 hidden sm:inline">
-            {{ t('filter.quick') }}
-          </span>
-
+        <!-- Row 2: Quick-access chips — single scrollable row on mobile, wraps on lg+ -->
+        <div class="filter-chips flex items-center gap-1.5 overflow-x-auto lg:flex-wrap -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
           <template v-for="(preset, idx) in PRESETS" :key="preset.id">
-            <!-- Visual separator between status group and special group -->
+            <!-- Visual separator between filter groups -->
             <span
               v-if="idx > 0 && PRESETS[idx - 1].group !== preset.group"
-              class="h-5 w-px bg-base-300 mx-1"
+              class="h-5 w-px bg-base-300 mx-0.5 shrink-0"
               aria-hidden="true"
             />
             <button
               type="button"
-              class="group flex items-center gap-1.5 pl-2.5 pr-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150 active:scale-95"
+              class="group flex items-center gap-1.5 pl-2.5 pr-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150 active:scale-95 shrink-0 whitespace-nowrap"
               :class="preset.match(filters)
                 ? 'bg-primary text-primary-content border-primary shadow-sm shadow-primary/20'
                 : 'bg-base-100 border-base-300/80 text-base-content/70 hover:border-primary/40 hover:bg-primary/5 hover:text-base-content'"
@@ -281,12 +348,8 @@ onUnmounted(() => {
           </template>
         </div>
 
-        <!-- Row 3: Advanced filters -->
-        <div class="flex flex-wrap items-center gap-2 pt-1">
-          <span class="text-[11px] uppercase tracking-wider text-base-content/40 font-semibold mr-1 hidden sm:inline">
-            {{ t('filter.advanced') }}
-          </span>
-
+        <!-- Row 3: Advanced filters — collapsible -->
+        <div v-show="showAdvanced" class="flex flex-wrap items-center gap-2 pt-1">
           <select
             v-model="filters.genre"
             class="select select-bordered select-sm rounded-lg h-9 min-h-9 text-sm"
@@ -315,13 +378,14 @@ onUnmounted(() => {
             :class="{ 'input-primary text-primary font-medium': filters.edition }"
             :placeholder="t('filter.editionPlaceholder')"
           />
+        </div>
 
-          <div v-if="activePresetCount > 0 || hasActiveFilters" class="ml-auto text-xs text-base-content/50">
-            <span class="inline-flex items-center gap-1">
-              <span class="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-              {{ total }} {{ total !== 1 ? t('filter.resultsPlural') : t('filter.resultsSingular') }}
-            </span>
-          </div>
+        <!-- Active filters result count -->
+        <div v-if="activePresetCount > 0 || hasActiveFilters" class="text-xs text-base-content/50">
+          <span class="inline-flex items-center gap-1">
+            <span class="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+            {{ total }} {{ total !== 1 ? t('filter.resultsPlural') : t('filter.resultsSingular') }}
+          </span>
         </div>
 
       </div>
@@ -379,6 +443,15 @@ onUnmounted(() => {
 <style scoped>
 .card-appear {
   animation: fadeSlideUp 0.4s ease-out both;
+}
+
+/* Hide the scrollbar on the horizontally scrollable quick-filter row */
+.filter-chips {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.filter-chips::-webkit-scrollbar {
+  display: none;
 }
 
 /* Hide native search clear button — we render our own */

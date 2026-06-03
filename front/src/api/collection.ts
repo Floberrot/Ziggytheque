@@ -8,6 +8,9 @@ export interface CollectionFilters {
   readingStatus?: string
   sort?: 'rating_asc' | 'rating_desc'
   followed?: boolean
+  hasOwned?: boolean
+  hasRead?: boolean
+  hasWished?: boolean
   page?: number
 }
 
