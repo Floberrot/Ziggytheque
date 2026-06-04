@@ -172,16 +172,16 @@ function applyIsbnCover(cover: { coverUrl: string; spineUrl: string | null; isbn
   })
 }
 
-// Friendly labels for the grouped ISBN cover results.
-const ISBN_SOURCE_LABELS: Record<string, string> = {
+// Friendly labels for cover provenance, shared by the title-search and ISBN results.
+const SOURCE_LABELS: Record<string, string> = {
   bnf: 'BnF',
   open_library: 'Open Library',
   google_books: 'Google Books',
   hardcover: 'Hardcover',
   mangadex: 'MangaDex',
 }
-function isbnSourceLabel(source: string): string {
-  return ISBN_SOURCE_LABELS[source] ?? source
+function sourceLabel(source: string): string {
+  return SOURCE_LABELS[source] ?? source
 }
 
 // When no source has a cover for this ISBN, fall back to the title + volume
@@ -702,7 +702,8 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                           <ImageOff class="h-9 w-9" stroke-width="1.5" />
                         </div>
                       </div>
-                      <div class="px-0.5">
+                      <span v-if="result.source" class="badge badge-sm badge-ghost w-full justify-center font-medium">{{ sourceLabel(result.source) }}</span>
+                      <div v-if="result.title || result.edition" class="px-0.5">
                         <p class="text-xs font-medium line-clamp-2 leading-tight">{{ result.title }}</p>
                         <p v-if="result.edition" class="text-[10px] text-base-content/40 truncate">{{ result.edition }}</p>
                       </div>
@@ -747,7 +748,7 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                         <div class="w-full aspect-[2/3] rounded-lg overflow-hidden bg-base-200 ring-2 ring-transparent transition-all duration-150 cursor-pointer group-hover:ring-primary group-hover:scale-[1.03] group-hover:shadow-lg active:scale-95">
                           <img :src="coverUrl(cover.coverUrl)!" :alt="cover.source" class="w-full h-full object-cover" />
                         </div>
-                        <span class="badge badge-sm badge-ghost w-full justify-center font-medium">{{ isbnSourceLabel(cover.source) }}</span>
+                        <span class="badge badge-sm badge-ghost w-full justify-center font-medium">{{ sourceLabel(cover.source) }}</span>
                       </button>
                     </TransitionGroup>
                   </div>

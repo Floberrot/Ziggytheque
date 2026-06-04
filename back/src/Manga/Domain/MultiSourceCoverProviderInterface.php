@@ -14,4 +14,19 @@ interface MultiSourceCoverProviderInterface
      * @return list<MangaVolumeCoverDto>
      */
     public function findAllByIsbn(Isbn $isbn): array;
+
+    /**
+     * Returns every cover found for a title + volume context across all
+     * underlying context sources (MangaDex, Google Books, …), merged into one
+     * list so the user can pick between sources — the title-search counterpart
+     * of {@see findAllByIsbn()}.
+     *
+     * @return list<MangaVolumeCoverDto>
+     */
+    public function findAllByContext(
+        string $mangaTitle,
+        ?string $edition,
+        int $volumeNumber,
+        string $language = 'fr',
+    ): array;
 }

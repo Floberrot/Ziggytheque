@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Manga\Application\SearchVolumeExternal;
 
-use App\Manga\Domain\MangaCoverProviderInterface;
 use App\Manga\Domain\MangaVolumeCoverDto;
+use App\Manga\Domain\MultiContextCoverProviderInterface;
+use App\Manga\Domain\MultiSourceCoverProviderInterface;
 use Psr\Container\ContainerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -13,7 +14,7 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 final readonly class SearchVolumeExternalHandler
 {
     public function __construct(
-        private MangaCoverProviderInterface $coverProvider,
+        private MultiSourceCoverProviderInterface $multiSourceProvider,
         private ContainerInterface $providerLocator,
     ) {
     }
@@ -21,29 +22,39 @@ final readonly class SearchVolumeExternalHandler
     /** @return array<int, array<string, mixed>> */
     public function __invoke(SearchVolumeExternalQuery $query): array
     {
-        $provider = $this->resolveProvider($query->provider);
         $volumeNumber = $query->volumeNumber ?? 1;
+        $covers = $this->resolveCovers($query, $volumeNumber);
 
-        $coverDto = $provider->findByContext(
+        return array_map(
+            fn (MangaVolumeCoverDto $coverDto) => $this->mapDtoToArray($coverDto, $query->search, $volumeNumber),
+            $covers,
+        );
+    }
+
+    /**
+     * The default "composite" provider merges every context source; a specific
+     * provider key narrows the search to that single source.
+     *
+     * @return list<MangaVolumeCoverDto>
+     */
+    private function resolveCovers(SearchVolumeExternalQuery $query, int $volumeNumber): array
+    {
+        if ($query->provider !== 'composite' && $this->providerLocator->has($query->provider)) {
+            /** @var MultiContextCoverProviderInterface $provider */
+            $provider = $this->providerLocator->get($query->provider);
+
+            return $provider->findAllByContext(
+                mangaTitle: $query->search,
+                edition: $query->edition,
+                volumeNumber: $volumeNumber,
+            );
+        }
+
+        return $this->multiSourceProvider->findAllByContext(
             mangaTitle: $query->search,
             edition: $query->edition,
             volumeNumber: $volumeNumber,
         );
-
-        if ($coverDto === null) {
-            return [];
-        }
-
-        return [$this->mapDtoToArray($coverDto, $query->search, $volumeNumber)];
-    }
-
-    private function resolveProvider(string $key): MangaCoverProviderInterface
-    {
-        if ($key !== 'composite' && $this->providerLocator->has($key)) {
-            return $this->providerLocator->get($key);
-        }
-
-        return $this->coverProvider;
     }
 
     /** @return array<string, mixed> */

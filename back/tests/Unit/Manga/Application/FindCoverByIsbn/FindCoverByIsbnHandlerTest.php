@@ -27,6 +27,11 @@ final class FindCoverByIsbnHandlerTest extends TestCase
             {
                 return $this->covers;
             }
+
+            public function findAllByContext(string $mangaTitle, ?string $edition, int $volumeNumber, string $language = 'fr'): array
+            {
+                return [];
+            }
         };
     }
 
