@@ -51,6 +51,7 @@ final class VolumeTest extends TestCase
         $this->assertNull($arr['releaseDate']);
         $this->assertNull($arr['isbn']);
         $this->assertNull($arr['spineUrl']);
+        $this->assertNull($arr['backCoverUrl']);
     }
 
     public function testToArrayExposesIsbnAsCanonicalString(): void
@@ -63,11 +64,13 @@ final class VolumeTest extends TestCase
             number: 2,
             isbn: $isbn,
             spineUrl: 'https://example.com/spine.jpg',
+            backCoverUrl: 'https://example.com/back.jpg',
         );
 
         $arr = $volume->toArray();
 
         $this->assertSame('9782123456780', $arr['isbn']);
         $this->assertSame('https://example.com/spine.jpg', $arr['spineUrl']);
+        $this->assertSame('https://example.com/back.jpg', $arr['backCoverUrl']);
     }
 }

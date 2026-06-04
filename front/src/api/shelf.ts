@@ -5,6 +5,7 @@ export interface ShelfVolume {
   number: number
   coverUrl: string | null
   spineUrl: string | null
+  backCoverUrl: string | null
 }
 
 export interface ShelfCollection {

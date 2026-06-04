@@ -5,8 +5,10 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { useQuery } from '@tanstack/vue-query'
 import { getShelf, type ShelfCollection } from '@/api/shelf'
 import { coverUrl } from '@/utils/coverUrl'
-import { X } from 'lucide-vue-next'
+import { seedColorInt, createSpineTexture } from '@/utils/bookTextures'
+import Volume3DViewer from '@/components/organisms/Volume3DViewer.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
+import { Box, X } from 'lucide-vue-next'
 
 // ── Reactive state ────────────────────────────────────────────────────────────
 
@@ -14,11 +16,15 @@ interface SelectedBook {
   mangaTitle: string
   number: number
   coverUrl: string | null
+  spineUrl: string | null
+  backCoverUrl: string | null
+  edition: string | null
 }
 
 const containerRef = ref<HTMLDivElement>()
 const canvasRef = ref<HTMLCanvasElement>()
 const selectedBook = ref<SelectedBook | null>(null)
+const show3d = ref(false)
 const isInitialized = shallowRef(false)
 
 // ── Data ──────────────────────────────────────────────────────────────────────
@@ -70,94 +76,8 @@ function disposeScene(): void {
   isInitialized.value = false
 }
 
-// ── Color helpers ─────────────────────────────────────────────────────────────
-
-function seedColorInt(str: string): number {
-  let hash = 5381
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) + hash) ^ str.charCodeAt(i)
-    hash |= 0
-  }
-  return hslToInt((Math.abs(hash) % 360) / 360, 0.68, 0.46)
-}
-
-function hslToInt(h: number, s: number, l: number): number {
-  const a = s * Math.min(l, 1 - l)
-  const f = (n: number): number => {
-    const k = (n + h * 12) % 12
-    return l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1)
-  }
-  return (Math.round(f(0) * 255) << 16) | (Math.round(f(8) * 255) << 8) | Math.round(f(4) * 255)
-}
-
-// ── Spine texture ─────────────────────────────────────────────────────────────
-
-function createSpineTexture(
-  edition: string | null,
-  title: string,
-  volume: number,
-  colorInt: number,
-): THREE.CanvasTexture {
-  const W = 48
-  const H = 400
-  const canvas = document.createElement('canvas')
-  canvas.width = W
-  canvas.height = H
-  const ctx = canvas.getContext('2d')!
-
-  const r = (colorInt >> 16) & 0xff
-  const g = (colorInt >> 8) & 0xff
-  const b = colorInt & 0xff
-  const dark = `rgb(${Math.round(r * 0.45)},${Math.round(g * 0.45)},${Math.round(b * 0.45)})`
-  const mid = `rgb(${r},${g},${b})`
-  const light = `rgb(${Math.min(255, Math.round(r * 1.3))},${Math.min(255, Math.round(g * 1.3))},${Math.min(255, Math.round(b * 1.3))})`
-
-  const grad = ctx.createLinearGradient(0, 0, 0, H)
-  grad.addColorStop(0, dark)
-  grad.addColorStop(0.15, mid)
-  grad.addColorStop(0.85, mid)
-  grad.addColorStop(1, dark)
-  ctx.fillStyle = grad
-  ctx.fillRect(0, 0, W, H)
-
-  ctx.fillStyle = dark
-  ctx.fillRect(0, 0, W, 40)
-  ctx.fillRect(0, H - 50, W, 50)
-
-  ctx.fillStyle = light
-  ctx.fillRect(0, 40, W, 2)
-  ctx.fillRect(0, H - 52, W, 2)
-
-  if (edition) {
-    const short = edition.length > 8 ? edition.substring(0, 7) + '…' : edition
-    ctx.fillStyle = 'rgba(255,255,255,0.85)'
-    ctx.font = 'bold 10px sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(short, W / 2, 20)
-  }
-
-  const shortTitle = title.length > 18 ? title.substring(0, 17) + '…' : title
-  ctx.save()
-  ctx.translate(W / 2, H / 2 - 10)
-  ctx.rotate(Math.PI / 2)
-  ctx.font = '12px sans-serif'
-  ctx.fillStyle = 'rgba(255,255,255,0.82)'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(shortTitle, 0, 0)
-  ctx.restore()
-
-  ctx.fillStyle = 'rgba(255,255,255,0.95)'
-  ctx.font = 'bold 22px sans-serif'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(String(volume), W / 2, H - 25)
-
-  const texture = new THREE.CanvasTexture(canvas)
-  texture.needsUpdate = true
-  return texture
-}
+// ── Synthetic spine + colour helpers live in utils/bookTextures, shared with the
+//    single-volume Volume3DViewer so both render an identical fallback look. ─────
 
 // ── Scene constants ───────────────────────────────────────────────────────────
 
@@ -1005,7 +925,9 @@ function buildBooks(sceneObj: THREE.Scene, collections: ShelfCollection[]): void
         ? loader.load(coverUrl(volume.spineUrl)!)
         : createSpineTexture(collection.manga.edition, collection.manga.title, volume.number, colorInt)
       const spineMat = new THREE.MeshLambertMaterial({ map: spineMap })
-      const backMat = new THREE.MeshLambertMaterial({ color: colorInt })
+      const backMat = volume.backCoverUrl
+        ? new THREE.MeshLambertMaterial({ map: loader.load(coverUrl(volume.backCoverUrl)!) })
+        : new THREE.MeshLambertMaterial({ color: colorInt })
 
       // BoxGeometry face order: +x (cover), -x (pages), +y (top), -y (bottom), +z (spine→camera), -z (back)
       const mesh = new THREE.Mesh(geom, [volCoverFaceMat, pagesMat, topMat, topMat, spineMat, backMat])
@@ -1016,9 +938,12 @@ function buildBooks(sceneObj: THREE.Scene, collections: ShelfCollection[]): void
 
       originalZ.set(mesh, spineZ)
       bookMap.set(mesh, {
-        mangaTitle: collection.manga.title,
-        number:     volume.number,
-        coverUrl:   volume.coverUrl ?? collection.manga.coverUrl ?? null,
+        mangaTitle:   collection.manga.title,
+        number:       volume.number,
+        coverUrl:     volume.coverUrl ?? collection.manga.coverUrl ?? null,
+        spineUrl:     volume.spineUrl,
+        backCoverUrl: volume.backCoverUrl,
+        edition:      collection.manga.edition,
       })
 
       sceneObj.add(mesh)
@@ -1278,10 +1203,25 @@ onUnmounted(() => {
 
           <div class="p-4">
             <p class="text-xs text-base-content/50 uppercase tracking-wider mb-1">{{ selectedBook.mangaTitle }}</p>
-            <p class="text-xl font-bold">Tome {{ selectedBook.number }}</p>
+            <p class="text-xl font-bold mb-3">Tome {{ selectedBook.number }}</p>
+            <button class="btn btn-primary btn-sm gap-2 w-full" @click="show3d = true">
+              <Box class="h-4 w-4" />
+              Voir en 3D
+            </button>
           </div>
         </div>
       </div>
     </Transition>
+
+    <Volume3DViewer
+      :open="show3d"
+      :volume="selectedBook
+        ? { number: selectedBook.number, coverUrl: selectedBook.coverUrl, spineUrl: selectedBook.spineUrl, backCoverUrl: selectedBook.backCoverUrl }
+        : null"
+      :manga="selectedBook
+        ? { title: selectedBook.mangaTitle, edition: selectedBook.edition, coverUrl: selectedBook.coverUrl }
+        : null"
+      @close="show3d = false"
+    />
   </div>
 </template>

@@ -15,6 +15,8 @@ use App\Manga\Application\SearchVolumeExternal\SearchVolumeExternalQuery;
 use App\Manga\Application\TranslateSummary\TranslateSummaryQuery;
 use App\Manga\Application\Update\UpdateMangaCommand;
 use App\Manga\Application\UpdateVolume\UpdateVolumeCommand;
+use App\Manga\Application\UploadVolumeFace\UploadVolumeFaceCommand;
+use App\Manga\Domain\VolumeFace;
 use App\Shared\Application\Bus\CommandBusInterface;
 use App\Shared\Application\Bus\QueryBusInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -151,7 +153,25 @@ final readonly class MangaController
             releaseDate: $request->releaseDate,
             price: $request->price,
             spineUrl: $request->spineUrl,
+            backCoverUrl: $request->backCoverUrl,
             isbn: $request->isbn,
+        ));
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    #[Route('/{id}/volumes/{volumeId}/face', methods: ['POST'])]
+    public function uploadVolumeFace(
+        string $id,
+        string $volumeId,
+        #[MapRequestPayload] UploadVolumeFaceRequest $request,
+    ): JsonResponse {
+        $this->commandBus->dispatch(new UploadVolumeFaceCommand(
+            mangaId: $id,
+            volumeId: $volumeId,
+            face: VolumeFace::from($request->face),
+            imageBase64: $request->image,
+            contentType: $request->contentType,
         ));
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);

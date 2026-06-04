@@ -72,6 +72,8 @@ final class ShelfControllerTest extends AbstractApiTestCase
         $this->assertArrayHasKey('coverUrl', $entry['manga']);
         $this->assertArrayHasKey('number', $entry['volumes'][0]);
         $this->assertArrayHasKey('coverUrl', $entry['volumes'][0]);
+        $this->assertArrayHasKey('spineUrl', $entry['volumes'][0]);
+        $this->assertArrayHasKey('backCoverUrl', $entry['volumes'][0]);
     }
 
     public function testShelfExcludesEntriesWithNoOwnedVolumes(): void

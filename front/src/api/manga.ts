@@ -68,9 +68,22 @@ export async function updateManga(
 export async function updateVolume(
   mangaId: string,
   volumeId: string,
-  payload: { coverUrl?: string; releaseDate?: string; price?: number | null; spineUrl?: string; isbn?: string },
+  payload: { coverUrl?: string; releaseDate?: string; price?: number | null; spineUrl?: string; backCoverUrl?: string; isbn?: string },
 ): Promise<void> {
   await client.patch(`/manga/${mangaId}/volumes/${volumeId}`, payload)
+}
+
+export type VolumeFace = 'cover' | 'spine' | 'back'
+
+/** Upload a real photo of one physical face (cover / spine / back) for the 3D render. */
+export async function uploadVolumeFace(
+  mangaId: string,
+  volumeId: string,
+  face: VolumeFace,
+  image: string,
+  contentType: string,
+): Promise<void> {
+  await client.post(`/manga/${mangaId}/volumes/${volumeId}/face`, { face, image, contentType })
 }
 
 export async function addVolume(

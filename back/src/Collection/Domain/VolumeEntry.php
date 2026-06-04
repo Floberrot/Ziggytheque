@@ -54,6 +54,7 @@ class VolumeEntry
             'rating' => $this->rating,
             'isbn' => $this->volume->isbn?->value,
             'spineUrl' => $this->volume->spineUrl,
+            'backCoverUrl' => $this->volume->backCoverUrl,
         ];
     }
 }

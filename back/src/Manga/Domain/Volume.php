@@ -32,6 +32,8 @@ class Volume
         public ?Isbn $isbn = null,
         #[ORM\Column(nullable: true)]
         public ?string $spineUrl = null,
+        #[ORM\Column(nullable: true)]
+        public ?string $backCoverUrl = null,
     ) {
     }
 
@@ -46,6 +48,7 @@ class Volume
             'releaseDate' => $this->releaseDate?->format(DateTimeInterface::ATOM),
             'isbn' => $this->isbn?->value,
             'spineUrl' => $this->spineUrl,
+            'backCoverUrl' => $this->backCoverUrl,
         ];
     }
 }
