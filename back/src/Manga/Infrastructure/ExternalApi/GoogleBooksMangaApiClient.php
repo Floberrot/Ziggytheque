@@ -9,11 +9,15 @@ use App\Manga\Domain\ExternalMangaDto;
 use App\Manga\Domain\Isbn;
 use App\Manga\Domain\MangaCoverProviderInterface;
 use App\Manga\Domain\MangaVolumeCoverDto;
+use App\Manga\Domain\MultiContextCoverProviderInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Throwable;
 
-final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInterface, MangaCoverProviderInterface
+final readonly class GoogleBooksMangaApiClient implements
+    ExternalApiClientInterface,
+    MangaCoverProviderInterface,
+    MultiContextCoverProviderInterface
 {
     private const string BASE_URL = 'https://www.googleapis.com/books/v1';
     private const string PREFIX_LOGGER = 'GOOGLE_BOOKS : ';
@@ -165,15 +169,25 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
         int $volumeNumber,
         string $language = 'fr',
     ): ?MangaVolumeCoverDto {
+        // The single best match is simply the first of every candidate cover.
+        return $this->findAllByContext($mangaTitle, $edition, $volumeNumber, $language)[0] ?? null;
+    }
+
+    public function findAllByContext(
+        string $mangaTitle,
+        ?string $edition,
+        int $volumeNumber,
+        string $language = 'fr',
+    ): array {
         $query = sprintf('%s tome %d%s', $mangaTitle, $volumeNumber, $edition ? ' ' . $edition : '');
         $this->logger->info(self::PREFIX_LOGGER . 'find by context; BEGIN.', ['query' => $query]);
 
         try {
-            $results = $this->searchByTitle($query, page: 1);
+            $covers = [];
 
-            foreach ($results as $dto) {
+            foreach ($this->searchByTitle($query, page: 1) as $dto) {
                 if ($dto->coverUrl !== null) {
-                    return new MangaVolumeCoverDto(
+                    $covers[] = new MangaVolumeCoverDto(
                         coverUrl: $dto->coverUrl,
                         spineUrl: null,
                         isbn: null,
@@ -182,13 +196,13 @@ final readonly class GoogleBooksMangaApiClient implements ExternalApiClientInter
                 }
             }
 
-            return null;
+            return $covers;
         } catch (Throwable $exception) {
             $this->logger->info(self::PREFIX_LOGGER . 'find by context; ERROR.', [
                 'query' => $query,
                 'error' => $exception->getMessage(),
             ]);
-            return null;
+            return [];
         }
     }
 

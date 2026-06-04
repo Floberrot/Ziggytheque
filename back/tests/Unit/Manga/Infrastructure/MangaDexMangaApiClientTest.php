@@ -151,6 +151,41 @@ final class MangaDexMangaApiClientTest extends TestCase
         $this->assertNull($result);
     }
 
+    public function testFindAllByContextReturnsEveryVolumeCoverBestLocaleFirst(): void
+    {
+        // The volume has three cover editions across locales. findAllByContext must
+        // return them all (so the user can pick), ordered fr → ja → other.
+        $httpClient = new MockHttpClient([
+            $this->mangaSearchResponse(self::MANGA_ID),
+            $this->coverListResponseRaw([
+                ['volume' => '1', 'fileName' => 'english.jpg', 'locale' => 'en'],
+                ['volume' => '1', 'fileName' => 'japanese.jpg', 'locale' => 'ja'],
+                ['volume' => '1', 'fileName' => 'french.jpg', 'locale' => 'fr'],
+            ]),
+        ]);
+
+        $results = $this->makeClient($httpClient)->findAllByContext('Test Manga', null, 1);
+
+        $this->assertCount(3, $results);
+        $this->assertContainsOnlyInstancesOf(MangaVolumeCoverDto::class, $results);
+        $this->assertStringContainsString('french.jpg', $results[0]->coverUrl);
+        $this->assertStringContainsString('japanese.jpg', $results[1]->coverUrl);
+        $this->assertStringContainsString('english.jpg', $results[2]->coverUrl);
+        $this->assertSame('mangadex', $results[0]->source);
+    }
+
+    public function testFindAllByContextReturnsEmptyArrayWhenNoMangaFound(): void
+    {
+        $httpClient = new MockHttpClient([
+            new MockResponse(
+                json_encode(['data' => []]),
+                ['response_headers' => ['Content-Type' => 'application/json']],
+            ),
+        ]);
+
+        $this->assertSame([], $this->makeClient($httpClient)->findAllByContext('Unknown Manga', null, 1));
+    }
+
     public function testReturnsJapaneseCoverWhenNoFrenchLocaleExists(): void
     {
         // Most MangaDex volume covers are the original Japanese art. Restricting to

@@ -7,18 +7,22 @@ namespace App\Manga\Infrastructure\ExternalApi;
 use App\Manga\Domain\Isbn;
 use App\Manga\Domain\MangaCoverProviderInterface;
 use App\Manga\Domain\MangaVolumeCoverDto;
+use App\Manga\Domain\MultiContextCoverProviderInterface;
 use App\Manga\Domain\MultiSourceCoverProviderInterface;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 final readonly class CompositeMangaCoverApiClient implements
     MangaCoverProviderInterface,
     MultiSourceCoverProviderInterface
 {
     /**
-     * @param iterable<MangaCoverProviderInterface> $providers ordered by priority (highest first)
+     * @param iterable<MangaCoverProviderInterface>        $providers        ISBN/cover cascade, highest priority first
+     * @param iterable<MultiContextCoverProviderInterface> $contextProviders title-search sources
      */
     public function __construct(
         private iterable $providers,
+        private iterable $contextProviders,
         private LoggerInterface $logger,
     ) {
     }
@@ -61,6 +65,37 @@ final readonly class CompositeMangaCoverApiClient implements
 
             if ($result !== null) {
                 $covers[] = $result;
+            }
+        }
+
+        return $covers;
+    }
+
+    public function findAllByContext(
+        string $mangaTitle,
+        ?string $edition,
+        int $volumeNumber,
+        string $language = 'fr',
+    ): array {
+        $covers = [];
+
+        foreach ($this->contextProviders as $provider) {
+            try {
+                $providerCovers = $provider->findAllByContext($mangaTitle, $edition, $volumeNumber, $language);
+
+                $this->logger->info('COMPOSITE : findAllByContext source result.', [
+                    'provider' => $provider::class,
+                    'count' => count($providerCovers),
+                ]);
+
+                foreach ($providerCovers as $cover) {
+                    $covers[] = $cover;
+                }
+            } catch (Throwable $exception) {
+                $this->logger->error('COMPOSITE : findAllByContext provider failed, skipping.', [
+                    'provider' => $provider::class,
+                    'error' => $exception->getMessage(),
+                ]);
             }
         }
 

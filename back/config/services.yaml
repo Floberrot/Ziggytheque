@@ -117,17 +117,19 @@ services:
     App\Manga\Domain\MultiSourceCoverProviderInterface:
         alias: App\Manga\Infrastructure\ExternalApi\CompositeMangaCoverApiClient
 
-    # Service locator so SearchVolumeExternalHandler can target a specific provider
+    # Service locator so SearchVolumeExternalHandler can narrow the title search to
+    # a single context source. The default ('composite') merges them all. Only the
+    # context-capable sources are offered (the front exposes the same three).
     App\Manga\Application\SearchVolumeExternal\SearchVolumeExternalHandler:
         arguments:
             $providerLocator: !service_locator
                 mangadex: '@App\Manga\Infrastructure\ExternalApi\MangaDexMangaApiClient'
-                openlibrary: '@App\Manga\Infrastructure\ExternalApi\OpenLibraryCoversApiClient'
                 googlebooks: '@App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient'
 
     App\Manga\Infrastructure\ExternalApi\CompositeMangaCoverApiClient:
         arguments:
             $providers: !tagged_iterator { tag: app.manga_cover_provider }
+            $contextProviders: !tagged_iterator { tag: app.manga_context_cover_provider }
 
     # Cover providers ordered by priority (highest tried first).
     #
@@ -143,6 +145,8 @@ services:
             $baseUrl: '%env(MANGADEX_BASE_URL)%'
         tags:
             - { name: app.manga_cover_provider, priority: 100 }
+            # Title-search source (every volume cover edition/locale), highest priority.
+            - { name: app.manga_context_cover_provider, priority: 100 }
 
     # BnF (French national library) — keyless, authoritative for French editions
     # (legal deposit). Default source for ISBN cover lookups.
@@ -177,12 +181,14 @@ services:
         tags:
             - { name: app.manga_cover_provider, priority: 55 }
 
-    # Keyed Google Books API — kept for the explicit "Google Books" search tab, but
-    # NOT in the cover cascade: without a working key it only 429s. Cover lookups
-    # rely on the keyless/working providers above.
+    # Keyed Google Books API — NOT in the ISBN cover cascade (without a working key
+    # it only 429s), but a title-search context source: the composite merges its
+    # covers with MangaDex's and logs+skips it on failure, so it stays harmless.
     App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient:
         arguments:
             $apiKey: '%env(GOOGLE_BOOKS_API_KEY)%'
+        tags:
+            - { name: app.manga_context_cover_provider, priority: 50 }
 
     # Keyless summary translation (Google "gtx" web endpoint) — English → French.
     App\Manga\Domain\SummaryTranslatorInterface:
@@ -303,7 +309,6 @@ when@test:
             arguments:
                 $providerLocator: !service_locator
                     mangadex: '@App\Manga\Infrastructure\ExternalApi\NullMangaCoverApiClient'
-                    openlibrary: '@App\Manga\Infrastructure\ExternalApi\NullMangaCoverApiClient'
                     googlebooks: '@App\Manga\Infrastructure\ExternalApi\NullMangaCoverApiClient'
         App\Manga\Domain\CoverBatchProgressPublisherInterface:
             alias: App\Tests\Doubles\Manga\InMemoryCoverBatchProgressPublisher

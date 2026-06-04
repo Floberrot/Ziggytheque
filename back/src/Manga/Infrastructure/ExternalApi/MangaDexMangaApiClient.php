@@ -7,11 +7,14 @@ namespace App\Manga\Infrastructure\ExternalApi;
 use App\Manga\Domain\Isbn;
 use App\Manga\Domain\MangaCoverProviderInterface;
 use App\Manga\Domain\MangaVolumeCoverDto;
+use App\Manga\Domain\MultiContextCoverProviderInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Throwable;
 
-final readonly class MangaDexMangaApiClient implements MangaCoverProviderInterface
+final readonly class MangaDexMangaApiClient implements
+    MangaCoverProviderInterface,
+    MultiContextCoverProviderInterface
 {
     private const string PREFIX_LOGGER = 'MANGADEX : ';
     private const string UPLOADS_BASE_URL = 'https://uploads.mangadex.org/covers';
@@ -41,6 +44,16 @@ final readonly class MangaDexMangaApiClient implements MangaCoverProviderInterfa
         int $volumeNumber,
         string $language = 'fr',
     ): ?MangaVolumeCoverDto {
+        // The single best match is simply the first of every candidate cover.
+        return $this->findAllByContext($mangaTitle, $edition, $volumeNumber, $language)[0] ?? null;
+    }
+
+    public function findAllByContext(
+        string $mangaTitle,
+        ?string $edition,
+        int $volumeNumber,
+        string $language = 'fr',
+    ): array {
         $searchTitle = $this->cleanTitle($mangaTitle, $edition);
 
         $this->logger->info(self::PREFIX_LOGGER . 'find by context; BEGIN.', [
@@ -59,12 +72,12 @@ final readonly class MangaDexMangaApiClient implements MangaCoverProviderInterfa
                     self::PREFIX_LOGGER . 'find by context; NO MANGA FOUND.',
                     ['title' => $searchTitle],
                 );
-                return null;
+                return [];
             }
 
-            $coverDto = $this->findVolumeCover($mangaId, $volumeNumber, $language);
+            $covers = $this->findVolumeCovers($mangaId, $volumeNumber, $language);
 
-            if ($coverDto === null) {
+            if ($covers === []) {
                 $this->logger->info(self::PREFIX_LOGGER . 'find by context; NO COVER FOUND.', [
                     'title' => $searchTitle,
                     'manga_id' => $mangaId,
@@ -72,13 +85,13 @@ final readonly class MangaDexMangaApiClient implements MangaCoverProviderInterfa
                 ]);
             }
 
-            return $coverDto;
+            return $covers;
         } catch (Throwable $exception) {
             $this->logger->info(self::PREFIX_LOGGER . 'find by context; ERROR.', [
                 'title' => $searchTitle,
                 'error' => $exception->getMessage(),
             ]);
-            return null;
+            return [];
         }
     }
 
@@ -186,7 +199,8 @@ final readonly class MangaDexMangaApiClient implements MangaCoverProviderInterfa
         return trim(preg_replace('/\s+/u', ' ', $alphaNumeric) ?? $alphaNumeric);
     }
 
-    private function findVolumeCover(string $mangaId, int $volumeNumber, string $language): ?MangaVolumeCoverDto
+    /** @return list<MangaVolumeCoverDto> every cover for the volume, best locale first */
+    private function findVolumeCovers(string $mangaId, int $volumeNumber, string $language): array
     {
         $targetVolume = (string) $volumeNumber;
 
@@ -240,7 +254,7 @@ final readonly class MangaDexMangaApiClient implements MangaCoverProviderInterfa
         } while ($offset < $total && $offset < self::COVER_MAX_OFFSET);
 
         if ($matches === []) {
-            return null;
+            return [];
         }
 
         usort(
@@ -252,14 +266,18 @@ final readonly class MangaDexMangaApiClient implements MangaCoverProviderInterfa
         $this->logger->info(self::PREFIX_LOGGER . 'find by context; FOUND.', [
             'manga_id' => $mangaId,
             'volume' => $volumeNumber,
+            'count' => count($matches),
             'locale' => $matches[0]['locale'],
         ]);
 
-        return new MangaVolumeCoverDto(
-            coverUrl: $matches[0]['url'],
-            spineUrl: null,
-            isbn: null,
-            source: 'mangadex',
+        return array_map(
+            static fn (array $match): MangaVolumeCoverDto => new MangaVolumeCoverDto(
+                coverUrl: $match['url'],
+                spineUrl: null,
+                isbn: null,
+                source: 'mangadex',
+            ),
+            $matches,
         );
     }
 
