@@ -204,7 +204,8 @@
     "remove": "Remove",
     "next": "Next",
     "close": "Close",
-    "noData": "No data"
+    "noData": "No data",
+    "loading": "Loading…"
   },
   "share": {
     "button": "Share",

@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/vue-query'
 import { getShelf, type ShelfCollection } from '@/api/shelf'
 import { coverUrl } from '@/utils/coverUrl'
 import { X } from 'lucide-vue-next'
+import BaseLoader from '@/components/atoms/BaseLoader.vue'
 
 // ── Reactive state ────────────────────────────────────────────────────────────
 
@@ -1211,7 +1212,7 @@ onUnmounted(() => {
   >
     <div v-if="isLoading" class="absolute inset-0 flex items-center justify-center z-10">
       <div class="text-center text-white/60">
-        <div class="loading loading-dots loading-lg mb-3" />
+        <BaseLoader size="lg" class="mb-3" />
         <p class="text-sm">Chargement de la bibliothèque…</p>
       </div>
     </div>

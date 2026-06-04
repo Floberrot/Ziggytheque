@@ -204,7 +204,8 @@
     "remove": "Retirer",
     "next": "Suivant",
     "close": "Fermer",
-    "noData": "Aucune donnée"
+    "noData": "Aucune donnée",
+    "loading": "Chargement…"
   },
   "share": {
     "button": "Partager",

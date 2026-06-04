@@ -16,6 +16,7 @@ import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vu
 import { useI18n } from 'vue-i18n'
 import type { CollectionEntryDetail, VolumeEntry, VolumeToggleField } from '@/types'
 import { coverUrl } from '@/utils/coverUrl'
+import BaseLoader from '@/components/atoms/BaseLoader.vue'
 
 const { t } = useI18n()
 
@@ -673,7 +674,7 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                         class="grow text-sm"
                         :placeholder="t('enrich.coverSearchPlaceholder')"
                       />
-                      <span v-if="isSearching" class="loading loading-spinner loading-xs opacity-40" />
+                      <BaseLoader v-if="isSearching" size="xs" class="opacity-40" />
                     </label>
                     <button class="btn btn-square btn-outline btn-sm shrink-0" :class="{ loading: isSearching }" :disabled="isSearching || searchQuery.trim().length < 2" title="Relancer" @click="runSearch(searchQuery)">
                       <RefreshCw v-if="!isSearching" class="h-4 w-4" />
@@ -710,7 +711,7 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                     </button>
                   </TransitionGroup>
                   <div v-if="isLoadingMore || hasMore" class="py-3 flex items-center justify-center gap-2 text-xs text-base-content/40">
-                    <span v-if="isLoadingMore" class="loading loading-spinner loading-xs" />
+                    <BaseLoader v-if="isLoadingMore" size="xs" />
                     <span v-else>Défiler pour plus</span>
                   </div>
                 </template>

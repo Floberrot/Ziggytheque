@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useBarcodeScanner } from '@/composables/useBarcodeScanner'
 import { submitScan } from '@/api/manga'
+import BaseLoader from '@/components/atoms/BaseLoader.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -91,7 +92,7 @@ onMounted(() => {
           </div>
 
           <div v-if="isScanning && !cameraError" class="flex items-center gap-2 text-sm text-base-content/50 justify-center">
-            <span class="loading loading-spinner loading-xs" />
+            <BaseLoader size="xs" />
             Recherche du code-barres…
           </div>
         </template>

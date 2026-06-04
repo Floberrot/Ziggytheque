@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Toast } from '@/stores/useUiStore'
+import BaseLoader from './BaseLoader.vue'
 
 defineProps<{
   toast: Toast
@@ -16,7 +17,7 @@ defineProps<{
     }"
   >
     <template v-if="toast.type === 'progress'">
-      <span class="loading loading-spinner loading-xs" />
+      <BaseLoader size="xs" />
       <div class="flex flex-col gap-0.5 min-w-0">
         <span>{{ toast.message }}</span>
         <progress

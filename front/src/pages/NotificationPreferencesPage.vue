@@ -6,6 +6,7 @@ import { patchNotificationPreferences, postNotificationTest } from '@/api/auth'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
+import BaseLoader from '@/components/atoms/BaseLoader.vue'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -199,7 +200,7 @@ const { data: unread } = useQuery({
               :disabled="!canTest || testing || saving"
               @click="sendTest"
             >
-              <span v-if="testing" class="loading loading-spinner loading-xs" />
+              <BaseLoader v-if="testing" size="xs" />
               <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="22" y1="2" x2="11" y2="13"/>
                 <polygon points="22 2 15 22 11 13 2 9 22 2"/>
@@ -212,7 +213,7 @@ const { data: unread } = useQuery({
               :disabled="saving || testing"
               @click="savePreferences"
             >
-              <span v-if="saving" class="loading loading-spinner loading-xs" />
+              <BaseLoader v-if="saving" size="xs" />
               <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>

@@ -8,6 +8,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import type { WishlistEntry, VolumeEntry } from '@/types'
 import { coverUrl } from '@/utils/coverUrl'
+import BaseLoader from '@/components/atoms/BaseLoader.vue'
 
 const qc = useQueryClient()
 const ui = useUiStore()
@@ -394,7 +395,7 @@ onUnmounted(() => {
       <!-- Infinite scroll sentinel + loading indicator -->
       <div ref="sentinel" class="h-4" />
       <div v-if="isFetchingNextPage" class="flex justify-center py-6">
-        <span class="loading loading-spinner loading-md text-warning" />
+        <BaseLoader size="md" class="text-warning" />
       </div>
     </div>
   </div>

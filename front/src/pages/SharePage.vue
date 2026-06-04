@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { BookMarked, Layers, BookOpen, Heart, ArrowRight, Library } from 'lucide-vue-next'
 import { getShare } from '@/api/share'
 import AppLogo from '@/components/atoms/AppLogo.vue'
+import BaseLoader from '@/components/atoms/BaseLoader.vue'
 import GenrePieChart from '@/components/molecules/GenrePieChart.vue'
 
 const route = useRoute()
@@ -62,7 +63,7 @@ const tiles = computed(() => {
     <main class="mx-auto max-w-3xl px-5 py-8 sm:py-12">
       <!-- Loading -->
       <div v-if="isPending" class="flex justify-center py-24">
-        <span class="loading loading-dots loading-lg text-primary" />
+        <BaseLoader size="lg" class="text-primary" />
       </div>
 
       <!-- Not found -->
