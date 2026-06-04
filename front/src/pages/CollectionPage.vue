@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted, onUnmounted, type Component } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, type Component } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useInfiniteQuery } from '@tanstack/vue-query'
 import {
   Search, Plus, Book, X, RotateCcw, SlidersHorizontal, ChevronDown,
@@ -7,6 +8,7 @@ import {
   Library, BookCheck, Gift, HelpCircle,
 } from 'lucide-vue-next'
 import { getCollection, type CollectionFilters } from '@/api/collection'
+import { useCollectionFiltersStore } from '@/stores/useCollectionFiltersStore'
 import { useI18n } from 'vue-i18n'
 import MangaCard from '@/components/organisms/MangaCard.vue'
 import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
@@ -22,20 +24,12 @@ const GENRES = [
 ] as const
 
 // ── Filter state ──────────────────────────────────────────────────────────────
+// Persisted in a store (sessionStorage-backed) so filters are remembered across
+// navigation — e.g. opening a series and coming back to the list.
 
-const searchInput = ref('')
-
-const filters = reactive<CollectionFilters>({
-  search:        undefined,
-  genre:         undefined,
-  edition:       undefined,
-  readingStatus: undefined,
-  sort:          undefined,
-  followed:      false,
-  hasOwned:      false,
-  hasRead:       false,
-  hasWished:     false,
-})
+const filtersStore = useCollectionFiltersStore()
+const { searchInput } = storeToRefs(filtersStore)
+const filters = filtersStore.filters
 
 // Debounce search input (300 ms)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -55,16 +49,7 @@ const hasActiveFilters = computed(
 
 function resetFilters() {
   if (debounceTimer) clearTimeout(debounceTimer)
-  searchInput.value     = ''
-  filters.search        = undefined
-  filters.genre         = undefined
-  filters.edition       = undefined
-  filters.readingStatus = undefined
-  filters.sort          = undefined
-  filters.followed      = false
-  filters.hasOwned      = false
-  filters.hasRead       = false
-  filters.hasWished     = false
+  filtersStore.reset()
 }
 
 // ── Preset filters (quick-access chips) ───────────────────────────────────────
