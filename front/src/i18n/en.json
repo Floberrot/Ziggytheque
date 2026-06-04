@@ -31,7 +31,13 @@
     "recentAdditions": "Recent Additions",
     "readingProgress": "Reading Progress",
     "volumesRead": "read",
-    "volumesOwned": "owned"
+    "volumesOwned": "owned",
+    "averageRating": "Average Rating",
+    "ratedCount": "{count} rated series | {count} rated series",
+    "monthlyAdditions": "Monthly Additions",
+    "addedLast12Months": "series added in the last 12 months",
+    "readingStatus": "Reading Status",
+    "topAuthors": "Top Authors"
   },
   "collection": {
     "title": "My Collection",
@@ -166,7 +172,8 @@
     "sci_fi": "Sci-Fi",
     "slice_of_life": "Slice of Life",
     "sports": "Sports",
-    "other": "Other"
+    "other": "Other",
+    "chartCenter": "series"
   },
   "filter": {
     "searchPlaceholder": "Search by title...",
@@ -196,7 +203,36 @@
     "delete": "Delete",
     "remove": "Remove",
     "next": "Next",
-    "close": "Close"
+    "close": "Close",
+    "noData": "No data"
+  },
+  "share": {
+    "button": "Share",
+    "title": "Share my library",
+    "subtitle": "A snapshot, frozen at this moment",
+    "previewLabel": "Share preview",
+    "generating": "Creating link…",
+    "copy": "Copy",
+    "copied": "Link copied!",
+    "copyError": "Could not copy the link",
+    "email": "Email",
+    "sms": "SMS",
+    "more": "More",
+    "privacyNote": "The link only shows your counts and genre breakdown — never your collection's value.",
+    "inviteText": "Check out my manga library on Ziggythèque!",
+    "mailSubject": "My manga library on Ziggythèque",
+    "public": {
+      "signIn": "Sign in",
+      "eyebrow": "Shared library",
+      "heroTitle": "{name}'s library",
+      "capturedOn": "Snapshot from {date}",
+      "notFoundTitle": "Share not found",
+      "notFoundBody": "This share link doesn't exist or is no longer valid.",
+      "ctaTitle": "Build your own Ziggythèque",
+      "ctaBody": "Track your manga collection, read volumes, wishlist and much more.",
+      "ctaButton": "Get started for free",
+      "footer": "Powered by Ziggythèque"
+    }
   },
   "enrich": {
     "tabSearch": "Search",

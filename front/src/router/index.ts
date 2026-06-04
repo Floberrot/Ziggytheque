@@ -114,6 +114,12 @@ const router = createRouter({
       component: () => import('@/pages/ScanPage.vue'),
       meta: { public: true, title: 'Scanner un ISBN' },
     },
+    {
+      path: '/share/:token',
+      name: 'share',
+      component: () => import('@/pages/SharePage.vue'),
+      meta: { public: true, title: 'Bibliothèque partagée' },
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })
@@ -129,7 +135,14 @@ router.beforeEach(async (to) => {
     return { name: 'login' }
   }
 
-  if (to.meta.public && auth.isAuthenticated && to.name !== 'verify-email' && to.name !== 'reset-password' && to.name !== 'scan') {
+  if (
+    to.meta.public &&
+    auth.isAuthenticated &&
+    to.name !== 'verify-email' &&
+    to.name !== 'reset-password' &&
+    to.name !== 'scan' &&
+    to.name !== 'share'
+  ) {
     return { name: 'dashboard' }
   }
 

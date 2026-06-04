@@ -1,36 +1,65 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useQuery } from '@tanstack/vue-query'
+import { computed, ref } from 'vue'
+import { useMutation, useQuery } from '@tanstack/vue-query'
 import { useI18n } from 'vue-i18n'
-import { Book } from 'lucide-vue-next'
+import { Book, Share2, Star, TrendingUp, CalendarRange, ListChecks, Wallet, Users } from 'lucide-vue-next'
 import { getStats } from '@/api/stats'
+import { createShare } from '@/api/share'
 import StatCard from '@/components/molecules/StatCard.vue'
 import GenrePieChart from '@/components/molecules/GenrePieChart.vue'
+import MonthlyAdditionsChart from '@/components/molecules/MonthlyAdditionsChart.vue'
+import ReadingStatusBar from '@/components/molecules/ReadingStatusBar.vue'
+import TopAuthorsList from '@/components/molecules/TopAuthorsList.vue'
+import ShareModal from '@/components/organisms/ShareModal.vue'
 import { coverUrl } from '@/utils/coverUrl'
 
 const { t, locale } = useI18n()
 const { data: stats, isPending } = useQuery({ queryKey: ['stats'], queryFn: getStats })
+
+const shareOpen = ref(false)
+const shareUrl = ref<string | null>(null)
+
+const shareMutation = useMutation({
+  mutationFn: createShare,
+  onSuccess: (data) => {
+    shareUrl.value = data.url
+  },
+})
+
+function openShare(): void {
+  shareUrl.value = null
+  shareOpen.value = true
+  shareMutation.mutate()
+}
 
 const readingProgress = computed(() => {
   if (!stats.value?.totalOwned) return 0
   return Math.round((stats.value.totalRead / stats.value.totalOwned) * 100)
 })
 
+const hasGenres = computed(() => stats.value && Object.keys(stats.value.genreBreakdown).length > 0)
+
 const today = computed(() =>
   new Date().toLocaleDateString(locale.value === 'fr' ? 'fr-FR' : 'en-US', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
-  })
+  }),
 )
 </script>
 
 <template>
-  <div class="p-4 sm:p-6 space-y-6 sm:space-y-8">
+  <div class="p-4 sm:p-6 space-y-6 sm:space-y-7">
     <!-- Header -->
-    <div>
-      <p class="text-sm text-base-content/40 capitalize mb-0.5">{{ today }}</p>
-      <h1 class="text-3xl font-bold tracking-tight">{{ t('dashboard.title') }}</h1>
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <p class="text-sm text-base-content/40 capitalize mb-0.5">{{ today }}</p>
+        <h1 class="text-3xl font-bold tracking-tight">{{ t('dashboard.title') }}</h1>
+      </div>
+      <button class="btn btn-primary gap-2 shadow-sm" @click="openShare">
+        <Share2 class="h-4 w-4" />
+        <span class="hidden sm:inline">{{ t('share.button') }}</span>
+      </button>
     </div>
 
     <div v-if="isPending" class="flex justify-center py-20">
@@ -46,60 +75,107 @@ const today = computed(() =>
         <StatCard :value="stats.totalWishlist" :label="t('dashboard.wishlist')" color="warning" icon="heart" style="animation-delay: 240ms" />
       </div>
 
-      <!-- Charts + Values row -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Genre Donut Chart -->
-        <div class="card bg-base-100 shadow-sm">
-          <div class="card-body gap-3">
+      <!-- Genre + reading progress -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="card bg-base-100 shadow-sm lg:col-span-2">
+          <div class="card-body gap-4">
             <h2 class="text-xs font-semibold text-base-content/50 uppercase tracking-widest">
               {{ t('dashboard.genreBreakdown') }}
             </h2>
-            <div v-if="Object.keys(stats.genreBreakdown).length" class="h-56">
-              <GenrePieChart :breakdown="stats.genreBreakdown" />
-            </div>
-            <p v-else class="text-sm text-base-content/40 italic py-8 text-center">Aucune donnée</p>
+            <GenrePieChart v-if="hasGenres" :breakdown="stats.genreBreakdown" />
+            <p v-else class="text-sm text-base-content/40 italic py-8 text-center">{{ t('common.noData') }}</p>
           </div>
         </div>
 
-        <!-- Value summary + Reading progress -->
-        <div class="flex flex-col gap-4">
-          <div class="card bg-base-100 shadow-sm flex-1">
-            <div class="card-body gap-4">
-              <h2 class="text-xs font-semibold text-base-content/50 uppercase tracking-widest">
-                {{ t('dashboard.valueSummary') }}
-              </h2>
-              <div class="space-y-3">
-                <div class="flex justify-between items-center">
-                  <span class="text-sm text-base-content/60">{{ t('dashboard.ownedValue') }}</span>
-                  <span class="font-semibold text-success">{{ stats.ownedValue.toFixed(2) }} €</span>
-                </div>
-                <div class="divider my-0" />
-                <div class="flex justify-between items-center">
-                  <span class="text-sm text-base-content/60">{{ t('dashboard.wishlistValue') }}</span>
-                  <span class="font-semibold text-warning">{{ stats.wishlistValue.toFixed(2) }} €</span>
-                </div>
-                <div class="divider my-0" />
-                <div class="flex justify-between items-center">
-                  <span class="text-sm font-semibold">{{ t('dashboard.totalValue') }}</span>
-                  <span class="text-xl font-bold">{{ stats.totalValue.toFixed(2) }} €</span>
-                </div>
+        <div class="card bg-base-100 shadow-sm">
+          <div class="card-body items-center gap-4">
+            <h2 class="self-start flex items-center gap-1.5 text-xs font-semibold text-base-content/50 uppercase tracking-widest">
+              <TrendingUp class="h-3.5 w-3.5" /> {{ t('dashboard.readingProgress') }}
+            </h2>
+            <div
+              class="radial-progress text-primary"
+              :style="`--value:${readingProgress}; --size:8.5rem; --thickness:0.7rem`"
+              role="progressbar"
+            >
+              <span class="text-3xl font-bold">{{ readingProgress }}<span class="text-lg">%</span></span>
+            </div>
+            <p class="text-xs text-base-content/45 text-center -mt-1">
+              {{ stats.totalRead }} {{ t('dashboard.volumesRead') }} / {{ stats.totalOwned }} {{ t('dashboard.volumesOwned') }}
+            </p>
+            <div class="w-full divider my-0" />
+            <div class="flex items-center justify-between w-full">
+              <span class="flex items-center gap-1.5 text-sm text-base-content/60">
+                <Star class="h-4 w-4 text-warning" /> {{ t('dashboard.averageRating') }}
+              </span>
+              <span class="font-bold">
+                <template v-if="stats.averageRating !== null">
+                  {{ stats.averageRating.toFixed(1) }}<span class="text-sm text-base-content/40">/10</span>
+                </template>
+                <template v-else>—</template>
+              </span>
+            </div>
+            <p v-if="stats.ratedCount" class="text-[11px] text-base-content/35 -mt-2 self-end">
+              {{ t('dashboard.ratedCount', { count: stats.ratedCount }) }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Monthly additions + reading status -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="card bg-base-100 shadow-sm lg:col-span-2">
+          <div class="card-body gap-4">
+            <h2 class="flex items-center gap-1.5 text-xs font-semibold text-base-content/50 uppercase tracking-widest">
+              <CalendarRange class="h-3.5 w-3.5" /> {{ t('dashboard.monthlyAdditions') }}
+            </h2>
+            <MonthlyAdditionsChart :data="stats.monthlyAdditions">
+              <template #caption>{{ t('dashboard.addedLast12Months') }}</template>
+            </MonthlyAdditionsChart>
+          </div>
+        </div>
+
+        <div class="card bg-base-100 shadow-sm">
+          <div class="card-body gap-4">
+            <h2 class="flex items-center gap-1.5 text-xs font-semibold text-base-content/50 uppercase tracking-widest">
+              <ListChecks class="h-3.5 w-3.5" /> {{ t('dashboard.readingStatus') }}
+            </h2>
+            <ReadingStatusBar :breakdown="stats.readingStatusBreakdown" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Value summary + top authors -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="card bg-base-100 shadow-sm">
+          <div class="card-body gap-4">
+            <h2 class="flex items-center gap-1.5 text-xs font-semibold text-base-content/50 uppercase tracking-widest">
+              <Wallet class="h-3.5 w-3.5" /> {{ t('dashboard.valueSummary') }}
+            </h2>
+            <div class="space-y-3">
+              <div class="flex justify-between items-center">
+                <span class="text-sm text-base-content/60">{{ t('dashboard.ownedValue') }}</span>
+                <span class="font-semibold text-success">{{ stats.ownedValue.toFixed(2) }} €</span>
+              </div>
+              <div class="divider my-0" />
+              <div class="flex justify-between items-center">
+                <span class="text-sm text-base-content/60">{{ t('dashboard.wishlistValue') }}</span>
+                <span class="font-semibold text-warning">{{ stats.wishlistValue.toFixed(2) }} €</span>
+              </div>
+              <div class="divider my-0" />
+              <div class="flex justify-between items-center">
+                <span class="text-sm font-semibold">{{ t('dashboard.totalValue') }}</span>
+                <span class="text-xl font-bold">{{ stats.totalValue.toFixed(2) }} €</span>
               </div>
             </div>
           </div>
+        </div>
 
-          <div class="card bg-base-100 shadow-sm">
-            <div class="card-body gap-3">
-              <div class="flex justify-between items-center">
-                <h2 class="text-xs font-semibold text-base-content/50 uppercase tracking-widest">
-                  {{ t('dashboard.readingProgress') }}
-                </h2>
-                <span class="text-2xl font-bold text-primary">{{ readingProgress }}%</span>
-              </div>
-              <progress class="progress progress-primary w-full" :value="readingProgress" max="100" />
-              <p class="text-xs text-base-content/40">
-                {{ stats.totalRead }} {{ t('dashboard.volumesRead') }} / {{ stats.totalOwned }} {{ t('dashboard.volumesOwned') }}
-              </p>
-            </div>
+        <div class="card bg-base-100 shadow-sm lg:col-span-2">
+          <div class="card-body gap-4">
+            <h2 class="flex items-center gap-1.5 text-xs font-semibold text-base-content/50 uppercase tracking-widest">
+              <Users class="h-3.5 w-3.5" /> {{ t('dashboard.topAuthors') }}
+            </h2>
+            <TopAuthorsList :authors="stats.topAuthors" />
           </div>
         </div>
       </div>
@@ -142,6 +218,8 @@ const today = computed(() =>
         </div>
       </div>
     </template>
+
+    <ShareModal :open="shareOpen" :url="shareUrl" :loading="shareMutation.isPending.value" :stats="stats" @close="shareOpen = false" />
   </div>
 </template>
 

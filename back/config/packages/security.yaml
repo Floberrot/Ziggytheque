@@ -36,6 +36,7 @@ security:
         - { path: ^/api/auth/(register|verify-email|login|request-reset|reset-password)$, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/gate$, roles: ROLE_ADMIN }
         - { path: ^/api/scan/submit$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/share/, methods: [GET], roles: PUBLIC_ACCESS }
         - { path: ^/api/admin, roles: ROLE_ADMIN_UNLOCKED }
         - { path: ^/messenger, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api, roles: ROLE_USER }
