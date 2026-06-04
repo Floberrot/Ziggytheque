@@ -226,12 +226,12 @@
         <button
           v-if="query.trim().length >= 2"
           class="btn btn-square btn-outline btn-sm"
-          :class="{ loading: searchLoading }"
           :disabled="searchLoading"
           title="Relancer la recherche"
           @click="runSearch(query)"
         >
-          <RefreshCw v-if="!searchLoading" class="h-4 w-4" />
+          <BaseLoader v-if="searchLoading" size="xs" />
+          <RefreshCw v-else class="h-4 w-4" />
         </button>
       </div>
 
@@ -444,8 +444,9 @@
         <button
           type="submit"
           class="btn btn-primary w-full"
-          :class="{ loading: importMutation.isPending.value }"
+          :disabled="importMutation.isPending.value"
         >
+          <BaseLoader v-if="importMutation.isPending.value" size="xs" />
           {{ t('common.next') }}
         </button>
       </form>
@@ -461,11 +462,12 @@
         <!-- Go to collection detail -->
         <button
           class="card bg-primary text-primary-content shadow hover:shadow-xl hover:scale-[1.02] transition-all duration-150 cursor-pointer"
-          :class="{ loading: goCollectionMutation.isPending.value }"
+          :disabled="goCollectionMutation.isPending.value"
           @click="goCollectionMutation.mutate()"
         >
           <div class="card-body items-center text-center gap-3 py-8">
-            <Book class="h-10 w-10" stroke-width="1.5" />
+            <BaseLoader v-if="goCollectionMutation.isPending.value" size="md" />
+            <Book v-else class="h-10 w-10" stroke-width="1.5" />
             <h3 class="card-title">{{ t('collection.addToCollection') }}</h3>
             <p class="text-sm opacity-80">Gérer les tomes possédés</p>
           </div>
@@ -474,11 +476,12 @@
         <!-- Mark all as wished + go to wishlist -->
         <button
           class="card bg-warning/20 text-warning-content shadow hover:shadow-xl hover:scale-[1.02] transition-all duration-150 cursor-pointer border border-warning/30"
-          :class="{ loading: goWishlistMutation.isPending.value }"
+          :disabled="goWishlistMutation.isPending.value"
           @click="goWishlistMutation.mutate()"
         >
           <div class="card-body items-center text-center gap-3 py-8">
-            <Star class="h-10 w-10 text-warning" stroke-width="1.5" />
+            <BaseLoader v-if="goWishlistMutation.isPending.value" size="md" class="text-warning" />
+            <Star v-else class="h-10 w-10 text-warning" stroke-width="1.5" />
             <h3 class="card-title text-warning">{{ t('wishlist.addToWishlist') }}</h3>
             <p class="text-sm text-base-content/60">Tous les tomes → liste de souhaits</p>
           </div>

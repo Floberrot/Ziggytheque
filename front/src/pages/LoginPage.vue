@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { useThemeStore } from '@/stores/useThemeStore'
+import BaseLoader from '@/components/atoms/BaseLoader.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -77,9 +78,9 @@ async function submit() {
           <button
             type="submit"
             class="btn btn-primary w-full"
-            :class="{ loading }"
             :disabled="loading"
           >
+            <BaseLoader v-if="loading" size="xs" />
             Se connecter
           </button>
         </form>

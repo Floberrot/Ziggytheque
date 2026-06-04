@@ -298,11 +298,12 @@ onUnmounted(() => {
                 </button>
                 <button
                   class="btn btn-ghost btn-xs text-error"
-                  :class="{ loading: clearMutation.isPending.value }"
+                  :disabled="clearMutation.isPending.value"
                   title="Retirer de la liste de souhaits"
                   @click="clearMutation.mutate(entry.id)"
                 >
-                  <X class="h-4 w-4" />
+                  <BaseLoader v-if="clearMutation.isPending.value" size="xs" />
+                  <X v-else class="h-4 w-4" />
                 </button>
               </div>
             </div>
@@ -415,10 +416,10 @@ onUnmounted(() => {
           <button
             class="btn btn-success btn-sm gap-1.5"
             :disabled="isBatchProcessing"
-            :class="{ loading: isBatchProcessing }"
             @click="batchPurchase"
           >
-            <ShoppingCart class="h-4 w-4" />
+            <BaseLoader v-if="isBatchProcessing" size="xs" />
+            <ShoppingCart v-else class="h-4 w-4" />
             Marquer acheté{{ selectedVeIds.size > 1 ? 's' : '' }}
           </button>
           <button class="btn btn-ghost btn-sm shrink-0" @click="selectedVeIds = new Set()">

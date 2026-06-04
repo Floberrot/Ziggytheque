@@ -5,6 +5,7 @@ import axios from 'axios'
 import { Eye, EyeOff } from 'lucide-vue-next'
 import { postRegister } from '@/api/auth'
 import { useThemeStore } from '@/stores/useThemeStore'
+import BaseLoader from '@/components/atoms/BaseLoader.vue'
 
 const router = useRouter()
 const themeStore = useThemeStore()
@@ -193,9 +194,9 @@ async function submit() {
             <button
               type="submit"
               class="btn btn-primary w-full"
-              :class="{ loading }"
               :disabled="!canSubmit"
             >
+              <BaseLoader v-if="loading" size="xs" />
               S'inscrire
             </button>
           </form>

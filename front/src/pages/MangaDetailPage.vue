@@ -884,11 +884,11 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                     >
                       <button
                         class="btn btn-primary btn-sm gap-1.5"
-                        :class="{ loading: syncMutation.isPending.value }"
                         :disabled="!isSyncTargetValid || syncMutation.isPending.value"
                         @click="syncMutation.mutate()"
                       >
-                        <Plus v-if="!syncMutation.isPending.value" class="h-3.5 w-3.5" />
+                        <BaseLoader v-if="syncMutation.isPending.value" size="xs" />
+                        <Plus v-else class="h-3.5 w-3.5" />
                         Créer les tomes
                       </button>
                     </div>
@@ -939,11 +939,11 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                     >
                       <button
                         class="btn btn-secondary btn-sm gap-1.5"
-                        :class="{ loading: batchPriceMutation.isPending.value }"
                         :disabled="batchPriceValue === null || batchPriceMutation.isPending.value"
                         @click="batchPriceValue !== null && batchPriceMutation.mutate(batchPriceValue)"
                       >
-                        <Check v-if="!batchPriceMutation.isPending.value" class="h-3.5 w-3.5" stroke-width="3" />
+                        <BaseLoader v-if="batchPriceMutation.isPending.value" size="xs" />
+                        <Check v-else class="h-3.5 w-3.5" stroke-width="3" />
                         Appliquer à tous
                       </button>
                     </div>
@@ -962,11 +962,11 @@ function volumeOpacityClass(ve: VolumeEntry): string {
             </p>
             <button
               class="btn btn-ghost btn-xs gap-1 mt-1 px-1 text-base-content/50 hover:text-base-content"
-              :class="{ loading: translateMutation.isPending.value }"
               :disabled="translateMutation.isPending.value"
               @click="toggleTranslation"
             >
-              <Languages v-if="!translateMutation.isPending.value" class="h-3 w-3" />
+              <BaseLoader v-if="translateMutation.isPending.value" size="xs" />
+              <Languages v-else class="h-3 w-3" />
               {{ showTranslation ? t('manga.showOriginal') : t('manga.translate') }}
             </button>
           </div>
@@ -1333,9 +1333,10 @@ function volumeOpacityClass(ve: VolumeEntry): string {
             <button class="btn btn-ghost" @click="showDeleteConfirm = false">Annuler</button>
             <button
               class="btn btn-error gap-2"
-              :class="{ loading: removeMutation.isPending.value }"
+              :disabled="removeMutation.isPending.value"
               @click="removeMutation.mutate()"
             >
+              <BaseLoader v-if="removeMutation.isPending.value" size="xs" />
               Supprimer
             </button>
           </div>
