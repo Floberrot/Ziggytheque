@@ -490,16 +490,16 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
             </div>
           </div>
 
-          <!-- Layout: stacked on mobile (cover→search→url), side-by-side on desktop -->
-          <div class="flex flex-col sm:flex-row gap-0 overflow-hidden flex-1 min-h-0">
+          <!-- Layout: single scroll on mobile, side-by-side on desktop -->
+          <div class="flex flex-col sm:flex-row gap-0 overflow-y-auto sm:overflow-hidden flex-1 min-h-0" @scroll="onResultsScroll">
 
             <!-- ── Left rail : aperçu cover + statut + ISBN du tome ──
                  Mobile : bande horizontale en haut · Desktop : colonne latérale -->
             <div class="shrink-0 sm:w-72 flex flex-col gap-4 p-4 sm:p-5 border-b sm:border-b-0 sm:border-r border-base-200 sm:overflow-y-auto">
-              <div class="flex flex-row sm:flex-col gap-4">
+              <div class="flex flex-col gap-3">
                 <!-- Cover preview -->
                 <div
-                  class="shrink-0 w-28 sm:w-44 sm:mx-auto aspect-[2/3] rounded-xl overflow-hidden ring-2 bg-base-200 transition-transform duration-150 relative"
+                  class="shrink-0 w-28 mx-auto sm:w-44 aspect-[2/3] rounded-xl overflow-hidden ring-2 bg-base-200 transition-transform duration-150 relative"
                   :class="[
                     volumeStatus === 'owned' ? 'ring-success/60' : volumeStatus === 'wished' ? 'ring-warning/60' : volumeStatus === 'announced' ? 'ring-secondary/50 ring-dashed' : 'ring-base-300',
                     volume.coverUrl ? 'cursor-zoom-in hover:scale-105' : ''
@@ -516,7 +516,7 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                 </div>
 
                 <!-- ── Status toggles — clear, self-explanatory cards ── -->
-                <div class="flex flex-col gap-2.5 flex-1 min-w-0 justify-center sm:justify-start">
+                <div class="flex flex-col gap-2.5">
                   <div class="flex items-center justify-between gap-2">
                     <p class="text-[11px] font-bold uppercase tracking-wide text-base-content/45">
                       {{ t('enrich.statusTitle') }}
@@ -612,7 +612,7 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
             </div>
 
             <!-- ── Right zone : trouver une couverture ── -->
-            <div class="flex-1 min-w-0 flex flex-col overflow-hidden">
+            <div class="min-w-0 flex flex-col sm:flex-1 sm:overflow-hidden">
               <div class="px-4 sm:px-5 pt-4">
                 <p class="text-xs font-semibold uppercase tracking-wide text-base-content/40 mb-2">{{ t('enrich.findCover') }}</p>
                 <!-- Segmented switcher -->
@@ -632,8 +632,8 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                 </div>
               </div>
 
-              <!-- Scrollable content -->
-              <div class="flex-1 overflow-y-auto px-4 sm:px-5 py-4 min-h-0" @scroll="onResultsScroll">
+              <!-- Scrollable content (desktop only — mobile scrolls the outer wrapper) -->
+              <div class="sm:flex-1 sm:overflow-y-auto px-4 sm:px-5 py-4 sm:min-h-0" @scroll="onResultsScroll">
                 <!-- Titre : recherche par titre + résultats -->
                 <template v-if="mode === 'search'">
                   <div class="flex gap-2 items-center mb-4">
