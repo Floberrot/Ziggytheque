@@ -135,6 +135,17 @@ export interface CollectionEntryDetail extends CollectionEntry {
 /** Alias: wishlist view reuses CollectionEntryDetail (filtered to wished volumes) */
 export type WishlistEntry = CollectionEntryDetail
 
+export interface TopAuthor {
+  author: string
+  count: number
+}
+
+export interface MonthlyAddition {
+  /** ISO year-month, e.g. "2026-06" */
+  month: string
+  count: number
+}
+
 export interface Stats {
   totalMangas: number
   totalOwned: number
@@ -144,7 +155,32 @@ export interface Stats {
   wishlistValue: number
   totalValue: number
   genreBreakdown: Record<string, number>
+  readingStatusBreakdown: Record<string, number>
+  topAuthors: TopAuthor[]
+  averageRating: number | null
+  ratedCount: number
+  monthlyAdditions: MonthlyAddition[]
   recentAdditions: CollectionEntry[]
+}
+
+/** Public, privacy-safe subset frozen into a share snapshot. */
+export interface ShareStats {
+  totalMangas: number
+  totalOwned: number
+  totalRead: number
+  totalWishlist: number
+  genreBreakdown: Record<string, number>
+}
+
+export interface ShareSnapshot {
+  ownerName: string
+  createdAt: string
+  stats: ShareStats
+}
+
+export interface CreateShareResponse {
+  token: string
+  url: string
 }
 
 export interface Notification {

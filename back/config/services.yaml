@@ -251,6 +251,14 @@ services:
     App\Stats\Domain\StatsRepositoryInterface:
         alias: App\Stats\Infrastructure\Doctrine\DoctrineStatsRepository
 
+    App\Share\Domain\ShareSnapshotRepositoryInterface:
+        alias: App\Share\Infrastructure\Doctrine\DoctrineShareSnapshotRepository
+
+    # Share controller builds the public link from the front-end base URL
+    App\Share\Infrastructure\Http\ShareController:
+        arguments:
+            $frontUrl: '%app_front_url%'
+
     App\Manga\Domain\CoverBatchProgressPublisherInterface:
         alias: App\Manga\Infrastructure\Mercure\MercureCoverBatchProgressPublisher
 

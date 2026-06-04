@@ -8,6 +8,7 @@ use App\Collection\Domain\CollectionEntry;
 use App\Collection\Domain\VolumeEntry;
 use App\Stats\Domain\StatsRepositoryInterface;
 use BackedEnum;
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 
 final readonly class DoctrineStatsRepository implements StatsRepositoryInterface
@@ -83,6 +84,56 @@ final readonly class DoctrineStatsRepository implements StatsRepositoryInterface
             $genreBreakdown[$genre] = (int) $row['count'];
         }
 
+        // Reading-status breakdown (series count per reading status)
+        $statusRows = $this->em->createQueryBuilder()
+            ->select('c.readingStatus as status, COUNT(c.id) as count')
+            ->from(CollectionEntry::class, 'c')
+            ->groupBy('c.readingStatus')
+            ->getQuery()
+            ->getResult();
+
+        $readingStatusBreakdown = [];
+        foreach ($statusRows as $row) {
+            // readingStatus is a non-nullable backed enum, so it always hydrates
+            // to an enum instance.
+            $readingStatusBreakdown[$row['status']->value] = (int) $row['count'];
+        }
+
+        // Top authors by number of series in the collection
+        $authorRows = $this->em->createQueryBuilder()
+            ->select('m.author as author, COUNT(c.id) as count')
+            ->from(CollectionEntry::class, 'c')
+            ->join('c.manga', 'm')
+            ->where('m.author IS NOT NULL')
+            ->andWhere("m.author <> ''")
+            ->groupBy('m.author')
+            ->orderBy('count', 'DESC')
+            ->addOrderBy('m.author', 'ASC')
+            ->setMaxResults(5)
+            ->getQuery()
+            ->getResult();
+
+        $topAuthors = array_map(
+            static fn (array $row): array => [
+                'author' => (string) $row['author'],
+                'count' => (int) $row['count'],
+            ],
+            $authorRows,
+        );
+
+        // Average rating across rated series
+        $ratingRow = $this->em->createQueryBuilder()
+            ->select('AVG(c.rating) as avgRating, COUNT(c.rating) as ratedCount')
+            ->from(CollectionEntry::class, 'c')
+            ->getQuery()
+            ->getSingleResult();
+
+        $ratedCount    = (int) $ratingRow['ratedCount'];
+        $averageRating = $ratingRow['avgRating'] !== null ? round((float) $ratingRow['avgRating'], 1) : null;
+
+        // Additions over the last 12 months (oldest → newest), zero-filled
+        $monthlyAdditions = $this->monthlyAdditions();
+
         // Recent additions
         $recent = $this->em->createQueryBuilder()
             ->select('c', 'm')
@@ -102,10 +153,57 @@ final readonly class DoctrineStatsRepository implements StatsRepositoryInterface
             'wishlistValue' => round($wishlistValue, 2),
             'totalValue' => round($totalValue, 2),
             'genreBreakdown' => $genreBreakdown,
+            'readingStatusBreakdown' => $readingStatusBreakdown,
+            'topAuthors' => $topAuthors,
+            'averageRating' => $averageRating,
+            'ratedCount' => $ratedCount,
+            'monthlyAdditions' => $monthlyAdditions,
             'recentAdditions' => array_map(
                 static fn (CollectionEntry $e) => $e->toArray(),
                 $recent,
             ),
         ];
+    }
+
+    /**
+     * Series added per month over the trailing 12-month window, oldest first.
+     * Months with no additions are returned with a zero count so the chart keeps
+     * a continuous timeline.
+     *
+     * @return list<array{month: string, count: int}>
+     */
+    private function monthlyAdditions(): array
+    {
+        $now      = new DateTimeImmutable('first day of this month 00:00:00');
+        $earliest = $now->modify('-11 months');
+
+        $buckets = [];
+        $cursor  = $earliest;
+        while ($cursor <= $now) {
+            $buckets[$cursor->format('Y-m')] = 0;
+            $cursor                          = $cursor->modify('+1 month');
+        }
+
+        $addedDates = $this->em->createQueryBuilder()
+            ->select('c.addedAt')
+            ->from(CollectionEntry::class, 'c')
+            ->where('c.addedAt >= :earliest')
+            ->setParameter('earliest', $earliest)
+            ->getQuery()
+            ->getResult();
+
+        foreach ($addedDates as $row) {
+            $key = $row['addedAt']->format('Y-m');
+            if (isset($buckets[$key])) {
+                ++$buckets[$key];
+            }
+        }
+
+        $result = [];
+        foreach ($buckets as $month => $count) {
+            $result[] = ['month' => $month, 'count' => $count];
+        }
+
+        return $result;
     }
 }

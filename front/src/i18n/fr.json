@@ -31,7 +31,13 @@
     "recentAdditions": "Ajouts récents",
     "readingProgress": "Progression de lecture",
     "volumesRead": "lus",
-    "volumesOwned": "possédés"
+    "volumesOwned": "possédés",
+    "averageRating": "Note moyenne",
+    "ratedCount": "{count} série notée | {count} séries notées",
+    "monthlyAdditions": "Ajouts par mois",
+    "addedLast12Months": "séries ajoutées sur les 12 derniers mois",
+    "readingStatus": "Statut de lecture",
+    "topAuthors": "Auteurs les plus présents"
   },
   "collection": {
     "title": "Ma collection",
@@ -166,7 +172,8 @@
     "sci_fi": "Science-fiction",
     "slice_of_life": "Slice of life",
     "sports": "Sports",
-    "other": "Autre"
+    "other": "Autre",
+    "chartCenter": "séries"
   },
   "filter": {
     "searchPlaceholder": "Rechercher par titre...",
@@ -196,7 +203,36 @@
     "delete": "Supprimer",
     "remove": "Retirer",
     "next": "Suivant",
-    "close": "Fermer"
+    "close": "Fermer",
+    "noData": "Aucune donnée"
+  },
+  "share": {
+    "button": "Partager",
+    "title": "Partager ma bibliothèque",
+    "subtitle": "Un instantané, figé à cet instant",
+    "previewLabel": "Aperçu du partage",
+    "generating": "Création du lien…",
+    "copy": "Copier",
+    "copied": "Lien copié !",
+    "copyError": "Impossible de copier le lien",
+    "email": "E-mail",
+    "sms": "SMS",
+    "more": "Plus",
+    "privacyNote": "Le lien ne montre que vos chiffres et votre répartition par genre — jamais la valeur de votre collection.",
+    "inviteText": "Découvre ma bibliothèque manga sur Ziggythèque !",
+    "mailSubject": "Ma bibliothèque manga sur Ziggythèque",
+    "public": {
+      "signIn": "Se connecter",
+      "eyebrow": "Bibliothèque partagée",
+      "heroTitle": "La bibliothèque de {name}",
+      "capturedOn": "Instantané du {date}",
+      "notFoundTitle": "Partage introuvable",
+      "notFoundBody": "Ce lien de partage n'existe pas ou n'est plus valide.",
+      "ctaTitle": "Crée ta propre Ziggythèque",
+      "ctaBody": "Suis ta collection de mangas, tes tomes lus, ta wishlist et bien plus.",
+      "ctaButton": "Commencer gratuitement",
+      "footer": "Propulsé par Ziggythèque"
+    }
   },
   "enrich": {
     "tabSearch": "Recherche",

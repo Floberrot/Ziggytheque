@@ -90,6 +90,22 @@ deptrac:
         - type: class
           value: 'App\\Notification\\Infrastructure.*'
 
+    # ── Share ─────────────────────────────────────────────────────────────────
+    - name: Share_Domain
+      collectors:
+        - type: class
+          value: 'App\\Share\\Domain.*'
+
+    - name: Share_Application
+      collectors:
+        - type: class
+          value: 'App\\Share\\Application.*'
+
+    - name: Share_Infrastructure
+      collectors:
+        - type: class
+          value: 'App\\Share\\Infrastructure.*'
+
     # ── Stats ─────────────────────────────────────────────────────────────────
     - name: Stats_Domain
       collectors:
@@ -151,6 +167,9 @@ deptrac:
       - Shared
       - Manga_Domain
       - Collection_Domain
+    Share_Domain:
+      - Shared
+      - Auth_Domain
     Wishlist_Domain:
       - Shared
       - Manga_Domain
@@ -193,6 +212,11 @@ deptrac:
       - Manga_Domain
       - Collection_Domain
       - Shared
+    Share_Application:
+      - Share_Domain
+      - Stats_Domain
+      - Auth_Domain
+      - Shared
     Wishlist_Application:
       - Wishlist_Domain
       - Wishlist_Shared
@@ -234,6 +258,10 @@ deptrac:
       - Manga_Domain
       - Manga_Application
       - Collection_Domain
+      - Shared
+    Share_Infrastructure:
+      - Share_Domain
+      - Share_Application
       - Shared
     Wishlist_Infrastructure:
       - Wishlist_Domain
