@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { postVerifyEmail } from '@/api/auth'
 import { useThemeStore } from '@/stores/useThemeStore'
+import BaseLoader from '@/components/atoms/BaseLoader.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -36,7 +37,7 @@ onMounted(async () => {
         <img :src="logoSrc" alt="Ziggytheque" class="h-28 w-auto object-contain" />
 
         <template v-if="status === 'loading'">
-          <span class="loading loading-spinner loading-lg" />
+          <BaseLoader size="lg" class="text-primary" />
           <p class="text-base-content/70 text-sm">Vérification de votre email…</p>
         </template>
 

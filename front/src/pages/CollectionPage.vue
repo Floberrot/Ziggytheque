@@ -10,6 +10,7 @@ import { getCollection, type CollectionFilters } from '@/api/collection'
 import { useI18n } from 'vue-i18n'
 import MangaCard from '@/components/organisms/MangaCard.vue'
 import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
+import BaseLoader from '@/components/atoms/BaseLoader.vue'
 
 const showGuide = ref(false)
 
@@ -447,7 +448,7 @@ onUnmounted(() => {
       <!-- Infinite scroll sentinel + loading indicator -->
       <div ref="sentinel" class="h-4 mt-4" />
       <div v-if="isFetchingNextPage" class="flex justify-center py-6">
-        <span class="loading loading-spinner loading-md text-primary" />
+        <BaseLoader size="md" class="text-primary" />
       </div>
     </div>
 

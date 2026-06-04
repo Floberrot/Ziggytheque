@@ -12,6 +12,7 @@ import {
 import type { User } from '@/api/auth'
 import { useUiStore } from '@/stores/useUiStore'
 import { X } from 'lucide-vue-next'
+import BaseLoader from '@/components/atoms/BaseLoader.vue'
 
 const ui = useUiStore()
 const queryClient = useQueryClient()
@@ -160,7 +161,7 @@ async function copyResetLink(user: User): Promise<void> {
 
     <!-- Table -->
     <div v-if="isPending" class="flex justify-center py-12">
-      <span class="loading loading-spinner loading-lg" />
+      <BaseLoader size="lg" class="text-primary" />
     </div>
 
     <div v-else-if="(data?.items.length ?? 0) === 0" class="text-center py-12 text-base-content/60">
@@ -306,7 +307,7 @@ async function copyResetLink(user: User): Promise<void> {
         <div class="flex justify-end gap-2 px-5 py-4 border-t border-base-200 bg-base-200/40">
           <button class="btn btn-ghost btn-sm" :disabled="saving" @click="closeEdit">Annuler</button>
           <button class="btn btn-primary btn-sm" :disabled="saving" @click="saveEdit">
-            <span v-if="saving" class="loading loading-spinner loading-xs" />
+            <BaseLoader v-if="saving" size="xs" />
             Enregistrer
           </button>
         </div>

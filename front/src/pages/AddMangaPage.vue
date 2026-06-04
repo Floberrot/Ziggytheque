@@ -13,6 +13,7 @@
   import BaseEditionSelector from '@/components/atoms/BaseEditionSelector.vue'
   import BaseProviderLogo from '@/components/atoms/BaseProviderLogo.vue'
   import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
+  import BaseLoader from '@/components/atoms/BaseLoader.vue'
 
   const router = useRouter()
   const qc = useQueryClient()
@@ -220,7 +221,7 @@
             :placeholder="t('add.searchPlaceholder')"
             autocomplete="off"
           />
-          <span v-if="searchLoading" class="loading loading-spinner loading-xs opacity-50" />
+          <BaseLoader v-if="searchLoading" size="xs" class="opacity-50" />
         </label>
         <button
           v-if="query.trim().length >= 2"
@@ -284,7 +285,7 @@
           v-if="isLoadingMore || hasMore"
           class="py-3 flex items-center justify-center gap-2 text-xs text-base-content/40 border-t border-base-200"
         >
-          <span v-if="isLoadingMore" class="loading loading-spinner loading-xs" />
+          <BaseLoader v-if="isLoadingMore" size="xs" />
           <span v-else>Faites défiler pour en voir plus</span>
         </div>
       </div>

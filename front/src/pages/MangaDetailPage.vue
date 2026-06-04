@@ -21,6 +21,7 @@ import { useCoverBatchProgress } from '@/composables/useCoverBatchProgress'
 import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
 import EnrichVolumeModal from '@/components/organisms/EnrichVolumeModal.vue'
+import BaseLoader from '@/components/atoms/BaseLoader.vue'
 import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
 import BaseHeartRating from '@/components/atoms/BaseHeartRating.vue'
 import { FRENCH_EDITIONS } from '@/data/editions'
@@ -514,7 +515,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
 <template>
   <div class="min-h-screen" @click="closeContextMenu(); cancelEditCover(); closeActionMenus()">
     <div v-if="isPending" class="flex justify-center py-20">
-      <span class="loading loading-spinner loading-lg" />
+      <BaseLoader size="lg" class="text-primary" />
     </div>
 
     <template v-else-if="entry">
@@ -722,7 +723,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                   >
                     <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="currentStatusOption.dot" />
                     <span>{{ currentStatusOption.label }}</span>
-                    <span v-if="statusMutation.isPending.value" class="loading loading-spinner w-3 h-3" />
+                    <BaseLoader v-if="statusMutation.isPending.value" size="xs" />
                     <ChevronDown v-else class="h-3.5 w-3.5 text-base-content/40 transition-transform" :class="statusMenuOpen ? 'rotate-180' : ''" />
                   </button>
                   <Transition name="menu-pop">

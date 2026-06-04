@@ -11,6 +11,7 @@ import MonthlyAdditionsChart from '@/components/molecules/MonthlyAdditionsChart.
 import ReadingStatusBar from '@/components/molecules/ReadingStatusBar.vue'
 import TopAuthorsList from '@/components/molecules/TopAuthorsList.vue'
 import ShareModal from '@/components/organisms/ShareModal.vue'
+import BaseLoader from '@/components/atoms/BaseLoader.vue'
 import { coverUrl } from '@/utils/coverUrl'
 
 const { t, locale } = useI18n()
@@ -63,7 +64,7 @@ const today = computed(() =>
     </div>
 
     <div v-if="isPending" class="flex justify-center py-20">
-      <span class="loading loading-dots loading-lg text-primary" />
+      <BaseLoader size="lg" class="text-primary" />
     </div>
 
     <template v-else-if="stats">
