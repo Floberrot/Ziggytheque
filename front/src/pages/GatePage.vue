@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/useAuthStore'
+import BaseLoader from '@/components/atoms/BaseLoader.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -75,9 +76,9 @@ function cancel() {
           <button
             type="submit"
             class="btn btn-primary"
-            :class="{ loading }"
             :disabled="loading"
           >
+            <BaseLoader v-if="loading" size="xs" />
             Débloquer
           </button>
         </div>

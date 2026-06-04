@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { postResetPassword } from '@/api/auth'
 import { useThemeStore } from '@/stores/useThemeStore'
+import BaseLoader from '@/components/atoms/BaseLoader.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -98,9 +99,9 @@ async function submit() {
             <button
               type="submit"
               class="btn btn-primary w-full"
-              :class="{ loading }"
               :disabled="loading"
             >
+              <BaseLoader v-if="loading" size="xs" />
               Réinitialiser
             </button>
           </form>

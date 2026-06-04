@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { getActivityLogs } from '@/api/notification'
 import { getCollection } from '@/api/collection'
 import ActivityLogRow from '@/components/molecules/ActivityLogRow.vue'
+import BaseLoader from '@/components/atoms/BaseLoader.vue'
 import type { EventType, LogStatus } from '@/types'
 
 const { t } = useI18n()
@@ -76,7 +77,8 @@ const STATUSES: { value: LogStatus | ''; label: string }[] = [
         <option value="">{{ t('journal.allMangas') }}</option>
         <option v-for="e in collection?.items" :key="e.id" :value="e.id">{{ e.manga.title }}</option>
       </select>
-      <button class="btn btn-sm btn-primary" :class="{ loading: isFetching }" @click="search">
+      <button class="btn btn-sm btn-primary" :disabled="isFetching" @click="search">
+        <BaseLoader v-if="isFetching" size="xs" />
         {{ t('journal.search') }}
       </button>
       <span v-if="searched" class="text-xs text-base-content/40 ml-auto">

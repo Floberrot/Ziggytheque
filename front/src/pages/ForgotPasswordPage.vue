@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { postRequestPasswordReset } from '@/api/auth'
 import { useThemeStore } from '@/stores/useThemeStore'
+import BaseLoader from '@/components/atoms/BaseLoader.vue'
 
 const router = useRouter()
 const themeStore = useThemeStore()
@@ -65,9 +66,9 @@ async function submit() {
             <button
               type="submit"
               class="btn btn-primary w-full"
-              :class="{ loading }"
               :disabled="loading"
             >
+              <BaseLoader v-if="loading" size="xs" />
               Envoyer le lien
             </button>
           </form>

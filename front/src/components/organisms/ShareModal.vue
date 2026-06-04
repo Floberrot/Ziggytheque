@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { X, Copy, Check, Mail, MessageSquare, Share2, Link2, Loader2 } from 'lucide-vue-next'
+import { X, Copy, Check, Mail, MessageSquare, Share2, Link2 } from 'lucide-vue-next'
 import { useUiStore } from '@/stores/useUiStore'
+import BaseLoader from '@/components/atoms/BaseLoader.vue'
 import type { Stats } from '@/types'
 
 const props = defineProps<{ open: boolean; url: string | null; loading: boolean; stats: Stats | undefined }>()
@@ -113,7 +114,7 @@ async function nativeShare(): Promise<void> {
 
             <!-- Link -->
             <div v-if="loading" class="flex items-center justify-center gap-2 py-4 text-base-content/50">
-              <Loader2 class="h-4 w-4 animate-spin" />
+              <BaseLoader size="xs" />
               <span class="text-sm">{{ t('share.generating') }}</span>
             </div>
 

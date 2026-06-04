@@ -676,8 +676,9 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                       />
                       <BaseLoader v-if="isSearching" size="xs" class="opacity-40" />
                     </label>
-                    <button class="btn btn-square btn-outline btn-sm shrink-0" :class="{ loading: isSearching }" :disabled="isSearching || searchQuery.trim().length < 2" title="Relancer" @click="runSearch(searchQuery)">
-                      <RefreshCw v-if="!isSearching" class="h-4 w-4" />
+                    <button class="btn btn-square btn-outline btn-sm shrink-0" :disabled="isSearching || searchQuery.trim().length < 2" title="Relancer" @click="runSearch(searchQuery)">
+                      <BaseLoader v-if="isSearching" size="xs" />
+                      <RefreshCw v-else class="h-4 w-4" />
                     </button>
                   </div>
                   <p v-if="!searchResults.length && !isSearching" class="text-sm text-base-content/30 text-center py-10">
@@ -726,7 +727,8 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                       :placeholder="t('enrich.isbnPlaceholder')"
                       @keyup.enter="runIsbnSearch()"
                     />
-                    <button class="btn btn-sm btn-primary shrink-0" :class="{ loading: isbnLoading }" :disabled="!isbnInput.trim() || isbnLoading" @click="runIsbnSearch()">
+                    <button class="btn btn-sm btn-primary shrink-0" :disabled="!isbnInput.trim() || isbnLoading" @click="runIsbnSearch()">
+                      <BaseLoader v-if="isbnLoading" size="xs" />
                       {{ t('enrich.searchIsbn') }}
                     </button>
                   </div>
@@ -770,8 +772,9 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                   </button>
                   <p v-if="cameraError" class="text-error text-xs">{{ cameraError }}</p>
                   <video v-show="isScanning" ref="videoRef" class="w-full rounded-lg aspect-video object-cover bg-base-200" autoplay muted playsinline />
-                  <button class="btn btn-sm btn-outline gap-2 w-full" :class="{ loading: isFetchingSession }" :disabled="isFetchingSession" @click="startPhoneScan()">
-                    <Smartphone class="h-4 w-4" />
+                  <button class="btn btn-sm btn-outline gap-2 w-full" :disabled="isFetchingSession" @click="startPhoneScan()">
+                    <BaseLoader v-if="isFetchingSession" size="xs" />
+                    <Smartphone v-else class="h-4 w-4" />
                     {{ t('enrich.scanPhone') }}
                   </button>
                   <div v-if="scanQrValue" class="flex flex-col items-center gap-2 pt-1">
@@ -788,10 +791,10 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                   <input v-model="manualCoverUrl" type="url" class="input input-bordered input-xs flex-1 min-w-0" placeholder="https://…" />
                   <button
                     class="btn btn-primary btn-xs shrink-0"
-                    :class="{ loading: enrichMutation.isPending.value }"
                     :disabled="!manualCoverUrl.trim() || enrichMutation.isPending.value"
                     @click="manualCoverUrl.trim() && enrichMutation.mutate({ coverUrl: manualCoverUrl.trim() })"
                   >
+                    <BaseLoader v-if="enrichMutation.isPending.value" size="xs" />
                     Appliquer
                   </button>
                   <div v-if="manualCoverUrl.trim()" class="w-9 aspect-[2/3] rounded overflow-hidden bg-base-200 ring-1 ring-base-300 shrink-0">
