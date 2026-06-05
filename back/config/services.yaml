@@ -190,6 +190,122 @@ services:
         tags:
             - { name: app.manga_context_cover_provider, priority: 50 }
 
+    # Resolves the work's title in the target language (AniList) before searching
+    # foreign catalogues. Keyless GraphQL.
+    App\Manga\Domain\WorkTitleResolverInterface:
+        alias: App\Manga\Infrastructure\ExternalApi\AniListWorkTitleResolver
+
+    App\Manga\Infrastructure\ExternalApi\AniListWorkTitleResolver:
+        arguments:
+            $baseUrl: '%env(ANILIST_BASE_URL)%'
+
+    # Edition providers composite — discovers all editions of a work across sources.
+    App\Manga\Domain\EditionProviderInterface:
+        alias: App\Manga\Infrastructure\ExternalApi\CompositeEditionProvider
+
+    App\Manga\Infrastructure\ExternalApi\CompositeEditionProvider:
+        arguments:
+            $providers: !tagged_iterator { tag: app.manga_edition_provider }
+
+    # BnF SRU — keyless, authoritative for French editions (legal deposit). Priority 80.
+    App\Manga\Infrastructure\ExternalApi\BnfEditionProvider:
+        arguments:
+            $baseUrl: '%env(BNF_BASE_URL)%'
+        tags:
+            - { name: app.manga_edition_provider, priority: 80 }
+
+    # DNB SRU — keyless, authoritative for German editions (Carlsen, Egmont…). Priority 75.
+    App\Manga\Infrastructure\ExternalApi\DnbEditionProvider:
+        arguments:
+            $baseUrl: '%env(DNB_BASE_URL)%'
+        tags:
+            - { name: app.manga_edition_provider, priority: 75 }
+
+    # NDL SRU — keyless, authoritative for Japanese editions (queried with the native
+    # title resolved by AniList). Priority 74.
+    App\Manga\Infrastructure\ExternalApi\NdlEditionProvider:
+        arguments:
+            $baseUrl: '%env(NDL_BASE_URL)%'
+        tags:
+            - { name: app.manga_edition_provider, priority: 74 }
+
+    # Open Library — Work → editions.json; best US/EN coverage (Deluxe, omnibus). Priority 70.
+    App\Manga\Infrastructure\ExternalApi\OpenLibraryEditionProvider:
+        arguments:
+            $baseUrl: '%env(OPEN_LIBRARY_BASE_URL)%'
+            $userAgent: '%env(OPENLIBRARY_USER_AGENT)%'
+        tags:
+            - { name: app.manga_edition_provider, priority: 70 }
+
+    # Google Books — enrichment (fills missing ISBN / covers). Priority 50.
+    App\Manga\Infrastructure\ExternalApi\GoogleBooksEditionProvider:
+        arguments:
+            $apiKey: '%env(GOOGLE_BOOKS_API_KEY)%'
+        tags:
+            - { name: app.manga_edition_provider, priority: 50 }
+
+    # Price providers composite — fetches live merchant offers per ISBN + marketplace.
+    App\Manga\Domain\VolumePriceProviderInterface:
+        alias: App\Manga\Infrastructure\ExternalApi\CompositePriceProvider
+
+    App\Manga\Infrastructure\ExternalApi\CompositePriceProvider:
+        arguments:
+            $providers: !tagged_iterator { tag: app.volume_price_provider }
+
+    # eBay Browse API — primary live price source, OAuth app-token. Priority 100.
+    # No-op when EBAY_CLIENT_ID is empty (same pattern as HardcoverCoversApiClient).
+    App\Manga\Infrastructure\ExternalApi\Ebay\EbayOAuthTokenProvider:
+        arguments:
+            $oauthUrl: '%env(EBAY_OAUTH_URL)%'
+            $clientId: '%env(EBAY_CLIENT_ID)%'
+            $clientSecret: '%env(EBAY_CLIENT_SECRET)%'
+            $cache: '@cache.app'
+
+    App\Manga\Infrastructure\ExternalApi\EbayBrowsePriceProvider:
+        arguments:
+            $baseUrl: '%env(EBAY_BASE_URL)%'
+            $campaignId: '%env(default::EBAY_CAMPAIGN_ID)%'
+        tags:
+            - { name: app.volume_price_provider, priority: 100 }
+
+    # Chasse aux livres — FR price comparator (Amazon, Fnac, Rakuten, momox…), keyless,
+    # queried by ISBN. Priority 90. Disable by setting CHASSE_AUX_LIVRES_BASE_URL="".
+    App\Manga\Infrastructure\ExternalApi\ChasseAuxLivresPriceProvider:
+        arguments:
+            $baseUrl: '%env(CHASSE_AUX_LIVRES_BASE_URL)%'
+        tags:
+            - { name: app.volume_price_provider, priority: 90 }
+
+    # Google Books saleInfo — reference price (e-book, indicative). Priority 60.
+    # &country= is mandatory (otherwise 403 from cloud). No-op when API key is empty.
+    App\Manga\Infrastructure\ExternalApi\GoogleBooksPriceProvider:
+        arguments:
+            $apiKey: '%env(GOOGLE_BOOKS_API_KEY)%'
+        tags:
+            - { name: app.volume_price_provider, priority: 60 }
+
+    # Price offer cache — PSR cache pool, 24h TTL.
+    App\Manga\Domain\PriceOfferCacheInterface:
+        alias: App\Manga\Infrastructure\Cache\PsrPriceOfferCache
+
+    App\Manga\Infrastructure\Cache\PsrPriceOfferCache:
+        arguments:
+            $pool: '@cache.app'
+            $ttlSeconds: 86400
+
+    # Edition discovery cache — repeated searches skip the whole catalogue fan-out.
+    App\Manga\Domain\EditionDiscoveryCacheInterface:
+        alias: App\Manga\Infrastructure\Cache\PsrEditionDiscoveryCache
+
+    App\Manga\Infrastructure\Cache\PsrEditionDiscoveryCache:
+        arguments:
+            $pool: '@cache.app'
+
+    # Generic cache-backed rate limiter (no symfony/rate-limiter dependency).
+    App\Shared\Infrastructure\RateLimit\CacheRateLimiter:
+        arguments:
+            $pool: '@cache.app'
+
     # Keyless summary translation (Google "gtx" web endpoint) — English → French.
     App\Manga\Domain\SummaryTranslatorInterface:
         alias: App\Manga\Infrastructure\Translation\GoogleTranslateSummaryTranslator
@@ -296,6 +412,12 @@ when@test:
     services:
         App\Manga\Domain\ExternalApiClientInterface:
             alias: App\Manga\Infrastructure\ExternalApi\NullMangaApiClient
+        App\Manga\Domain\EditionProviderInterface:
+            alias: App\Manga\Infrastructure\ExternalApi\NullEditionProvider
+        App\Manga\Domain\WorkTitleResolverInterface:
+            alias: App\Manga\Infrastructure\ExternalApi\NullWorkTitleResolver
+        App\Manga\Domain\VolumePriceProviderInterface:
+            alias: App\Manga\Infrastructure\ExternalApi\NullPriceProvider
         App\Manga\Domain\SummaryTranslatorInterface:
             alias: App\Manga\Infrastructure\Translation\NullSummaryTranslator
         App\Manga\Application\SearchExternal\SearchExternalMangaHandler:

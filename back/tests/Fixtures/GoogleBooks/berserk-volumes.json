@@ -1,0 +1,38 @@
+{
+  "kind": "books#volumes",
+  "totalItems": 2,
+  "items": [
+    {
+      "id": "AbCdEfGh",
+      "volumeInfo": {
+        "title": "Berserk, Vol. 1",
+        "publisher": "Glénat",
+        "language": "fr",
+        "industryIdentifiers": [
+          {"type": "ISBN_13", "identifier": "9782723425483"},
+          {"type": "ISBN_10", "identifier": "2723425487"}
+        ],
+        "imageLinks": {
+          "thumbnail": "https://books.google.com/books/content?id=AbCdEfGh&printsec=frontcover&img=1&zoom=1"
+        },
+        "printType": "BOOK"
+      }
+    },
+    {
+      "id": "IjKlMnOp",
+      "volumeInfo": {
+        "title": "Berserk Deluxe, Vol. 1",
+        "publisher": "Glénat",
+        "language": "fr",
+        "industryIdentifiers": [
+          {"type": "ISBN_13", "identifier": "9782344036075"}
+        ],
+        "imageLinks": {
+          "thumbnail": "https://books.google.com/books/content?id=IjKlMnOp&printsec=frontcover&img=1&zoom=1"
+        },
+        "printType": "BOOK",
+        "subtitle": "Deluxe edition"
+      }
+    }
+  ]
+}

@@ -86,7 +86,12 @@
     "totalVolumes": "Total volumes",
     "translate": "Translate to French",
     "showOriginal": "Show original",
-    "translateError": "Translation failed"
+    "translateError": "Translation failed",
+    "tabs": {
+      "volumes": "Volumes",
+      "editions": "Editions",
+      "prices": "Prices"
+    }
   },
   "volume": {
     "price": "Price (€)",
@@ -412,5 +417,24 @@
       "hardcover": "Hardcover"
     },
     "coverSourcesNote": "Title search: MangaDex and Google Books. ISBN search: all sources above, grouped by provider."
+  },
+  "editions": {
+    "searchPlaceholder": "Work title…",
+    "searchHint": "Searches BnF, DNB, NDL, Open Library and Google Books",
+    "discover": "Discover",
+    "discovering": "Searching…",
+    "empty": "No editions found.",
+    "modeByEdition": "By edition",
+    "modeBySeries": "By series",
+    "country": "Country"
+  },
+  "prices": {
+    "tabLabel": "Prices",
+    "loading": "Fetching prices…",
+    "empty": "No prices available for this volume.",
+    "noIsbn": "This volume has no ISBN — cannot search for prices.",
+    "merchantLive": "Live offer",
+    "publisherReference": "Publisher price",
+    "selectVolume": "Select a volume to see prices."
   }
 }

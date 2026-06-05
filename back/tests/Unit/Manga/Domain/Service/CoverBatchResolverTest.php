@@ -34,7 +34,9 @@ final class CoverBatchResolverTest extends TestCase
     private function makeProvider(?MangaVolumeCoverDto $dto): MangaCoverProviderInterface
     {
         return new class ($dto) implements MangaCoverProviderInterface {
-            public function __construct(private readonly ?MangaVolumeCoverDto $dto) {}
+            public function __construct(private readonly ?MangaVolumeCoverDto $dto)
+            {
+            }
 
             public function findByIsbn(Isbn $isbn): ?MangaVolumeCoverDto
             {
@@ -130,7 +132,8 @@ final class CoverBatchResolverTest extends TestCase
             public function __construct(
                 private readonly MangaVolumeCoverDto $dto,
                 private array &$log,
-            ) {}
+            ) {
+            }
 
             public function findByIsbn(Isbn $isbn): ?MangaVolumeCoverDto
             {
@@ -166,7 +169,8 @@ final class CoverBatchResolverTest extends TestCase
             public function __construct(
                 private readonly MangaVolumeCoverDto $dto,
                 private array &$log,
-            ) {}
+            ) {
+            }
 
             public function findByIsbn(Isbn $isbn): ?MangaVolumeCoverDto
             {
@@ -205,7 +209,8 @@ final class CoverBatchResolverTest extends TestCase
             public function __construct(
                 private readonly MangaVolumeCoverDto $dto,
                 private int &$count,
-            ) {}
+            ) {
+            }
 
             public function findByIsbn(Isbn $isbn): ?MangaVolumeCoverDto
             {

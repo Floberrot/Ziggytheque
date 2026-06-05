@@ -118,7 +118,8 @@ final class ActivityLogEventHandlerTest extends TestCase
 
     public function testHandleSucceededEventSkipsIfNoCorrelationId(): void
     {
-        $event = new class {};
+        $event = new class {
+        };
 
         $this->logRepo->expects($this->never())->method('findById');
 
@@ -145,7 +146,8 @@ final class ActivityLogEventHandlerTest extends TestCase
 
     public function testHandleFailedEventSkipsIfNoCorrelationId(): void
     {
-        $event = new class {};
+        $event = new class {
+        };
         $this->logRepo->expects($this->never())->method('findById');
         $this->handler->handleFailedEvent($event);
     }
@@ -164,8 +166,10 @@ final class ActivityLogEventHandlerTest extends TestCase
     public function testDetectEventTypeEnum(string $namespace, EventTypeEnum $expected): void
     {
         // Create an anonymous class that fakes a namespace via class alias
-        $event = new class($namespace) {
-            public function __construct(public readonly string $fakeNamespace) {}
+        $event = new class ($namespace) {
+            public function __construct(public readonly string $fakeNamespace)
+            {
+            }
         };
 
         // We test the detection via actual events from known namespaces

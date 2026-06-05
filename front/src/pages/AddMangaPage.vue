@@ -8,10 +8,14 @@
   import { useUiStore } from '@/stores/useUiStore'
   import { useI18n } from 'vue-i18n'
   import { useExternalSearch } from '@/composables/useExternalSearch'
+  import { useEditions } from '@/composables/useEditions'
   import type { ExternalMangaResult, SearchProvider } from '@/composables/useExternalSearch'
+  import type { ExternalEdition } from '@/composables/useEditions'
   import { coverUrl } from '@/utils/coverUrl'
   import BaseEditionSelector from '@/components/atoms/BaseEditionSelector.vue'
   import BaseProviderLogo from '@/components/atoms/BaseProviderLogo.vue'
+  import BaseCountryFlag from '@/components/atoms/BaseCountryFlag.vue'
+  import EditionCard from '@/components/organisms/EditionCard.vue'
   import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
   import BaseLoader from '@/components/atoms/BaseLoader.vue'
 
@@ -23,6 +27,49 @@
   const showGuide = ref(false)
   const step = ref<1 | 2 | 3>(1)
   const collectionEntryId = ref('')
+  const searchMode = ref<'series' | 'editions'>('series')
+
+  // ── Editions discovery mode (country chosen BEFORE searching) ──
+  const editionsQuery = ref('')
+  const {
+    groupedByCountry,
+    isLoading: editionsLoading,
+    error: editionsError,
+    discover: runEditionsDiscover,
+  } = useEditions()
+
+  // One country per search — we never fan out to every catalogue at once.
+  const EDITION_COUNTRIES = [
+    { code: 'FR', language: 'fr' },
+    { code: 'US', language: 'en' },
+    { code: 'JP', language: 'ja' },
+    { code: 'DE', language: 'de' },
+    { code: 'ES', language: 'es' },
+    { code: 'IT', language: 'it' },
+  ] as const
+  const editionCountry = ref<string>('FR')
+
+  function discoverEditionsForQuery(): void {
+    if (editionsQuery.value.trim().length < 2) return
+    const country =
+      EDITION_COUNTRIES.find((option) => option.code === editionCountry.value) ?? EDITION_COUNTRIES[0]
+    runEditionsDiscover(editionsQuery.value.trim(), null, country.language)
+  }
+
+  function applyEdition(edition: ExternalEdition): void {
+    form.value = {
+      title: edition.workTitle,
+      edition: edition.publisher ?? '',
+      language: edition.language,
+      author: '',
+      summary: '',
+      coverUrl: edition.coverUrl ?? '',
+      genre: '',
+      totalVolumes: edition.volumeCount ?? '',
+      externalId: edition.externalId ?? '',
+    }
+    step.value = 2
+  }
 
   const {
     provider,
@@ -183,6 +230,25 @@
 
     <!-- ── Step 1 : Recherche ── -->
     <div v-if="step === 1" class="space-y-3">
+      <!-- Mode switcher : Par série | Par édition -->
+      <div class="inline-flex p-1 bg-base-200 rounded-xl gap-1">
+        <button
+          class="btn btn-sm border-0"
+          :class="searchMode === 'series' ? 'btn-primary' : 'btn-ghost'"
+          @click="searchMode = 'series'"
+        >
+          {{ t('editions.modeBySeries') }}
+        </button>
+        <button
+          class="btn btn-sm border-0"
+          :class="searchMode === 'editions' ? 'btn-primary' : 'btn-ghost'"
+          @click="searchMode = 'editions'"
+        >
+          {{ t('editions.modeByEdition') }}
+        </button>
+      </div>
+
+      <template v-if="searchMode === 'series'">
       <div class="flex gap-2 items-center">
         <!-- API source picker: logo button + tooltip naming the active API -->
         <div class="dropdown">
@@ -301,6 +367,88 @@
       <button class="btn btn-outline btn-sm w-full" @click="goToForm">
         {{ t('add.fillManually') }}
       </button>
+      </template>
+
+      <!-- ── Mode : Par édition ── -->
+      <template v-else>
+        <!-- Country picked BEFORE searching — one catalogue, not all at once -->
+        <div class="space-y-1">
+          <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wide">
+            {{ t('editions.country') }}
+          </span>
+          <div class="flex flex-wrap gap-1.5">
+            <button
+              v-for="option in EDITION_COUNTRIES"
+              :key="option.code"
+              type="button"
+              class="btn btn-xs gap-1"
+              :class="editionCountry === option.code ? 'btn-primary' : 'btn-ghost'"
+              @click="editionCountry = option.code"
+            >
+              <BaseCountryFlag :country="option.code" size="sm" />
+              <span>{{ option.code }}</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex gap-2 items-center">
+          <label class="input input-bordered flex items-center gap-2 flex-1">
+            <Search class="h-4 w-4 opacity-50 shrink-0" />
+            <input
+              v-model="editionsQuery"
+              type="text"
+              class="grow"
+              :placeholder="t('editions.searchPlaceholder')"
+              autocomplete="off"
+              @keydown.enter="discoverEditionsForQuery"
+            />
+          </label>
+          <button
+            class="btn btn-primary btn-sm shrink-0"
+            :disabled="editionsQuery.trim().length < 2 || editionsLoading"
+            @click="discoverEditionsForQuery"
+          >
+            <BaseLoader v-if="editionsLoading" size="xs" />
+            <Search v-else class="h-4 w-4" />
+            {{ editionsLoading ? t('editions.discovering') : t('editions.discover') }}
+          </button>
+        </div>
+        <p class="text-xs text-base-content/40">{{ t('editions.searchHint') }}</p>
+
+        <div v-if="editionsLoading" class="flex justify-center py-8">
+          <BaseLoader size="lg" class="text-primary" />
+        </div>
+        <p v-else-if="editionsError" class="text-sm text-error py-2">{{ editionsError }}</p>
+        <template v-else-if="groupedByCountry.length">
+          <div
+            v-for="group in groupedByCountry"
+            :key="group.country ?? group.language"
+            class="mt-2"
+          >
+            <div class="flex items-center gap-2 mb-2">
+              <BaseCountryFlag :country="group.country" />
+              <h3 class="text-xs font-bold uppercase tracking-widest text-base-content/50">
+                {{ group.country ?? group.language.toUpperCase() }}
+              </h3>
+              <span class="badge badge-xs badge-ghost">{{ group.editions.length }}</span>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <EditionCard
+                v-for="edition in group.editions"
+                :key="`${edition.source}-${edition.editionLabel}`"
+                :edition="edition"
+                @import="applyEdition"
+              />
+            </div>
+          </div>
+        </template>
+        <p
+          v-else-if="editionsQuery.trim().length >= 2 && !editionsLoading"
+          class="text-sm text-center text-base-content/40 py-4"
+        >
+          {{ t('editions.empty') }}
+        </p>
+      </template>
     </div>
 
     <!-- ── Step 2 : Formulaire ── -->

@@ -86,7 +86,12 @@
     "totalVolumes": "Nombre de tomes",
     "translate": "Traduire en français",
     "showOriginal": "Voir l'original",
-    "translateError": "La traduction a échoué"
+    "translateError": "La traduction a échoué",
+    "tabs": {
+      "volumes": "Tomes",
+      "editions": "Éditions",
+      "prices": "Prix"
+    }
   },
   "volume": {
     "price": "Prix (€)",
@@ -412,5 +417,24 @@
       "hardcover": "Hardcover"
     },
     "coverSourcesNote": "Recherche par titre : MangaDex et Google Books. Recherche par ISBN : toutes les sources ci-dessus, regroupées par fournisseur."
+  },
+  "editions": {
+    "searchPlaceholder": "Titre de l'œuvre…",
+    "searchHint": "Recherche dans BnF, DNB, NDL, Open Library et Google Books",
+    "discover": "Découvrir",
+    "discovering": "Recherche en cours…",
+    "empty": "Aucune édition trouvée.",
+    "modeByEdition": "Par édition",
+    "modeBySeries": "Par série",
+    "country": "Pays"
+  },
+  "prices": {
+    "tabLabel": "Prix",
+    "loading": "Recherche des prix…",
+    "empty": "Aucun prix disponible pour ce tome.",
+    "noIsbn": "Ce tome n'a pas d'ISBN — impossible de chercher les prix.",
+    "merchantLive": "Offre en direct",
+    "publisherReference": "Prix éditeur",
+    "selectVolume": "Sélectionnez un tome pour voir les prix."
   }
 }

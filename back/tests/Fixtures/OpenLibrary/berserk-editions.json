@@ -1,0 +1,42 @@
+{
+  "links": {
+    "self": "/works/OL1234567W/editions.json",
+    "work": "/works/OL1234567W"
+  },
+  "size": 3,
+  "entries": [
+    {
+      "key": "/books/OL1001M",
+      "title": "Berserk Vol. 1",
+      "publishers": ["Dark Horse Comics"],
+      "languages": [{"key": "/languages/eng"}],
+      "isbn_13": ["9781593070205"],
+      "isbn_10": ["1593070209"],
+      "physical_format": "Paperback",
+      "publish_date": "2003",
+      "covers": [8765432]
+    },
+    {
+      "key": "/books/OL1002M",
+      "title": "Berserk Deluxe Volume 1",
+      "publishers": ["Dark Horse Comics"],
+      "languages": [{"key": "/languages/eng"}],
+      "isbn_13": ["9781506711980"],
+      "isbn_10": [],
+      "physical_format": "Hardcover",
+      "publish_date": "2019",
+      "covers": [9876543]
+    },
+    {
+      "key": "/books/OL1003M",
+      "title": "Berserk Vol. 1",
+      "publishers": ["Glénat"],
+      "languages": [{"key": "/languages/fre"}],
+      "isbn_13": ["9782723425483"],
+      "isbn_10": [],
+      "physical_format": "Paperback",
+      "publish_date": "1999",
+      "covers": []
+    }
+  ]
+}

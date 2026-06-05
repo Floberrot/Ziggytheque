@@ -1,0 +1,41 @@
+{
+  "href": "https://api.ebay.com/buy/browse/v1/item_summary/search?gtin=9782723425483&limit=3",
+  "total": 2,
+  "limit": 3,
+  "offset": 0,
+  "itemSummaries": [
+    {
+      "itemId": "v1|123456789|0",
+      "title": "Berserk Vol. 1 - Manga",
+      "price": {
+        "value": "7.50",
+        "currency": "EUR"
+      },
+      "itemWebUrl": "https://www.ebay.fr/itm/123456789",
+      "itemAffiliateWebUrl": "https://rover.ebay.com/rover/1/1197-53479-19255-0/1?mpre=https://www.ebay.fr/itm/123456789&campid=12345",
+      "image": {
+        "imageUrl": "https://i.ebayimg.com/images/g/abc/s-l140.jpg"
+      },
+      "condition": "New",
+      "shippingOptions": [
+        {
+          "shippingCostType": "FIXED",
+          "shippingCost": {"value": "2.99", "currency": "EUR"}
+        }
+      ]
+    },
+    {
+      "itemId": "v1|987654321|0",
+      "title": "Berserk Vol. 1 - occasion",
+      "price": {
+        "value": "5.00",
+        "currency": "EUR"
+      },
+      "itemWebUrl": "https://www.ebay.fr/itm/987654321",
+      "image": {
+        "imageUrl": "https://i.ebayimg.com/images/g/xyz/s-l140.jpg"
+      },
+      "condition": "Used"
+    }
+  ]
+}

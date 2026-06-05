@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<srw:searchRetrieveResponse xmlns:srw="http://www.loc.gov/zing/srw/"
+    xmlns:dc="http://purl.org/dc/elements/1.1/"
+    xmlns:oai_dc="http://www.openarchives.org/OAI/2.0/oai_dc/">
+  <srw:version>1.2</srw:version>
+  <srw:numberOfRecords>6</srw:numberOfRecords>
+  <srw:records>
+    <srw:record>
+      <srw:recordSchema>info:srw/schema/1/dc-v1.1</srw:recordSchema>
+      <srw:recordData>
+        <oai_dc:dc>
+          <dc:title>Berserk. 1</dc:title>
+          <dc:creator>Miura, Kentaro (1966-2021)</dc:creator>
+          <dc:publisher>Glénat (Grenoble)</dc:publisher>
+          <dc:date>1999</dc:date>
+          <dc:identifier>9782723425483</dc:identifier>
+          <dc:language>fre</dc:language>
+          <dc:format>Broché</dc:format>
+          <dc:type>text</dc:type>
+        </oai_dc:dc>
+      </srw:recordData>
+    </srw:record>
+    <srw:record>
+      <srw:recordSchema>info:srw/schema/1/dc-v1.1</srw:recordSchema>
+      <srw:recordData>
+        <oai_dc:dc>
+          <dc:title>Berserk : édition deluxe. Vol. 1</dc:title>
+          <dc:creator>Miura, Kentaro (1966-2021)</dc:creator>
+          <dc:publisher>Glénat</dc:publisher>
+          <dc:date>2020</dc:date>
+          <dc:identifier>9782344036075</dc:identifier>
+          <dc:language>fre</dc:language>
+          <dc:format>Relié</dc:format>
+          <dc:type>text</dc:type>
+        </oai_dc:dc>
+      </srw:recordData>
+    </srw:record>
+    <srw:record>
+      <srw:recordSchema>info:srw/schema/1/dc-v1.1</srw:recordSchema>
+      <srw:recordData>
+        <oai_dc:dc>
+          <dc:title>Berserk : édition originale. 1</dc:title>
+          <dc:creator>Miura, Kentaro (1966-2021)</dc:creator>
+          <dc:publisher>Glénat (Grenoble)</dc:publisher>
+          <dc:date>2004</dc:date>
+          <dc:identifier>9782723447027</dc:identifier>
+          <dc:language>fre</dc:language>
+          <dc:format>Broché</dc:format>
+          <dc:type>text</dc:type>
+        </oai_dc:dc>
+      </srw:recordData>
+    </srw:record>
+    <srw:record>
+      <srw:recordSchema>info:srw/schema/1/dc-v1.1</srw:recordSchema>
+      <srw:recordData>
+        <oai_dc:dc>
+          <dc:title>Berserk : the golden age</dc:title>
+          <dc:publisher>AB vidéo (La Plaine Saint-Denis)</dc:publisher>
+          <dc:date>2013</dc:date>
+          <dc:language>fre</dc:language>
+          <dc:format>1 DVD</dc:format>
+          <dc:type>image animée</dc:type>
+        </oai_dc:dc>
+      </srw:recordData>
+    </srw:record>
+    <srw:record>
+      <srw:recordSchema>info:srw/schema/1/dc-v1.1</srw:recordSchema>
+      <srw:recordData>
+        <oai_dc:dc>
+          <dc:title>Berserk : le guide de l'âge d'or</dc:title>
+          <dc:publisher>Third Editions</dc:publisher>
+          <dc:date>2021</dc:date>
+          <dc:identifier>9782377840267</dc:identifier>
+          <dc:language>fre</dc:language>
+          <dc:type>text</dc:type>
+        </oai_dc:dc>
+      </srw:recordData>
+    </srw:record>
+    <srw:record>
+      <srw:recordSchema>info:srw/schema/1/dc-v1.1</srw:recordSchema>
+      <srw:recordData>
+        <oai_dc:dc>
+          <dc:title>Berserk</dc:title>
+          <dc:publisher>Hachette collections (Vanves)</dc:publisher>
+          <dc:date>2022</dc:date>
+          <dc:language>fre</dc:language>
+          <dc:type>text</dc:type>
+        </oai_dc:dc>
+      </srw:recordData>
+    </srw:record>
+  </srw:records>
+</srw:searchRetrieveResponse>

@@ -18,10 +18,13 @@ import {
 } from '@/api/collection'
 import { updateManga, autoFillCovers, translateSummary } from '@/api/manga'
 import { useCoverBatchProgress } from '@/composables/useCoverBatchProgress'
+import { useEditions } from '@/composables/useEditions'
 import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
 import EnrichVolumeModal from '@/components/organisms/EnrichVolumeModal.vue'
+import EditionCard from '@/components/organisms/EditionCard.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
+import BaseCountryFlag from '@/components/atoms/BaseCountryFlag.vue'
 import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
 import BaseHeartRating from '@/components/atoms/BaseHeartRating.vue'
 import { FRENCH_EDITIONS } from '@/data/editions'
@@ -38,6 +41,21 @@ const { t } = useI18n()
 
 const id = route.params.id as string
 
+// ── Tab navigation ──
+const tabParam = computed<'volumes' | 'editions' | 'prix'>(() => {
+  const tab = route.query.tab as string | undefined
+  if (tab === 'editions' || tab === 'prix') return tab
+  return 'volumes'
+})
+
+function setTab(tab: 'volumes' | 'editions' | 'prix'): void {
+  router.replace({ query: { ...route.query, tab: tab === 'volumes' ? undefined : tab } })
+}
+
+// ── Editions tab ──
+const editionsLoaded = ref(false)
+const { groupedByCountry, isLoading: editionsLoading, error: editionsError, loadForManga } = useEditions()
+
 // ── Guide / help modal ──
 const showGuide = ref(false)
 
@@ -46,9 +64,20 @@ const { data: entry, isPending } = useQuery({
   queryFn: () => getCollectionEntry(id),
 })
 
-watch(entry, (e) => {
-  if (e) document.title = `${e.manga.title} — Ziggy`
+watch(entry, (mangaEntry) => {
+  if (mangaEntry) document.title = `${mangaEntry.manga.title} — Ziggy`
 }, { immediate: true })
+
+watch(
+  () => [tabParam.value, entry.value?.manga.id] as const,
+  ([tab, mangaId]) => {
+    if (tab === 'editions' && !editionsLoaded.value && mangaId) {
+      editionsLoaded.value = true
+      loadForManga(mangaId)
+    }
+  },
+  { immediate: true },
+)
 
 const sortedVolumes = computed<VolumeEntry[]>(() =>
   [...(entry.value?.volumes ?? [])].sort((a, b) => a.number - b.number),
@@ -90,14 +119,23 @@ function toggleTranslation() {
 
 // ── Modal state ──
 const modalVolumeId = ref<string | null>(null)
+const modalInitialMode = ref<'search' | 'isbn' | 'scan' | 'prix'>('search')
 const modalOpen = computed(() => modalVolumeId.value !== null)
 const modalVolume = computed(() => sortedVolumes.value.find((v) => v.id === modalVolumeId.value) ?? null)
 
 function openVolumeModal(ve: VolumeEntry) {
+  modalInitialMode.value = 'search'
   modalVolumeId.value = ve.id
 }
+
+function openVolumeModalForPrice(ve: VolumeEntry) {
+  modalInitialMode.value = 'prix'
+  modalVolumeId.value = ve.id
+}
+
 function closeModal() {
   modalVolumeId.value = null
+  modalInitialMode.value = 'search'
 }
 
 // ── Inline title/edition/cover edit ──
@@ -973,8 +1011,25 @@ function volumeOpacityClass(ve: VolumeEntry): string {
         </div>
       </div>
 
+      <!-- Tab bar -->
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 pt-4 pb-0">
+        <div class="flex gap-0 border-b border-base-300">
+          <button
+            v-for="tab in (['volumes', 'editions', 'prix'] as const)"
+            :key="tab"
+            class="px-4 py-2 text-sm font-semibold border-b-2 transition-colors"
+            :class="tabParam === tab
+              ? 'border-primary text-primary'
+              : 'border-transparent text-base-content/50 hover:text-base-content hover:border-base-content/20'"
+            @click="setTab(tab)"
+          >
+            {{ t(`manga.tabs.${tab === 'prix' ? 'prices' : tab}`) }}
+          </button>
+        </div>
+      </div>
+
       <!-- Volume grid -->
-      <div class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+      <div v-if="tabParam === 'volumes'" class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
         <!-- Grid header -->
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-xs font-semibold uppercase tracking-widest text-base-content/40">
@@ -1133,6 +1188,66 @@ function volumeOpacityClass(ve: VolumeEntry): string {
         </p>
       </div>
 
+      <!-- Editions tab -->
+      <div v-if="tabParam === 'editions'" class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+        <div v-if="editionsLoading" class="flex justify-center py-12">
+          <BaseLoader size="lg" class="text-primary" />
+        </div>
+        <p v-else-if="editionsError" class="text-sm text-error py-4">{{ editionsError }}</p>
+        <template v-else-if="groupedByCountry.length">
+          <div v-for="group in groupedByCountry" :key="group.country ?? group.language" class="mb-6">
+            <div class="flex items-center gap-2 mb-3">
+              <BaseCountryFlag :country="group.country" />
+              <h3 class="text-sm font-bold uppercase tracking-widest text-base-content/50">
+                {{ group.country ?? group.language.toUpperCase() }}
+              </h3>
+              <span class="badge badge-xs badge-ghost">{{ group.editions.length }}</span>
+            </div>
+            <div class="flex flex-col gap-2">
+              <EditionCard
+                v-for="edition in group.editions"
+                :key="`${edition.source}-${edition.editionLabel}`"
+                :edition="edition"
+                @import="(ed) => $router.push({ name: 'add', query: { prefillTitle: ed.workTitle, prefillEdition: ed.publisher ?? '', prefillLanguage: ed.language } })"
+              />
+            </div>
+          </div>
+        </template>
+        <p v-else class="text-sm text-base-content/40 italic py-4">{{ t('editions.empty') }}</p>
+      </div>
+
+      <!-- Prix tab -->
+      <div v-if="tabParam === 'prix'" class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+        <p class="text-xs text-base-content/50 mb-4">{{ t('prices.selectVolume') }}</p>
+        <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2">
+          <div
+            v-for="ve in sortedVolumes"
+            :key="ve.id"
+            class="group relative cursor-pointer select-none"
+            @click="openVolumeModalForPrice(ve)"
+          >
+            <div
+              class="aspect-[2/3] rounded-lg overflow-hidden ring-2 transition-all duration-200 relative shadow-sm"
+              :class="[volumeRingClass(ve), volumeOpacityClass(ve), 'group-hover:scale-105 group-hover:shadow-lg']"
+            >
+              <BaseLazyImage v-if="ve.coverUrl" :src="coverUrl(ve.coverUrl)!" :alt="`Tome ${ve.number}`">
+                <template #fallback>
+                  <div class="w-full h-full flex items-center justify-center bg-base-200">
+                    <span class="font-bold text-sm" :class="ve.isOwned ? 'text-base-content/50' : 'text-base-content/15'">{{ ve.number }}</span>
+                  </div>
+                </template>
+              </BaseLazyImage>
+              <div v-else class="w-full h-full flex items-center justify-center bg-base-200">
+                <span class="font-bold text-sm" :class="ve.isOwned ? 'text-base-content/50' : 'text-base-content/15'">{{ ve.number }}</span>
+              </div>
+            </div>
+            <div class="text-center text-[9px] mt-0.5 tabular-nums font-semibold" :class="ve.isOwned ? 'text-base-content/60' : 'text-base-content/20'">
+              T{{ ve.number }}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Enrich Volume Modal -->
       <EnrichVolumeModal
         :open="modalOpen"
@@ -1141,6 +1256,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
         :manga-title="entry.manga.title"
         :manga-edition="entry.manga.edition"
         :volume="modalVolume"
+        :initial-mode="modalInitialMode"
         @close="closeModal"
       />
 

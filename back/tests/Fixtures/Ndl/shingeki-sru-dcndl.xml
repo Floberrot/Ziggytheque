@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+  <version>1.2</version>
+  <numberOfRecords>4</numberOfRecords>
+  <records>
+    <record>
+      <recordSchema>dcndl_simple</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <dc xmlns="http://purl.org/dc/elements/1.1/"
+            xmlns:dc="http://purl.org/dc/elements/1.1/"
+            xmlns:dcndl="http://ndl.go.jp/dcndl/terms/">
+          <dc:title>進撃の巨人 1</dc:title>
+          <dc:creator>諫山創 著</dc:creator>
+          <dc:publisher>講談社</dc:publisher>
+          <dc:identifier>urn:isbn:9784063842760</dc:identifier>
+          <dc:language>jpn</dc:language>
+          <dc:type>図書</dc:type>
+        </dc>
+      </recordData>
+    </record>
+    <record>
+      <recordSchema>dcndl_simple</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <dc xmlns="http://purl.org/dc/elements/1.1/"
+            xmlns:dc="http://purl.org/dc/elements/1.1/"
+            xmlns:dcndl="http://ndl.go.jp/dcndl/terms/">
+          <dc:title>進撃の巨人 カラー版 1</dc:title>
+          <dc:creator>諫山創 著</dc:creator>
+          <dc:publisher>講談社</dc:publisher>
+          <dc:identifier>urn:isbn:9784065126783</dc:identifier>
+          <dc:language>jpn</dc:language>
+          <dc:type>図書</dc:type>
+        </dc>
+      </recordData>
+    </record>
+    <record>
+      <recordSchema>dcndl_simple</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <dc xmlns="http://purl.org/dc/elements/1.1/"
+            xmlns:dc="http://purl.org/dc/elements/1.1/"
+            xmlns:dcndl="http://ndl.go.jp/dcndl/terms/">
+          <dc:title>ベルセルク 完全版 1</dc:title>
+          <dc:creator>三浦建太郎 著</dc:creator>
+          <dc:publisher>白泉社</dc:publisher>
+          <dc:identifier>urn:isbn:9784592145448</dc:identifier>
+          <dc:language>jpn</dc:language>
+          <dc:type>図書</dc:type>
+        </dc>
+      </recordData>
+    </record>
+    <record>
+      <recordSchema>dcndl_simple</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <dc xmlns="http://purl.org/dc/elements/1.1/"
+            xmlns:dc="http://purl.org/dc/elements/1.1/"
+            xmlns:dcndl="http://ndl.go.jp/dcndl/terms/">
+          <dc:title>進撃の巨人</dc:title>
+          <dc:publisher>未知の出版社</dc:publisher>
+          <dc:language>jpn</dc:language>
+          <dc:type>図書</dc:type>
+        </dc>
+      </recordData>
+    </record>
+  </records>
+</searchRetrieveResponse>
