@@ -101,6 +101,8 @@
     "filterBy": "Filter by",
     "allMangas": "All",
     "noFollowed": "Enable notifications on a series to see its news",
+    "searchFollowed": "Search a series…",
+    "noFollowedMatch": "No series match",
     "follow": "Follow",
     "following": "Following ✓",
     "followOn": "You're following this series — we'll let you know about new releases.",
