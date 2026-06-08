@@ -101,6 +101,8 @@
     "filterBy": "Filtrer par",
     "allMangas": "Tous",
     "noFollowed": "Activez le suivi sur une série pour voir ses actualités",
+    "searchFollowed": "Rechercher une œuvre…",
+    "noFollowedMatch": "Aucune œuvre ne correspond",
     "follow": "Suivre",
     "following": "Suivi ✓",
     "followOn": "Tu suis cette série — on te préviendra des nouvelles sorties.",

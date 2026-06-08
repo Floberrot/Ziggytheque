@@ -6,6 +6,7 @@ namespace App\Notification\Infrastructure\Http;
 
 use App\Notification\Application\GetActivityLogs\GetActivityLogsQuery;
 use App\Notification\Application\GetArticles\GetArticlesQuery;
+use App\Notification\Application\GetFollowedEntries\GetFollowedEntriesQuery;
 use App\Shared\Application\Bus\QueryBusInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -28,6 +29,16 @@ final readonly class ArticleController
         return new JsonResponse(
             $this->queryBus->ask(new GetArticlesQuery($page, $limit, $collectionEntryId)),
         );
+    }
+
+    /**
+     * Every followed work for the current account — the full set the Actualités
+     * filter needs, regardless of how large the collection is.
+     */
+    #[Route('/followed', methods: ['GET'])]
+    public function followed(): JsonResponse
+    {
+        return new JsonResponse($this->queryBus->ask(new GetFollowedEntriesQuery()));
     }
 
     #[Route('/activity-logs', methods: ['GET'])]

@@ -104,6 +104,63 @@ final class ArticleControllerTest extends AbstractApiTestCase
         $this->assertSame(0, $otherData['total']);
     }
 
+    // ── GET /api/articles/followed ───────────────────────────────────────────
+
+    public function testFollowedRequiresAuth(): void
+    {
+        $response = $this->jsonRequest('GET', '/api/articles/followed', auth: false);
+        $this->assertSame(401, $response->getStatusCode());
+    }
+
+    public function testFollowedReturnsEveryFollowedEntrySortedByTitle(): void
+    {
+        // Three series in the collection: two followed, one not.
+        $followedZeta  = $this->createFollowedEntry('Zeta Chronicles');
+        $followedAlpha = $this->createFollowedEntry('Alpha Tales');
+        $unfollowed    = $this->createCollectionEntry('Beta Unfollowed');
+
+        /** @var list<array{id: string, manga: array{id: string, title: string, coverUrl: string|null}}> $data */
+        $data = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/articles/followed'));
+
+        // Regression: every followed work comes back, never capped to one …
+        $this->assertCount(2, $data);
+        $ids = array_column($data, 'id');
+        $this->assertContains($followedAlpha, $ids);
+        $this->assertContains($followedZeta, $ids);
+        $this->assertNotContains($unfollowed, $ids);
+
+        // … sorted by title, carrying the lightweight manga shape the selector renders.
+        $this->assertSame('Alpha Tales', $data[0]['manga']['title']);
+        $this->assertSame('Zeta Chronicles', $data[1]['manga']['title']);
+        $this->assertArrayHasKey('id', $data[0]['manga']);
+        $this->assertArrayHasKey('coverUrl', $data[0]['manga']);
+    }
+
+    public function testFollowedReturnsEmptyWhenNothingFollowed(): void
+    {
+        $this->createCollectionEntry('Untracked Series');
+
+        $data = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/articles/followed'));
+
+        $this->assertSame([], $data);
+    }
+
+    public function testFollowedIsScopedToOwnerAccount(): void
+    {
+        $this->createFollowedEntry('Owner Only Series');
+
+        // A different account follows nothing of its own and must not see the owner's.
+        UserFixtureFactory::createActiveUser(static::getContainer(), email: 'reader-followed@test.local');
+        $this->client->request('GET', '/api/articles/followed', [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $this->tokenForUser('reader-followed@test.local'),
+            'HTTP_ACCEPT'        => 'application/json',
+        ]);
+
+        $this->assertSame(200, $this->client->getResponse()->getStatusCode());
+        $otherData = (array) json_decode((string) $this->client->getResponse()->getContent(), true);
+        $this->assertSame([], $otherData);
+    }
+
     // ── GET /api/articles/activity-logs ──────────────────────────────────────
 
     public function testActivityLogsRequiresAuth(): void
@@ -139,5 +196,31 @@ final class ArticleControllerTest extends AbstractApiTestCase
 
         $this->assertSame(1, $data['page']);
         $this->assertSame(10, $data['limit']);
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    /** Creates a manga + collection entry for the admin account and returns the entry id. */
+    private function createCollectionEntry(string $title): string
+    {
+        $mangaResponse = $this->jsonRequest('POST', '/api/manga', [
+            'title'        => $title,
+            'language'     => 'fr',
+            'totalVolumes' => null,
+        ]);
+        $mangaId = (string) ((array) json_decode((string) $mangaResponse->getContent(), true))['id'];
+
+        $entryResponse = $this->jsonRequest('POST', '/api/collection', ['mangaId' => $mangaId]);
+
+        return (string) ((array) json_decode((string) $entryResponse->getContent(), true))['id'];
+    }
+
+    /** Same as createCollectionEntry but also enables follow (notificationsEnabled). */
+    private function createFollowedEntry(string $title): string
+    {
+        $entryId = $this->createCollectionEntry($title);
+        $this->jsonRequest('PATCH', '/api/collection/' . $entryId . '/follow');
+
+        return $entryId;
     }
 }

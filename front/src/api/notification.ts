@@ -1,8 +1,14 @@
 import client from './client'
-import type { ArticlePage, ActivityLogPage, Notification } from '@/types'
+import type { ArticlePage, ActivityLogPage, ArticleCollectionEntry, Notification } from '@/types'
 
 export async function getNotifications(): Promise<Notification[]> {
   const res = await client.get('/notifications')
+  return res.data
+}
+
+/** Every followed work for the current account, sorted by title — not paginated. */
+export async function getFollowedEntries(): Promise<ArticleCollectionEntry[]> {
+  const res = await client.get('/articles/followed')
   return res.data
 }
 
