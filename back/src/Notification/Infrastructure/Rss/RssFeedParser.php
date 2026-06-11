@@ -7,6 +7,7 @@ namespace App\Notification\Infrastructure\Rss;
 use App\Collection\Domain\CollectionEntry;
 use App\Notification\Domain\Article;
 use App\Notification\Domain\ArticleRepositoryInterface;
+use App\Notification\Domain\Service\MangaArticleMatcher;
 use App\Notification\Domain\Service\RssFeedParserException;
 use App\Notification\Domain\Service\RssFeedParserInterface;
 use App\Notification\Domain\Service\RssFetchResult;
@@ -21,6 +22,7 @@ final readonly class RssFeedParser implements RssFeedParserInterface
     public function __construct(
         private HttpClientInterface $httpClient,
         private ArticleRepositoryInterface $articleRepository,
+        private MangaArticleMatcher $matcher,
     ) {
     }
 
@@ -67,12 +69,8 @@ final readonly class RssFeedParser implements RssFeedParserInterface
     {
         $newCount        = 0;
         $itemsScanned    = 0;
-        $normalizedTitle = mb_strtolower($mangaTitle);
-        $keywords        = array_filter(
-            array_map('trim', explode(' ', $normalizedTitle)),
-            static fn (string $k) => mb_strlen($k) >= 3,
-        );
-        $channel = $xml->channel ?? $xml;
+        $snippetKeywords = $this->matcher->coreTitleWords($mangaTitle);
+        $channel         = $xml->channel ?? $xml;
 
         foreach ($channel->item ?? [] as $item) {
             ++$itemsScanned;
@@ -86,13 +84,8 @@ final readonly class RssFeedParser implements RssFeedParserInterface
             $itemUrl  = (string) ($item->link ?? $item->guid ?? '');
             $itemDate = (string) ($item->pubDate ?? $item->children('dc', true)->date ?? '');
 
-            $haystack   = mb_strtolower($itemTitle . ' ' . $itemDesc);
-            $titleMatch = str_contains($haystack, $normalizedTitle);
-            $matches    = $titleMatch
-                ? [$normalizedTitle]
-                : array_filter($keywords, static fn (string $k) => str_contains($haystack, $k));
-
-            if (empty($matches) || $itemUrl === '') {
+            // The work must be named in the article — a loose keyword overlap is not enough.
+            if ($itemUrl === '' || !$this->matcher->mentions($mangaTitle, $itemTitle . ' ' . $itemDesc)) {
                 continue;
             }
 
@@ -117,7 +110,7 @@ final readonly class RssFeedParser implements RssFeedParserInterface
                 author: null,
                 imageUrl: $this->extractImage($item),
                 publishedAt: $publishedAt ?: null,
-                snippet: $this->extractSnippet($itemDesc, array_values($matches)),
+                snippet: $this->extractSnippet($itemDesc, $snippetKeywords),
             );
             $article->owner = $entry->owner;
             $this->articleRepository->save($article);
