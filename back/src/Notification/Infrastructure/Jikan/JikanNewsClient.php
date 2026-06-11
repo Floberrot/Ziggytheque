@@ -9,6 +9,7 @@ use App\Notification\Domain\Article;
 use App\Notification\Domain\ArticleRepositoryInterface;
 use App\Notification\Domain\Service\JikanFetchResult;
 use App\Notification\Domain\Service\JikanNewsClientInterface;
+use App\Notification\Domain\Service\MangaArticleMatcher;
 use DateTimeImmutable;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -20,6 +21,7 @@ final readonly class JikanNewsClient implements JikanNewsClientInterface
     public function __construct(
         private HttpClientInterface $httpClient,
         private ArticleRepositoryInterface $articleRepository,
+        private MangaArticleMatcher $matcher,
     ) {
     }
 
@@ -39,6 +41,12 @@ final readonly class JikanNewsClient implements JikanNewsClientInterface
             if ($url === null) {
                 continue;
             }
+            $itemTitle   = (string) ($item['title'] ?? '');
+            $itemExcerpt = (string) ($item['excerpt'] ?? '');
+            // The work must be named in the article — MAL tags alone are not enough.
+            if (!$this->matcher->mentions($entry->manga->title, $itemTitle . ' ' . $itemExcerpt)) {
+                continue;
+            }
             if ($this->articleRepository->existsByCollectionEntryAndUrl($entry->id, $url)) {
                 continue;
             }
@@ -49,15 +57,13 @@ final readonly class JikanNewsClient implements JikanNewsClientInterface
             $article = new Article(
                 id: Uuid::v4()->toRfc4122(),
                 collectionEntry: $entry,
-                title: mb_substr((string) ($item['title'] ?? 'Jikan News'), 0, 500),
+                title: mb_substr($itemTitle !== '' ? $itemTitle : 'Jikan News', 0, 500),
                 url: $url,
                 sourceName: 'jikan-news',
                 author: $item['author_username'] ?? null,
                 imageUrl: null,
                 publishedAt: $publishedAt,
-                snippet: isset($item['excerpt']) && $item['excerpt'] !== ''
-                    ? mb_substr((string) $item['excerpt'], 0, 500)
-                    : null,
+                snippet: $itemExcerpt !== '' ? mb_substr($itemExcerpt, 0, 500) : null,
             );
             $article->owner = $entry->owner;
             $this->articleRepository->save($article);
