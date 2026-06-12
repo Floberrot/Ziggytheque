@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import {
-  ArrowLeft, Star, Book, BookOpen, Check, CheckSquare, Pencil, Trash2, Eye, Tag, Megaphone, Package, Info, Bell, BellOff, Plus, Sparkles, HelpCircle, Languages, MoreHorizontal, ChevronDown, X,
+  ArrowLeft, Star, Book, BookOpen, Check, CheckSquare, Pencil, Trash2, Eye, Tag, Megaphone, Package, Info, Bell, BellOff, Plus, Sparkles, HelpCircle, Languages, MoreHorizontal, ChevronDown, X, Box,
 } from 'lucide-vue-next'
 import {
   getCollectionEntry,
@@ -21,6 +21,7 @@ import { useCoverBatchProgress } from '@/composables/useCoverBatchProgress'
 import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
 import EnrichVolumeModal from '@/components/organisms/EnrichVolumeModal.vue'
+import Volume3DViewer from '@/components/organisms/Volume3DViewer.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
 import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
 import BaseHeartRating from '@/components/atoms/BaseHeartRating.vue'
@@ -265,6 +266,9 @@ function selectUnread() {
 function selectAnnounced() {
   selectedIds.value = new Set(sortedVolumes.value.filter((v) => v.isAnnounced && !v.isOwned).map((v) => v.id))
 }
+
+// ── 3D viewer (single volume) ──
+const viewer3dVolume = ref<VolumeEntry | null>(null)
 
 // ── Context menu ──
 const contextMenu = ref<{ ve: VolumeEntry; x: number; y: number } | null>(null)
@@ -1227,6 +1231,12 @@ function volumeOpacityClass(ve: VolumeEntry): string {
           </li>
           <div class="h-px bg-base-200 my-0.5 mx-2" />
           <li>
+            <a class="gap-2 text-sm" @click="viewer3dVolume = contextMenu.ve; closeContextMenu()">
+              <Box class="h-4 w-4" />
+              Voir en 3D
+            </a>
+          </li>
+          <li>
             <a class="gap-2 text-sm" @click="openModalFromContext">
               <Info class="h-4 w-4" />
               Détails
@@ -1344,6 +1354,18 @@ function volumeOpacityClass(ve: VolumeEntry): string {
       </div>
     </Transition>
   </Teleport>
+
+  <!-- ── 3D viewer (single volume) ── -->
+  <Volume3DViewer
+    :open="viewer3dVolume !== null"
+    :volume="viewer3dVolume
+      ? { number: viewer3dVolume.number, coverUrl: viewer3dVolume.coverUrl, spineUrl: viewer3dVolume.spineUrl, backCoverUrl: viewer3dVolume.backCoverUrl }
+      : null"
+    :manga="entry
+      ? { title: entry.manga.title, edition: entry.manga.edition, coverUrl: entry.manga.coverUrl }
+      : null"
+    @close="viewer3dVolume = null"
+  />
 </template>
 
 <style scoped>

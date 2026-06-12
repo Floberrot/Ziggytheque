@@ -292,6 +292,32 @@ services:
             $publisherJwtKey: '%env(MERCURE_PUBLISHER_JWT_KEY)%'
             $logger: '@logger'
 
+    # ── Volume face image storage (real photos for the 3D render) ──
+    # Default (dev/single host): local disk under public/. Prod swaps to S3 below.
+    App\Manga\Domain\Storage\ImageStorageInterface:
+        alias: App\Manga\Infrastructure\Storage\LocalImageStorage
+
+    App\Manga\Infrastructure\Storage\LocalImageStorage:
+        arguments:
+            $uploadsDir: '%kernel.project_dir%/public/uploads'
+            $publicBaseUrl: '%env(UPLOADS_PUBLIC_BASE_URL)%'
+
+    App\Manga\Infrastructure\Storage\S3ImageStorage:
+        arguments:
+            $client: '@app.s3_client.volume_faces'
+            $bucket: '%env(S3_BUCKET)%'
+            $publicBaseUrl: '%env(S3_PUBLIC_BASE_URL)%'
+
+    app.s3_client.volume_faces:
+        class: AsyncAws\S3\S3Client
+        arguments:
+            $configuration:
+                endpoint: '%env(S3_ENDPOINT)%'
+                accessKeyId: '%env(S3_ACCESS_KEY)%'
+                accessKeySecret: '%env(S3_SECRET_KEY)%'
+                region: '%env(S3_REGION)%'
+                pathStyleEndpoint: true
+
 when@test:
     services:
         App\Manga\Domain\ExternalApiClientInterface:
@@ -330,3 +356,12 @@ when@test:
             alias: App\Tests\Doubles\Manga\InMemoryScanResultPublisher
         App\Tests\Doubles\Manga\InMemoryScanResultPublisher:
             public: true
+        App\Manga\Domain\Storage\ImageStorageInterface:
+            alias: App\Tests\Doubles\Manga\InMemoryImageStorage
+        App\Tests\Doubles\Manga\InMemoryImageStorage:
+            public: true
+
+when@prod:
+    services:
+        App\Manga\Domain\Storage\ImageStorageInterface:
+            alias: App\Manga\Infrastructure\Storage\S3ImageStorage

@@ -56,6 +56,10 @@ final readonly class UpdateVolumeHandler
                 $volume->spineUrl = $command->spineUrl;
             }
 
+            if ($command->backCoverUrl !== null) {
+                $volume->backCoverUrl = $command->backCoverUrl;
+            }
+
             if ($command->isbn !== null) {
                 $volume->isbn = Isbn::fromString($command->isbn);
             }

@@ -2,8 +2,8 @@
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { X, Search, RefreshCw, Book, ImageOff, Megaphone, Package, Star, BookOpen, Camera, Smartphone, QrCode, Info, HelpCircle, Check, Plus } from 'lucide-vue-next'
-import { searchVolumeExternal, updateVolume, createScanSession } from '@/api/manga'
-import type { CoverProvider } from '@/api/manga'
+import { searchVolumeExternal, updateVolume, createScanSession, uploadVolumeFace } from '@/api/manga'
+import type { CoverProvider, VolumeFace } from '@/api/manga'
 import { toggleVolume } from '@/api/collection'
 import { useUiStore } from '@/stores/useUiStore'
 import { useIsbnCoverSearch } from '@/composables/useIsbnCoverSearch'
@@ -287,6 +287,52 @@ const enrichMutation = useMutation({
     emit('close')
   },
 })
+
+// ── Real face photos for the 3D render ──
+const FACE_LABELS: Record<VolumeFace, string> = { cover: '1ère', spine: 'Tranche', back: '4e' }
+const uploadingFace = ref<VolumeFace | null>(null)
+
+function faceThumb(face: VolumeFace): string | null {
+  const currentVolume = props.volume
+  if (!currentVolume) return null
+  const url = face === 'cover'
+    ? currentVolume.coverUrl
+    : face === 'spine'
+      ? currentVolume.spineUrl
+      : currentVolume.backCoverUrl
+  return coverUrl(url)
+}
+
+function readAsBase64(file: File): Promise<{ base64: string; contentType: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = String(reader.result)
+      resolve({ base64: result.split(',')[1] ?? '', contentType: file.type || 'image/jpeg' })
+    }
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
+
+async function onFaceFile(face: VolumeFace, event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || !props.volume) return
+  uploadingFace.value = face
+  try {
+    const { base64, contentType } = await readAsBase64(file)
+    await uploadVolumeFace(props.mangaId, props.volume.volumeId, face, base64, contentType)
+    qc.invalidateQueries({ queryKey: ['collection', props.collectionEntryId] })
+    qc.invalidateQueries({ queryKey: ['collection'] })
+    ui.addToast(`Photo ${FACE_LABELS[face]} ajoutée`, 'success')
+  } catch {
+    ui.addToast("Échec de l'envoi de la photo", 'error')
+  } finally {
+    uploadingFace.value = null
+  }
+}
 
 // ── Toggle mutations ──
 // Mirrors the backend ToggleVolumeHandler rules so the optimistic cache update
@@ -599,6 +645,34 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                     {{ volume.isOwned ? t('enrich.statusHintOwned') : t('enrich.statusHintNotOwned') }}
                   </p>
                 </div>
+              </div>
+
+              <!-- Vraies photos pour le rendu 3D -->
+              <div class="flex flex-col gap-2">
+                <p class="text-[11px] font-bold uppercase tracking-wide text-base-content/45">
+                  Photos pour le rendu 3D
+                </p>
+                <div class="grid grid-cols-3 gap-2">
+                  <label
+                    v-for="face in (['cover', 'spine', 'back'] as VolumeFace[])"
+                    :key="face"
+                    class="relative flex flex-col items-center justify-center gap-1 rounded-xl border border-base-300/70 bg-base-100 py-2 cursor-pointer hover:border-primary/40 hover:bg-base-200/40 transition-colors"
+                    :class="{ 'pointer-events-none opacity-60': uploadingFace !== null }"
+                  >
+                    <div class="w-8 h-10 rounded overflow-hidden bg-base-200 ring-1 ring-base-300 flex items-center justify-center">
+                      <img v-if="faceThumb(face)" :src="faceThumb(face)!" class="w-full h-full object-cover" :alt="FACE_LABELS[face]" />
+                      <Camera v-else class="h-4 w-4 text-base-content/30" />
+                    </div>
+                    <span class="text-[10px] font-semibold text-base-content/70">{{ FACE_LABELS[face] }}</span>
+                    <span v-if="uploadingFace === face" class="absolute inset-0 flex items-center justify-center rounded-xl bg-base-100/70">
+                      <span class="loading loading-spinner loading-xs" />
+                    </span>
+                    <input type="file" accept="image/*" capture="environment" class="hidden" @change="onFaceFile(face, $event)" />
+                  </label>
+                </div>
+                <p class="text-[11px] text-base-content/40 leading-snug px-0.5">
+                  Photographie tes vraies faces pour un rendu 3D fidèle.
+                </p>
               </div>
 
               <!-- ISBN du tome + aide (desktop) -->
