@@ -1,0 +1,12 @@
+{
+  "numFound": 1,
+  "start": 0,
+  "docs": [
+    {
+      "key": "/works/OL1234567W",
+      "title": "Berserk",
+      "author_name": ["Kentaro Miura"],
+      "edition_count": 42
+    }
+  ]
+}

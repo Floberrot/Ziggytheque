@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
-import { X, Search, RefreshCw, Book, ImageOff, Megaphone, Package, Star, BookOpen, Camera, Smartphone, QrCode, Info, HelpCircle, Check, Plus } from 'lucide-vue-next'
+import { X, Search, RefreshCw, Book, ImageOff, Megaphone, Package, Star, BookOpen, Camera, Smartphone, QrCode, Info, HelpCircle, Check, Plus, Tag } from 'lucide-vue-next'
 import { searchVolumeExternal, updateVolume, createScanSession } from '@/api/manga'
 import type { CoverProvider } from '@/api/manga'
 import { toggleVolume } from '@/api/collection'
 import { useUiStore } from '@/stores/useUiStore'
 import { useIsbnCoverSearch } from '@/composables/useIsbnCoverSearch'
+import { useVolumePrices } from '@/composables/useVolumePrices'
 import { useBarcodeScanner } from '@/composables/useBarcodeScanner'
 import { useScanSession } from '@/composables/useScanSession'
 import { useCoverProvider } from '@/composables/useCoverProvider'
 import BaseQrCode from '@/components/atoms/BaseQrCode.vue'
 import BaseCoverProviderLogo from '@/components/atoms/BaseCoverProviderLogo.vue'
+import PriceOfferCard from '@/components/molecules/PriceOfferCard.vue'
 import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
 import { useI18n } from 'vue-i18n'
 import type { CollectionEntryDetail, VolumeEntry, VolumeToggleField } from '@/types'
@@ -27,6 +29,7 @@ const props = defineProps<{
   mangaTitle: string
   mangaEdition: string | null
   volume: VolumeEntry | null
+  initialMode?: 'search' | 'isbn' | 'scan' | 'prix'
 }>()
 
 const emit = defineEmits<{ close: [] }>()
@@ -142,7 +145,18 @@ function onResultsScroll(e: Event) {
 }
 
 // ── Mode switcher ──
-const mode = ref<'search' | 'isbn' | 'scan'>('search')
+const mode = ref<'search' | 'isbn' | 'scan' | 'prix'>(props.initialMode ?? 'search')
+
+// ── Prix mode state ──
+const volumeIdForPrices = computed(() => props.volume?.volumeId ?? '')
+const {
+  offers: priceOffers,
+  hasIsbn: priceHasIsbn,
+  isLoading: pricesLoading,
+  error: pricesError,
+  loaded: pricesLoaded,
+  load: loadPrices,
+} = useVolumePrices(() => props.mangaId, volumeIdForPrices)
 
 // ── ISBN mode state ──
 const isbnInput = ref('')
@@ -208,7 +222,7 @@ function resetTransientState(): void {
   scanQrValue.value = ''
   lightboxOpen.value = false
   stopScanner()
-  mode.value = 'search'
+  mode.value = props.initialMode ?? 'search'
 }
 
 watch(() => props.open, (open) => {
@@ -217,21 +231,27 @@ watch(() => props.open, (open) => {
 
 // Reset + (re)launch the title search whenever the targeted tome changes — covers
 // both opening the modal and switching from one tome to another while it stays open.
-watch(() => props.volume?.id ?? null, (id, previousId) => {
-  if (id === previousId) return
+watch(() => props.volume?.id ?? null, (volumeEntryId, previousId) => {
+  if (volumeEntryId === previousId) return
   resetTransientState()
   const vol = props.volume
-  if (props.open && vol && !vol.coverUrl) {
+  if (props.open && vol && !vol.coverUrl && mode.value !== 'prix') {
     // Seed the field with the default context query — visible and editable —
     // which triggers the (debounced) search.
     searchQuery.value = buildContextQuery(props.mangaTitle, vol.number, props.mangaEdition)
   }
+  if (props.open && mode.value === 'prix') {
+    loadPrices()
+  }
 })
 
-// Stop the camera when leaving the Scan tab, and auto-fill the ISBN search from
-// the stored ISBN when the ISBN tab is opened.
+// Stop the camera when leaving the Scan tab, auto-fill ISBN from stored ISBN,
+// and load prices on first opening of the prix tab.
 watch(mode, async (currentMode, previousMode) => {
   if (previousMode === 'scan' && currentMode !== 'scan') stopScanner()
+  if (currentMode === 'prix' && !pricesLoaded.value) {
+    loadPrices()
+  }
   if (currentMode !== 'isbn') return
   const vol = props.volume
   if (vol?.isbn && !isbnInput.value) {
@@ -630,6 +650,10 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                     <Camera class="h-4 w-4" />
                     {{ t('enrich.tabScan') }}
                   </button>
+                  <button class="btn btn-sm border-0 gap-1.5" :class="mode === 'prix' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'prix'">
+                    <Tag class="h-4 w-4" />
+                    {{ t('prices.tabLabel') }}
+                  </button>
                 </div>
               </div>
 
@@ -782,10 +806,36 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                     <a :href="scanQrValue" target="_blank" class="link link-primary text-xs">{{ t('enrich.scanLinkTitle') }}</a>
                   </div>
                 </div>
+
+                <!-- Prix : offres marchands par ISBN -->
+                <div v-if="mode === 'prix'" class="flex flex-col gap-3">
+                  <div v-if="pricesLoading" class="flex justify-center py-8">
+                    <BaseLoader size="lg" class="text-primary" />
+                  </div>
+                  <p v-else-if="pricesError" class="text-sm text-error">{{ pricesError }}</p>
+                  <template v-else-if="pricesLoaded">
+                    <p v-if="!priceHasIsbn" class="text-sm text-base-content/50 py-4 text-center">
+                      {{ t('prices.noIsbn') }}
+                    </p>
+                    <template v-else-if="priceOffers.length">
+                      <PriceOfferCard
+                        v-for="(offer, idx) in priceOffers"
+                        :key="`${offer.source}-${idx}`"
+                        :offer="offer"
+                      />
+                    </template>
+                    <p v-else class="text-sm text-base-content/40 py-4 text-center">
+                      {{ t('prices.empty') }}
+                    </p>
+                  </template>
+                  <p v-else class="text-sm text-base-content/40 py-4 text-center">
+                    {{ t('prices.loading') }}
+                  </p>
+                </div>
               </div>
 
-              <!-- URL fallback (footer, partagé) -->
-              <div class="shrink-0 px-4 sm:px-5 pb-4 pt-3 border-t border-base-200">
+              <!-- URL fallback (footer, partagé — hidden in prix mode) -->
+              <div v-if="mode !== 'prix'" class="shrink-0 px-4 sm:px-5 pb-4 pt-3 border-t border-base-200">
                 <p class="text-[11px] text-base-content/40 mb-1.5 font-semibold uppercase tracking-wide">Ou coller une URL</p>
                 <div class="flex gap-2 items-center">
                   <input v-model="manualCoverUrl" type="url" class="input input-bordered input-xs flex-1 min-w-0" placeholder="https://…" />

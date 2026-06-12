@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+  <version>1.1</version>
+  <numberOfRecords>3</numberOfRecords>
+  <records>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <dc xmlns="http://www.openarchives.org/OAI/2.0/oai_dc/"
+            xmlns:dc="http://purl.org/dc/elements/1.1/">
+          <dc:title>Dragon Ball Massiv. 1</dc:title>
+          <dc:creator>Toriyama, Akira</dc:creator>
+          <dc:publisher>Carlsen Manga</dc:publisher>
+          <dc:date>2015</dc:date>
+          <dc:identifier>9783551759016</dc:identifier>
+          <dc:language>ger</dc:language>
+          <dc:type>Text</dc:type>
+        </dc>
+      </recordData>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <dc xmlns="http://www.openarchives.org/OAI/2.0/oai_dc/"
+            xmlns:dc="http://purl.org/dc/elements/1.1/">
+          <dc:title>Dragon Ball Color Edition. 1</dc:title>
+          <dc:creator>Toriyama, Akira</dc:creator>
+          <dc:publisher>Carlsen</dc:publisher>
+          <dc:date>2019</dc:date>
+          <dc:identifier>9783551731418</dc:identifier>
+          <dc:language>ger</dc:language>
+          <dc:type>Text</dc:type>
+        </dc>
+      </recordData>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <dc xmlns="http://www.openarchives.org/OAI/2.0/oai_dc/"
+            xmlns:dc="http://purl.org/dc/elements/1.1/">
+          <dc:title>Dragon Ball Artbook</dc:title>
+          <dc:publisher>Carlsen</dc:publisher>
+          <dc:date>2010</dc:date>
+          <dc:identifier>9783551760012</dc:identifier>
+          <dc:language>ger</dc:language>
+          <dc:type>Text</dc:type>
+        </dc>
+      </recordData>
+    </record>
+  </records>
+</searchRetrieveResponse>

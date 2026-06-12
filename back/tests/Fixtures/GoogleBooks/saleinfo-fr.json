@@ -1,0 +1,28 @@
+{
+  "kind": "books#volumes",
+  "totalItems": 1,
+  "items": [
+    {
+      "id": "AbCdEfGh",
+      "volumeInfo": {
+        "title": "Berserk, Vol. 1",
+        "publisher": "Glénat",
+        "language": "fr"
+      },
+      "saleInfo": {
+        "country": "FR",
+        "saleability": "FOR_SALE",
+        "isEbook": true,
+        "listPrice": {
+          "amount": 6.99,
+          "currencyCode": "EUR"
+        },
+        "retailPrice": {
+          "amount": 6.99,
+          "currencyCode": "EUR"
+        },
+        "buyLink": "https://play.google.com/store/books/details?id=AbCdEfGh&rdid=book-AbCdEfGh&source=gbs_vpt_read"
+      }
+    }
+  ]
+}

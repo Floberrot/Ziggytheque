@@ -129,3 +129,63 @@ export async function autoFillCovers(
   const res = await client.post(`/manga/${mangaId}/auto-covers`, payload)
   return res.data
 }
+
+export type EditionFormat = 'broche' | 'relie' | 'coffret' | 'deluxe' | 'omnibus' | 'unknown'
+
+export interface ExternalEdition {
+  workTitle: string
+  editionLabel: string
+  publisher: string | null
+  language: string
+  country: string | null
+  format: EditionFormat
+  volumeCount: number | null
+  isbnSample: string | null
+  coverUrl: string | null
+  source: string
+  externalId: string | null
+  editionLine: string | null
+}
+
+export async function discoverEditions(params: {
+  q: string
+  author?: string | null
+  language?: string | null
+}): Promise<ExternalEdition[]> {
+  const res = await client.get('/manga/editions', { params })
+  return res.data
+}
+
+export async function mangaEditions(mangaId: string): Promise<ExternalEdition[]> {
+  const res = await client.get(`/manga/${mangaId}/editions`)
+  return res.data
+}
+
+export type PriceKind = 'merchant_live' | 'publisher_reference'
+
+export interface PriceOffer {
+  kind: PriceKind
+  merchant: string
+  merchantLogo: string
+  currency: string
+  amount: number
+  url: string | null
+  source: string
+}
+
+export interface VolumePricesResponse {
+  offers: PriceOffer[]
+  hasIsbn: boolean
+  marketplace: string | null
+}
+
+export async function getVolumePrices(
+  mangaId: string,
+  volumeId: string,
+  marketplace?: string | null,
+): Promise<VolumePricesResponse> {
+  const params: Record<string, string> = {}
+  if (marketplace) params.marketplace = marketplace
+  const res = await client.get(`/manga/${mangaId}/volumes/${volumeId}/prices`, { params })
+  return res.data
+}
