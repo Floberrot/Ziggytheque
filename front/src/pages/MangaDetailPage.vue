@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import {
@@ -30,6 +30,8 @@ import BaseHeartRating from '@/components/atoms/BaseHeartRating.vue'
 import { FRENCH_EDITIONS } from '@/data/editions'
 import BaseEditionSelector from '@/components/atoms/BaseEditionSelector.vue'
 import BaseLazyImage from '@/components/atoms/BaseLazyImage.vue'
+import BaseModal from '@/components/atoms/BaseModal.vue'
+import { useIsMobile } from '@/composables/useMediaQuery'
 import type { CollectionEntryDetail, ReadingStatus, VolumeEntry, VolumeToggleField } from '@/types'
 import { coverUrl } from '@/utils/coverUrl'
 
@@ -40,6 +42,9 @@ const ui = useUiStore()
 const { t } = useI18n()
 
 const id = route.params.id as string
+
+// Below `sm`, every anchored popover of this page turns into a bottom sheet.
+const isMobile = useIsMobile()
 
 // ── Tab navigation ──
 const tabParam = computed<'volumes' | 'editions' | 'prix'>(() => {
@@ -304,23 +309,61 @@ function selectAnnounced() {
   selectedIds.value = new Set(sortedVolumes.value.filter((v) => v.isAnnounced && !v.isOwned).map((v) => v.id))
 }
 
-// ── Context menu ──
+// ── Volume quick actions ──
+// Desktop: right-click context menu (teleported, clamped to the viewport by
+// measuring the rendered menu). Mobile: bottom sheet, opened either by the
+// visible "⋯" button on each tile or by a long-press (contextmenu event).
 const contextMenu = ref<{ ve: VolumeEntry; x: number; y: number } | null>(null)
+const contextMenuRef = ref<HTMLElement | null>(null)
+const actionSheetVeId = ref<string | null>(null)
 
-function openContextMenu(event: MouseEvent, ve: VolumeEntry) {
-  const x = Math.min(event.clientX, window.innerWidth - 216)
-  const y = Math.min(event.clientY, window.innerHeight - 200)
-  contextMenu.value = { ve, x, y }
+// Derived from the query cache so optimistic toggles refresh the open sheet.
+const actionSheetVolume = computed(() =>
+  sortedVolumes.value.find((volumeEntry) => volumeEntry.id === actionSheetVeId.value) ?? null,
+)
+
+function openVolumeActions(ve: VolumeEntry) {
+  actionSheetVeId.value = ve.id
+}
+
+async function openContextMenu(event: MouseEvent, ve: VolumeEntry) {
+  if (isMobile.value) {
+    openVolumeActions(ve)
+    return
+  }
+  contextMenu.value = { ve, x: event.clientX, y: event.clientY }
+  // Clamp against the real rendered size instead of magic constants.
+  await nextTick()
+  const menuElement = contextMenuRef.value
+  if (!menuElement || !contextMenu.value) return
+  const menuRect = menuElement.getBoundingClientRect()
+  contextMenu.value = {
+    ve,
+    x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuRect.width - 8)),
+    y: Math.max(8, Math.min(event.clientY, window.innerHeight - menuRect.height - 8)),
+  }
 }
 
 function closeContextMenu() {
   contextMenu.value = null
 }
 
+function closeActionSheet() {
+  actionSheetVeId.value = null
+}
+
 function openModalFromContext() {
   if (contextMenu.value) {
     openVolumeModal(contextMenu.value.ve)
     closeContextMenu()
+  }
+}
+
+function openModalFromActionSheet() {
+  if (actionSheetVolume.value) {
+    const ve = actionSheetVolume.value
+    closeActionSheet()
+    openVolumeModal(ve)
   }
 }
 
@@ -594,16 +637,17 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                   <Pencil class="h-7 w-7 text-white" />
                 </div>
               </div>
-              <!-- Cover URL edit popover -->
+              <!-- Cover URL edit — anchored popover on desktop only -->
               <div
-                v-if="editingCover"
+                v-if="editingCover && !isMobile"
                 class="absolute top-full left-0 mt-2 z-30 bg-base-100 border border-base-300 rounded-xl shadow-2xl p-3 w-[min(16rem,calc(100vw-2rem))]"
                 @click.stop
               >
-                <p class="text-xs text-base-content/50 mb-1.5 font-medium">URL de la couverture</p>
+                <p class="text-xs text-base-content/50 mb-1.5 font-medium">{{ t('manga.coverUrlTitle') }}</p>
                 <input
                   v-model="editCoverValue"
                   type="url"
+                  inputmode="url"
                   class="input input-bordered input-xs w-full font-mono text-[11px]"
                   placeholder="https://..."
                   autofocus
@@ -611,10 +655,35 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                   @keydown.escape="cancelEditCover"
                 />
                 <div class="flex gap-1.5 mt-2">
-                  <button class="btn btn-primary btn-xs flex-1" @click="saveCover">Enregistrer</button>
-                  <button class="btn btn-ghost btn-xs" @click="cancelEditCover">Annuler</button>
+                  <button class="btn btn-primary btn-xs flex-1" @click="saveCover">{{ t('common.save') }}</button>
+                  <button class="btn btn-ghost btn-xs" @click="cancelEditCover">{{ t('common.cancel') }}</button>
                 </div>
               </div>
+
+              <!-- Cover URL edit — bottom sheet on mobile (the cover is centered,
+                   an anchored popover would overflow the viewport) -->
+              <BaseModal
+                :open="editingCover && isMobile"
+                max-width-class="sm:max-w-sm"
+                z-class="z-[80]"
+                @close="cancelEditCover"
+              >
+                <div class="p-5" @click.stop>
+                  <p class="text-sm font-semibold mb-2">{{ t('manga.coverUrlTitle') }}</p>
+                  <input
+                    v-model="editCoverValue"
+                    type="url"
+                    inputmode="url"
+                    class="input input-bordered w-full font-mono text-xs"
+                    placeholder="https://..."
+                    @keydown.enter="saveCover"
+                  />
+                  <div class="flex gap-2 mt-3">
+                    <button class="btn btn-primary flex-1" @click="saveCover">{{ t('common.save') }}</button>
+                    <button class="btn btn-ghost" @click="cancelEditCover">{{ t('common.cancel') }}</button>
+                  </div>
+                </div>
+              </BaseModal>
             </div>
 
             <div class="flex-1 min-w-0 space-y-3">
@@ -766,12 +835,12 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                   </button>
                   <Transition name="menu-pop">
                     <div
-                      v-if="statusMenuOpen"
+                      v-if="statusMenuOpen && !isMobile"
                       class="absolute left-0 top-[calc(100%+6px)] z-30 min-w-[230px] rounded-2xl border border-base-300 bg-base-100 shadow-2xl p-1.5"
                       role="menu"
                     >
                       <div class="px-2.5 py-2 text-[10px] font-bold uppercase tracking-widest text-base-content/40 flex items-center justify-between">
-                        Statut de lecture
+                        {{ t('manga.readingStatusTitle') }}
                         <button class="text-base-content/35 hover:text-primary" :aria-label="t('guide.openTooltip')" @click="statusMenuOpen = false; showGuide = true">
                           <HelpCircle class="h-3.5 w-3.5" />
                         </button>
@@ -790,6 +859,35 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                       </button>
                     </div>
                   </Transition>
+
+                  <!-- Mobile: reading status as a bottom sheet -->
+                  <BaseModal
+                    :open="statusMenuOpen && isMobile"
+                    max-width-class="sm:max-w-sm"
+                    z-class="z-[80]"
+                    @close="statusMenuOpen = false"
+                  >
+                    <div class="p-3 pt-4">
+                      <div class="px-2 pb-2 text-[10px] font-bold uppercase tracking-widest text-base-content/40 flex items-center justify-between">
+                        {{ t('manga.readingStatusTitle') }}
+                        <button class="text-base-content/35 hover:text-primary" :aria-label="t('guide.openTooltip')" @click="statusMenuOpen = false; showGuide = true">
+                          <HelpCircle class="h-4 w-4" />
+                        </button>
+                      </div>
+                      <button
+                        v-for="s in STATUS_OPTIONS"
+                        :key="s.value"
+                        class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200"
+                        :class="entry.readingStatus === s.value ? 'text-base-content' : 'text-base-content/70'"
+                        role="menuitem"
+                        @click="pickStatus(s.value)"
+                      >
+                        <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="s.dot" />
+                        {{ s.label }}
+                        <Check v-if="entry.readingStatus === s.value" class="h-4 w-4 ml-auto text-primary" />
+                      </button>
+                    </div>
+                  </BaseModal>
                 </div>
 
                 <div class="flex-1 min-w-2" />
@@ -833,7 +931,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                   </div>
                   <Transition name="menu-pop">
                     <div
-                      v-if="moreMenuOpen"
+                      v-if="moreMenuOpen && !isMobile"
                       class="absolute right-0 top-[calc(100%+6px)] z-30 min-w-[250px] rounded-2xl border border-base-300 bg-base-100 shadow-2xl p-1.5"
                       role="menu"
                     >
@@ -882,6 +980,63 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                       </button>
                     </div>
                   </Transition>
+
+                  <!-- Mobile: secondary actions as a bottom sheet -->
+                  <BaseModal
+                    :open="moreMenuOpen && isMobile"
+                    max-width-class="sm:max-w-sm"
+                    z-class="z-[80]"
+                    @close="moreMenuOpen = false"
+                  >
+                    <div class="p-3 pt-4">
+                      <div class="px-2 pb-2 text-[10px] font-bold uppercase tracking-widest text-base-content/40">
+                        {{ t('manga.moreOptionsTitle') }}
+                      </div>
+                      <button
+                        v-if="missingVolumes.length > 0"
+                        class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200"
+                        role="menuitem"
+                        @click="moreMenuOpen = false; addToWishlistMutation.mutate()"
+                      >
+                        <Star class="h-[18px] w-[18px] text-base-content/50" />
+                        Souhaiter les {{ missingVolumes.length }} manquant{{ missingVolumes.length > 1 ? 's' : '' }}
+                      </button>
+                      <button
+                        class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200 disabled:opacity-50"
+                        role="menuitem"
+                        :disabled="autoFillMutation.isPending.value || (batchProgress.progress.value !== null && !batchProgress.progress.value.done)"
+                        @click="moreMenuOpen = false; autoFillMutation.mutate()"
+                      >
+                        <Sparkles class="h-[18px] w-[18px] text-base-content/50" />
+                        Compléter les couvertures
+                      </button>
+                      <button
+                        class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200"
+                        role="menuitem"
+                        @click="moreMenuOpen = false; showPrice = true"
+                      >
+                        <Tag class="h-[18px] w-[18px] text-base-content/50" />
+                        Définir le prix (en lot)
+                      </button>
+                      <div class="h-px bg-base-200 my-1 mx-2" />
+                      <button
+                        class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200"
+                        role="menuitem"
+                        @click="moreMenuOpen = false; showGuide = true"
+                      >
+                        <HelpCircle class="h-[18px] w-[18px] text-base-content/50" />
+                        {{ t('guide.openLabel') }}
+                      </button>
+                      <button
+                        class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors text-error hover:bg-error/10"
+                        role="menuitem"
+                        @click="moreMenuOpen = false; showDeleteConfirm = true"
+                      >
+                        <Trash2 class="h-[17px] w-[17px]" />
+                        Retirer la série
+                      </button>
+                    </div>
+                  </BaseModal>
                 </div>
               </div>
 
@@ -1148,6 +1303,17 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                   <Eye class="h-4 w-4 text-primary" />
                 </div>
               </div>
+
+              <!-- Mobile quick actions — visible "⋯" trigger (long-press via
+                   @contextmenu is unreliable on iOS Safari) -->
+              <button
+                v-if="!batchMode"
+                class="sm:hidden absolute bottom-1 right-1 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-base-100/90 text-base-content/70 shadow ring-1 ring-base-300"
+                :aria-label="t('manga.volumeMenuLabel', { number: ve.number })"
+                @click.stop="openVolumeActions(ve)"
+              >
+                <MoreHorizontal class="h-4 w-4" />
+              </button>
             </div>
 
             <!-- Announced badge (top-left) -->
@@ -1219,7 +1385,8 @@ function volumeOpacityClass(ve: VolumeEntry): string {
       <!-- Prix tab -->
       <div v-if="tabParam === 'prix'" class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
         <p class="text-xs text-base-content/50 mb-4">{{ t('prices.selectVolume') }}</p>
-        <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2">
+        <!-- 3 columns max on mobile so each tile stays a comfortable tap target -->
+        <div class="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-3 sm:gap-2">
           <div
             v-for="ve in sortedVolumes"
             :key="ve.id"
@@ -1265,10 +1432,11 @@ function volumeOpacityClass(ve: VolumeEntry): string {
     </template>
   </div>
 
-  <!-- ── Context Menu ── -->
+  <!-- ── Context Menu (desktop right-click) ── -->
   <Teleport to="body">
     <div v-if="contextMenu" class="fixed inset-0 z-[90]" @click="closeContextMenu">
       <div
+        ref="contextMenuRef"
         class="absolute bg-base-100 rounded-xl shadow-2xl border border-base-300 overflow-hidden w-48 py-1"
         :style="{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }"
         @click.stop
@@ -1353,12 +1521,87 @@ function volumeOpacityClass(ve: VolumeEntry): string {
     </div>
   </Teleport>
 
+  <!-- ── Volume quick actions (mobile bottom sheet) ── -->
+  <BaseModal
+    :open="actionSheetVolume !== null"
+    max-width-class="sm:max-w-sm"
+    z-class="z-[90]"
+    @close="closeActionSheet"
+  >
+    <template v-if="actionSheetVolume">
+      <div class="px-5 pt-4 pb-2 text-[10px] font-bold uppercase tracking-widest text-base-content/40 border-b border-base-200">
+        {{ t('manga.volumeSheetTitle', { number: actionSheetVolume.number }) }}
+      </div>
+      <div class="p-2">
+        <!-- Annoncé (only when not owned) -->
+        <button
+          v-if="!actionSheetVolume.isOwned"
+          class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200 disabled:opacity-50"
+          :disabled="toggleMutation.isPending.value"
+          :class="actionSheetVolume.isAnnounced ? 'text-secondary' : 'text-base-content/80'"
+          @click="toggleMutation.mutate({ veId: actionSheetVolume.id, field: 'isAnnounced' })"
+        >
+          <Megaphone class="h-[18px] w-[18px]" :class="actionSheetVolume.isAnnounced ? 'text-secondary' : 'text-base-content/50'" />
+          {{ t('enrich.statusAnnouncedLabel') }}
+          <Check v-if="actionSheetVolume.isAnnounced" class="h-4 w-4 ml-auto text-secondary" />
+        </button>
+        <!-- Possédé -->
+        <button
+          class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200 disabled:opacity-50"
+          :disabled="toggleMutation.isPending.value"
+          :class="actionSheetVolume.isOwned ? 'text-success' : 'text-base-content/80'"
+          @click="toggleMutation.mutate({ veId: actionSheetVolume.id, field: 'isOwned' })"
+        >
+          <Package class="h-[18px] w-[18px]" :class="actionSheetVolume.isOwned ? 'text-success' : 'text-base-content/50'" />
+          {{ t('enrich.statusOwnedLabel') }}
+          <Check v-if="actionSheetVolume.isOwned" class="h-4 w-4 ml-auto text-success" />
+        </button>
+        <!-- Lu (only when owned) -->
+        <button
+          v-if="actionSheetVolume.isOwned"
+          class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200 disabled:opacity-50"
+          :disabled="toggleMutation.isPending.value"
+          :class="actionSheetVolume.isRead ? 'text-info' : 'text-base-content/80'"
+          @click="toggleMutation.mutate({ veId: actionSheetVolume.id, field: 'isRead' })"
+        >
+          <BookOpen class="h-[18px] w-[18px]" :class="actionSheetVolume.isRead ? 'text-info' : 'text-base-content/50'" />
+          {{ t('enrich.statusReadLabel') }}
+          <Check v-if="actionSheetVolume.isRead" class="h-4 w-4 ml-auto text-info" />
+        </button>
+        <!-- Souhaité (only when not owned) -->
+        <button
+          v-if="!actionSheetVolume.isOwned"
+          class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200 disabled:opacity-50"
+          :disabled="toggleMutation.isPending.value"
+          :class="actionSheetVolume.isWished ? 'text-warning' : 'text-base-content/80'"
+          @click="toggleMutation.mutate({ veId: actionSheetVolume.id, field: 'isWished' })"
+        >
+          <Star
+            class="h-[18px] w-[18px]"
+            :class="actionSheetVolume.isWished ? 'text-warning' : 'text-base-content/50'"
+            :fill="actionSheetVolume.isWished ? 'currentColor' : 'none'"
+          />
+          {{ t('enrich.statusWishedLabel') }}
+          <Check v-if="actionSheetVolume.isWished" class="h-4 w-4 ml-auto text-warning" />
+        </button>
+        <div class="h-px bg-base-200 my-1 mx-2" />
+        <button
+          class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200"
+          @click="openModalFromActionSheet"
+        >
+          <Info class="h-[18px] w-[18px] text-base-content/50" />
+          {{ t('manga.detailsAction') }}
+        </button>
+      </div>
+    </template>
+  </BaseModal>
+
   <!-- ── Batch Action Bar ── -->
   <Teleport to="body">
     <Transition name="slide-up">
       <div
         v-if="batchMode && selectedIds.size > 0"
-        class="fixed bottom-16 lg:bottom-0 left-0 right-0 z-50 bg-base-100/95 backdrop-blur-sm border-t-2 border-primary/40 shadow-2xl"
+        class="fixed bottom-0 left-0 right-0 z-50 bg-base-100/95 backdrop-blur-sm border-t-2 border-primary/40 shadow-2xl safe-bottom"
       >
         <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3 flex-wrap">
           <span class="badge badge-primary badge-lg shrink-0">
@@ -1429,12 +1672,15 @@ function volumeOpacityClass(ve: VolumeEntry): string {
   </Teleport>
 
   <!-- ── Delete Confirm Dialog ── -->
-  <Teleport to="body">
-    <Transition name="modal-fade">
-      <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="showDeleteConfirm = false">
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-        <div class="relative z-10 bg-base-100 rounded-2xl shadow-2xl p-6 max-w-sm w-full">
-          <div class="flex items-start gap-3 mb-4">
+  <BaseModal
+    :open="showDeleteConfirm"
+    variant="center"
+    max-width-class="sm:max-w-sm"
+    z-class="z-[80]"
+    @close="showDeleteConfirm = false"
+  >
+    <div class="p-6">
+      <div class="flex items-start gap-3 mb-4">
             <div class="w-10 h-10 rounded-full bg-error/15 flex items-center justify-center shrink-0 text-error">
               <Trash2 class="h-5 w-5" />
             </div>
@@ -1445,21 +1691,19 @@ function volumeOpacityClass(ve: VolumeEntry): string {
               </p>
             </div>
           </div>
-          <div class="flex gap-3 justify-end">
-            <button class="btn btn-ghost" @click="showDeleteConfirm = false">Annuler</button>
-            <button
-              class="btn btn-error gap-2"
-              :disabled="removeMutation.isPending.value"
-              @click="removeMutation.mutate()"
-            >
-              <BaseLoader v-if="removeMutation.isPending.value" size="xs" />
-              Supprimer
-            </button>
-          </div>
-        </div>
+      <div class="flex gap-3 justify-end">
+        <button class="btn btn-ghost" @click="showDeleteConfirm = false">Annuler</button>
+        <button
+          class="btn btn-error gap-2"
+          :disabled="removeMutation.isPending.value"
+          @click="removeMutation.mutate()"
+        >
+          <BaseLoader v-if="removeMutation.isPending.value" size="xs" />
+          Supprimer
+        </button>
       </div>
-    </Transition>
-  </Teleport>
+    </div>
+  </BaseModal>
 </template>
 
 <style scoped>
@@ -1471,22 +1715,6 @@ function volumeOpacityClass(ve: VolumeEntry): string {
 .slide-up-leave-to {
   transform: translateY(100%);
   opacity: 0;
-}
-
-.modal-fade-enter-active,
-.modal-fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-.modal-fade-enter-from,
-.modal-fade-leave-to {
-  opacity: 0;
-}
-.modal-fade-enter-active .relative,
-.modal-fade-leave-active .relative {
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.modal-fade-enter-from .relative {
-  transform: translateY(20px) scale(0.97);
 }
 
 .panel-fade-enter-active,

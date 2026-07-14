@@ -86,6 +86,12 @@ final readonly class Isbn
             );
         }
 
+        // Barcode scanners may append an EAN-2 or EAN-5 add-on (price / issue code)
+        // after the 13 ISBN digits — keep the ISBN part and drop the add-on.
+        if (preg_match('/^(97[89][0-9]{10})[0-9]{2}(?:[0-9]{3})?$/', $stripped, $matches) === 1) {
+            return $matches[1];
+        }
+
         return $stripped;
     }
 

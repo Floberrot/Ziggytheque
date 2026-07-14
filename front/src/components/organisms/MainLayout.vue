@@ -61,34 +61,36 @@ const adminNavItems = computed(() =>
 </script>
 
 <template>
-  <!-- Mobile top header -->
-  <header class="lg:hidden fixed top-0 inset-x-0 z-30 h-14 bg-base-100/80 backdrop-blur-md border-b border-base-200 flex items-center px-4 gap-3">
-    <button
-      class="flex items-center justify-center w-10 h-10 rounded-lg text-base-content/60 hover:bg-base-200 hover:text-base-content transition-colors"
-      :class="{ 'text-primary bg-primary/10': mobileNavOpen }"
-      @click="mobileNavOpen = true"
-    >
-      <Menu class="w-5 h-5" stroke-width="1.5" />
-    </button>
+  <!-- Mobile top header — safe-top grows it under the iOS notch -->
+  <header class="lg:hidden fixed top-0 inset-x-0 z-30 safe-top bg-base-100/80 backdrop-blur-md border-b border-base-200">
+    <div class="flex items-center h-14 px-4 gap-3">
+      <button
+        class="flex items-center justify-center w-10 h-10 rounded-lg text-base-content/60 hover:bg-base-200 hover:text-base-content transition-colors"
+        :class="{ 'text-primary bg-primary/10': mobileNavOpen }"
+        @click="mobileNavOpen = true"
+      >
+        <Menu class="w-5 h-5" stroke-width="1.5" />
+      </button>
 
-    <div class="flex-1 flex justify-center">
-      <AppLogo />
+      <div class="flex-1 flex justify-center">
+        <AppLogo />
+      </div>
+
+      <button
+        class="flex items-center justify-center w-10 h-10 rounded-lg text-base-content/60 hover:bg-base-200 hover:text-base-content transition-colors"
+        :class="{ 'text-primary bg-primary/10': settingsOpen }"
+        @click="openSettings"
+      >
+        <Settings class="w-5 h-5" stroke-width="1.5" />
+      </button>
     </div>
-
-    <button
-      class="flex items-center justify-center w-10 h-10 rounded-lg text-base-content/60 hover:bg-base-200 hover:text-base-content transition-colors"
-      :class="{ 'text-primary bg-primary/10': settingsOpen }"
-      @click="openSettings"
-    >
-      <Settings class="w-5 h-5" stroke-width="1.5" />
-    </button>
   </header>
 
   <div class="drawer lg:drawer-open min-h-screen">
     <input id="drawer" type="checkbox" class="drawer-toggle" />
 
     <div class="drawer-content flex flex-col">
-      <main class="flex-1 bg-base-200 min-h-screen pt-14 lg:pt-0">
+      <main class="flex-1 bg-base-200 min-h-screen pt-mobile-header lg:pt-0">
         <RouterView />
       </main>
     </div>
@@ -204,7 +206,7 @@ const adminNavItems = computed(() =>
           enter-from-class="-translate-x-full"
           leave-to-class="-translate-x-full"
         >
-          <nav v-if="mobileNavOpen" class="relative flex flex-col w-20 min-h-screen bg-base-100 shadow-2xl">
+          <nav v-if="mobileNavOpen" class="relative flex flex-col w-20 min-h-screen bg-base-100 shadow-2xl safe-top">
             <!-- Logo mark -->
             <div class="flex items-center justify-center h-14 border-b border-base-200">
               <AppLogo :full="false" />
@@ -246,8 +248,8 @@ const adminNavItems = computed(() =>
               </template>
             </div>
 
-            <!-- Bottom actions -->
-            <div class="flex flex-col items-center pb-8 gap-1 border-t border-base-200 pt-2">
+            <!-- Bottom actions — kept above the iOS home indicator -->
+            <div class="flex flex-col items-center pb-safe-sheet gap-1 border-t border-base-200 pt-2">
               <button
                 class="flex items-center justify-center w-14 h-14 rounded-xl text-base-content/50 hover:bg-base-200 hover:text-base-content transition-colors"
                 @click="openSettings"
@@ -282,7 +284,7 @@ const adminNavItems = computed(() =>
           enter-from-class="translate-y-full"
           leave-to-class="translate-y-full"
         >
-          <div v-if="settingsOpen" class="relative bg-base-100 rounded-t-2xl pb-10 shadow-xl">
+          <div v-if="settingsOpen" class="relative bg-base-100 rounded-t-2xl pb-safe-sheet shadow-xl">
             <div class="w-10 h-1 bg-base-300 rounded-full mx-auto mt-3 mb-2" />
 
             <div class="px-4 py-3">
@@ -321,8 +323,8 @@ const adminNavItems = computed(() =>
       </div>
     </Transition>
 
-    <!-- Toast container -->
-    <div class="toast toast-end toast-bottom z-[9999] fixed">
+    <!-- Toast container — margin keeps toasts above the iOS home indicator -->
+    <div class="toast toast-end toast-bottom z-[9999] fixed mb-safe">
       <BaseToast
         v-for="toast in ui.toasts"
         :key="toast.id"

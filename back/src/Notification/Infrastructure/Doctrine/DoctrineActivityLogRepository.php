@@ -54,37 +54,73 @@ final readonly class DoctrineActivityLogRepository implements ActivityLogReposit
 
     public function findPaginated(int $page, int $limit, array $filters = []): array
     {
-        $qb = $this->em()->createQueryBuilder()
-            ->select('l')
-            ->from(ActivityLog::class, 'l')
-            ->leftJoin('l.collectionEntry', 'ce')
-            ->orderBy('l.startedAt', 'DESC');
+        $queryBuilder = $this->em()->createQueryBuilder()
+            ->select('log')
+            ->from(ActivityLog::class, 'log')
+            ->leftJoin('log.collectionEntry', 'entry')
+            ->orderBy('log.startedAt', 'DESC');
 
         if (isset($filters['eventType'])) {
-            $qb->andWhere('l.eventType = :et')
-               ->setParameter('et', $filters['eventType']);
+            $queryBuilder->andWhere('log.eventType = :eventType')
+               ->setParameter('eventType', $filters['eventType']);
         }
 
         if (isset($filters['status'])) {
-            $qb->andWhere('l.status = :status')
+            $queryBuilder->andWhere('log.status = :status')
                ->setParameter('status', $filters['status']);
         }
 
         if (isset($filters['collectionEntryId'])) {
-            $qb->andWhere('ce.id = :ceId')
-               ->setParameter('ceId', $filters['collectionEntryId']);
+            $queryBuilder->andWhere('entry.id = :collectionEntryId')
+               ->setParameter('collectionEntryId', $filters['collectionEntryId']);
         }
 
-        $total = (clone $qb)->select('COUNT(l.id)')->resetDQLPart('orderBy')
+        if (isset($filters['ownerId'])) {
+            $queryBuilder->andWhere('log.owner = :ownerId')
+               ->setParameter('ownerId', $filters['ownerId']);
+        }
+
+        if (isset($filters['from'])) {
+            $queryBuilder->andWhere('log.startedAt >= :fromDate')
+               ->setParameter('fromDate', $filters['from']);
+        }
+
+        if (isset($filters['to'])) {
+            $queryBuilder->andWhere('log.startedAt <= :toDate')
+               ->setParameter('toDate', $filters['to']);
+        }
+
+        if (isset($filters['search'])) {
+            $queryBuilder->andWhere(
+                'LOWER(log.sourceName) LIKE :search'
+                . ' OR LOWER(log.errorMessage) LIKE :search'
+                . " OR LOWER(JSON_GET_TEXT(log.metadata, 'path')) LIKE :search",
+            )->setParameter('search', '%' . mb_strtolower($filters['search']) . '%');
+        }
+
+        $total = (clone $queryBuilder)->select('COUNT(log.id)')->resetDQLPart('orderBy')
             ->getQuery()->getSingleScalarResult();
 
-        $items = $qb
+        $items = $queryBuilder
+            ->addSelect('entry')
+            ->leftJoin('log.owner', 'owner')
+            ->addSelect('owner')
             ->setFirstResult(($page - 1) * $limit)
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
 
         return ['items' => $items, 'total' => (int) $total];
+    }
+
+    public function deleteOlderThan(DateTimeImmutable $before): int
+    {
+        return (int) $this->em()->createQueryBuilder()
+            ->delete(ActivityLog::class, 'log')
+            ->where('log.startedAt < :before')
+            ->setParameter('before', $before)
+            ->getQuery()
+            ->execute();
     }
 
     public function countRecentErrors(int $windowMinutes = 10): int
@@ -95,13 +131,15 @@ final readonly class DoctrineActivityLogRepository implements ActivityLogReposit
             SELECT COUNT(*)
             FROM activity_logs
             WHERE status = :status
+              AND event_type = :eventType
               AND started_at >= :since
               AND (metadata->>'external_api_failure' IS DISTINCT FROM 'true')
         SQL;
 
         return (int) $this->em()->getConnection()->executeQuery($sql, [
-            'status' => 'error',
-            'since'  => $since->format('Y-m-d H:i:s.uP'),
+            'status'    => 'error',
+            'eventType' => 'worker_failure',
+            'since'     => $since->format('Y-m-d H:i:s.uP'),
         ])->fetchOne();
     }
 }

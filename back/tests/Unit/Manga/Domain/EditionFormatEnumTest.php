@@ -80,6 +80,28 @@ final class EditionFormatEnumTest extends TestCase
         ];
     }
 
+    #[DataProvider('provideArtbookLabels')]
+    public function testFromRawLabelReturnsArtbook(string $label): void
+    {
+        $this->assertSame(EditionFormatEnum::Artbook, EditionFormatEnum::fromRawLabel($label));
+    }
+
+    /** @return array<string, array{string}> */
+    public static function provideArtbookLabels(): array
+    {
+        return [
+            'Artbook'       => ['Artbook'],
+            'art book'      => ['art book'],
+            'Artworks'      => ['Artworks'],
+            'Art of'        => ['The Art of Berserk'],
+            'Illustrations' => ['Berserk illustrations'],
+            'kanji artbook' => ['ベルセルク画集'],
+            'Guidebook'     => ['Guidebook'],
+            'Fanbook'       => ['Official fanbook'],
+            'Databook'      => ['Databook'],
+        ];
+    }
+
     public function testFromRawLabelReturnsUnknownForNull(): void
     {
         $this->assertSame(EditionFormatEnum::Unknown, EditionFormatEnum::fromRawLabel(null));

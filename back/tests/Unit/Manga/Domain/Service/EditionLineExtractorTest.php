@@ -67,7 +67,44 @@ final class EditionLineExtractorTest extends TestCase
         $this->assertSame('Édition pastel', $this->extractor->extract('Dragon Ball : édition pastel. 1'));
         $this->assertSame('Édition spéciale', $this->extractor->extract('Dragon Ball : édition spéciale'));
         $this->assertSame('Édition limitée', $this->extractor->extract('Naruto édition limitée, tome 3'));
-        $this->assertSame('Anniversary Edition', $this->extractor->extract('One Piece anniversary edition'));
+    }
+
+    public function testDetectsArtbooksAndCompanionBooks(): void
+    {
+        $this->assertSame('Artbook', $this->extractor->extract('Dragon Ball artbook'));
+        $this->assertSame('Artbook', $this->extractor->extract('Berserk illustrations'));
+        $this->assertSame('Artbook', $this->extractor->extract('The Artwork of Berserk'));
+        $this->assertSame('Artbook', $this->extractor->extract('The Art of Fullmetal Alchemist'));
+        $this->assertSame('Artbook', $this->extractor->extract('ベルセルク画集'));
+        $this->assertSame('Guidebook', $this->extractor->extract('Attack on Titan Guidebook'));
+        $this->assertSame('Guidebook', $this->extractor->extract('進撃の巨人 公式ガイドブック'));
+        $this->assertSame('Fanbook', $this->extractor->extract('One Piece official fan book'));
+        $this->assertSame('Databook', $this->extractor->extract('Naruto databook'));
+    }
+
+    public function testDetectsAnniversaryEditions(): void
+    {
+        $this->assertSame('Anniversaire', $this->extractor->extract('One Piece anniversary edition'));
+        $this->assertSame('Anniversaire', $this->extractor->extract('One Piece 20th anniversary'));
+        $this->assertSame('Anniversaire', $this->extractor->extract('Naruto : édition 20 ans'));
+        $this->assertSame('Anniversaire', $this->extractor->extract('Berserk édition anniversaire'));
+    }
+
+    public function testDetectsBlackEdition(): void
+    {
+        $this->assertSame('Black Edition', $this->extractor->extract('Naruto Black Edition, Vol. 1'));
+    }
+
+    public function testDetectsPiloteEdition(): void
+    {
+        $this->assertSame('Édition pilote', $this->extractor->extract('Berserk : édition pilote. 1'));
+    }
+
+    public function testDetectsTransliteratedJapaneseEditionMarkers(): void
+    {
+        $this->assertSame('Deluxe', $this->extractor->extract('Dragon Ball aizoban 2'));
+        $this->assertSame('Nouvelle édition', $this->extractor->extract('Yu Yu Hakusho shinsoban'));
+        $this->assertSame('Bunko', $this->extractor->extract('Slam Dunk bunko, Vol. 5'));
     }
 
     public function testGenericFallbackIgnoresLanguageAndBindingStatements(): void

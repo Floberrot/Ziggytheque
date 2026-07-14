@@ -22,6 +22,18 @@ final readonly class GoogleBooksEditionProvider implements EditionProviderInterf
     /** Markets swept when no specific language is requested (broad discovery). */
     private const array DISCOVERY_LOCALES = ['fr', 'en', 'ja', 'de', 'es', 'it'];
 
+    /** Google Books caps maxResults at 40; up to 2 pages are fetched per locale. */
+    private const int PAGE_SIZE = 40;
+    private const int MAX_PAGES_PER_LOCALE = 2;
+
+    /**
+     * Sentinel values the env-sync tooling (and back/.env defaults) leave in place of a
+     * real key — sending them yields silent 403s, so treat them as "no key configured".
+     *
+     * @var list<string>
+     */
+    private const array PLACEHOLDER_API_KEYS = ['change_me', 'changeme'];
+
     private const array COUNTRY_MAP = [
         'fr' => 'FR',
         'en' => 'US',
@@ -48,7 +60,7 @@ final readonly class GoogleBooksEditionProvider implements EditionProviderInterf
 
     public function findEditions(string $workTitle, ?string $author, ?string $language): array
     {
-        if ($this->apiKey === '') {
+        if (!$this->isApiKeyConfigured()) {
             return [];
         }
 
@@ -91,8 +103,38 @@ final readonly class GoogleBooksEditionProvider implements EditionProviderInterf
         return array_values($byId);
     }
 
+    private function isApiKeyConfigured(): bool
+    {
+        return $this->apiKey !== ''
+            && !in_array(strtolower($this->apiKey), self::PLACEHOLDER_API_KEYS, true);
+    }
+
     /** @return list<ExternalEditionDto> */
     private function fetchLocale(string $workTitle, ?string $author, string $language): array
+    {
+        $editions = [];
+
+        for ($pageIndex = 0; $pageIndex < self::MAX_PAGES_PER_LOCALE; $pageIndex++) {
+            $items = $this->fetchPage($workTitle, $author, $language, $pageIndex * self::PAGE_SIZE);
+
+            foreach ($items as $item) {
+                $edition = $this->buildEditionDto($item, $workTitle, $language);
+                if ($edition !== null) {
+                    $editions[] = $edition;
+                }
+            }
+
+            // A short page means the result set is exhausted — no further page exists.
+            if (count($items) < self::PAGE_SIZE) {
+                break;
+            }
+        }
+
+        return $editions;
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function fetchPage(string $workTitle, ?string $author, string $language, int $startIndex): array
     {
         $query = sprintf('intitle:%s', rawurlencode($workTitle));
         if ($author !== null && $author !== '') {
@@ -100,10 +142,12 @@ final readonly class GoogleBooksEditionProvider implements EditionProviderInterf
         }
 
         $url = sprintf(
-            '%s/volumes?q=%s&langRestrict=%s&maxResults=40&key=%s',
+            '%s/volumes?q=%s&langRestrict=%s&maxResults=%d&startIndex=%d&key=%s',
             self::BASE_URL,
             $query,
             $language,
+            self::PAGE_SIZE,
+            $startIndex,
             $this->apiKey,
         );
 
@@ -118,18 +162,9 @@ final readonly class GoogleBooksEditionProvider implements EditionProviderInterf
         }
 
         /** @var array{items?: list<array<string, mixed>>} $data */
-        $data  = json_decode($response->getContent(), true);
-        $items = $data['items'] ?? [];
+        $data = json_decode($response->getContent(), true);
 
-        $editions = [];
-        foreach ($items as $item) {
-            $edition = $this->buildEditionDto($item, $workTitle, $language);
-            if ($edition !== null) {
-                $editions[] = $edition;
-            }
-        }
-
-        return $editions;
+        return $data['items'] ?? [];
     }
 
     /** @param array<string, mixed> $item */
@@ -142,7 +177,8 @@ final readonly class GoogleBooksEditionProvider implements EditionProviderInterf
 
         $volumeTitle = (string) ($volumeInfo['title'] ?? '');
         $subtitle    = (string) ($volumeInfo['subtitle'] ?? '');
-        if (!$this->relevanceFilter->isRelevant($volumeTitle !== '' ? $volumeTitle : $workTitle, $publisher)) {
+        $titleToCheck = $volumeTitle !== '' ? $volumeTitle : $workTitle;
+        if (!$this->relevanceFilter->isRelevant($workTitle, $titleToCheck, $publisher)) {
             return null;
         }
         $editionLine = $this->lineExtractor->extract($volumeTitle, $subtitle);

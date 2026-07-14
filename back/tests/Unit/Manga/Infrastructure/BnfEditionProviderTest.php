@@ -145,4 +145,90 @@ final class BnfEditionProviderTest extends TestCase
 
         $this->assertSame([], $editions);
     }
+
+    public function testFindEditionsStopsAfterSinglePageWhenAllRecordsFetched(): void
+    {
+        // numberOfRecords=6 in the fixture: everything fits in the first page.
+        $requestCount = 0;
+        $httpClient   = new MockHttpClient(function () use (&$requestCount): MockResponse {
+            $requestCount++;
+
+            return new MockResponse($this->fixtureXml(), ['http_code' => 200]);
+        });
+
+        $this->makeProvider($httpClient)->findEditions('Berserk', null, null);
+
+        $this->assertSame(1, $requestCount);
+    }
+
+    public function testFindEditionsPaginatesUntilNumberOfRecordsIsReached(): void
+    {
+        // Pretend the catalogue holds 150 records: page 1 (start 1) and page 2 (start
+        // 101) must be fetched, then the loop stops (201 > 150).
+        $largeCatalogueXml = str_replace(
+            '<srw:numberOfRecords>6</srw:numberOfRecords>',
+            '<srw:numberOfRecords>150</srw:numberOfRecords>',
+            $this->fixtureXml(),
+        );
+
+        $startRecords = [];
+        $httpClient   = new MockHttpClient(
+            function (string $method, string $url) use (&$startRecords, $largeCatalogueXml): MockResponse {
+                preg_match('/startRecord=(\d+)/', $url, $matches);
+                $startRecords[] = (int) ($matches[1] ?? 0);
+
+                return new MockResponse($largeCatalogueXml, ['http_code' => 200]);
+            },
+        );
+
+        $editions = $this->makeProvider($httpClient)->findEditions('Berserk', null, null);
+
+        $this->assertSame([1, 101], $startRecords);
+        // Both pages return the same 3 relevant records — deduplicated by ISBN.
+        $this->assertCount(3, $editions);
+    }
+
+    public function testFindEditionsCapsPaginationAtThreePages(): void
+    {
+        $hugeCatalogueXml = str_replace(
+            '<srw:numberOfRecords>6</srw:numberOfRecords>',
+            '<srw:numberOfRecords>1000</srw:numberOfRecords>',
+            $this->fixtureXml(),
+        );
+
+        $startRecords = [];
+        $httpClient   = new MockHttpClient(
+            function (string $method, string $url) use (&$startRecords, $hugeCatalogueXml): MockResponse {
+                preg_match('/startRecord=(\d+)/', $url, $matches);
+                $startRecords[] = (int) ($matches[1] ?? 0);
+
+                return new MockResponse($hugeCatalogueXml, ['http_code' => 200]);
+            },
+        );
+
+        $this->makeProvider($httpClient)->findEditions('Berserk', null, null);
+
+        $this->assertSame([1, 101, 201], $startRecords);
+    }
+
+    public function testFindEditionsWithAuthorAlsoSweepsWithoutAuthorAndDeduplicates(): void
+    {
+        // Artbooks are often catalogued under another creator: a second query without
+        // the author restriction must run, and shared records must not double up.
+        $queries    = [];
+        $httpClient = new MockHttpClient(function (string $method, string $url) use (&$queries): MockResponse {
+            preg_match('/query=([^&]+)/', $url, $matches);
+            $queries[] = urldecode($matches[1] ?? '');
+
+            return new MockResponse($this->fixtureXml(), ['http_code' => 200]);
+        });
+
+        $editions = $this->makeProvider($httpClient)->findEditions('Berserk', 'Kentaro Miura', null);
+
+        $this->assertCount(2, $queries);
+        $this->assertStringContainsString('bib.author all "Kentaro Miura"', $queries[0]);
+        $this->assertStringNotContainsString('bib.author', $queries[1]);
+        // Same fixture served twice → the 3 relevant records appear only once.
+        $this->assertCount(3, $editions);
+    }
 }

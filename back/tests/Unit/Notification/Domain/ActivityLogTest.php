@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Notification\Domain;
 
+use App\Auth\Domain\User;
 use App\Notification\Domain\ActivityLog;
 use App\Notification\Domain\EventTypeEnum;
 use PHPUnit\Framework\TestCase;
@@ -88,12 +89,37 @@ final class ActivityLogTest extends TestCase
         $this->assertSame('l1', $arr['id']);
         $this->assertSame('auth_action', $arr['eventType']);
         $this->assertSame('gate', $arr['sourceName']);
+        $this->assertNull($arr['owner']);
         $this->assertNull($arr['collectionEntryId']);
         $this->assertSame('success', $arr['status']);
         $this->assertSame(2, $arr['newArticlesCount']);
         $this->assertArrayHasKey('startedAt', $arr);
         $this->assertArrayHasKey('finishedAt', $arr);
         $this->assertIsInt($arr['durationMs']);
+    }
+
+    public function testToArrayExposesOwnerBlock(): void
+    {
+        $owner = new User(
+            id: 'user-1',
+            email: 'owner@test.local',
+            passwordHash: 'hash',
+            displayName: 'Owner',
+        );
+
+        $log = new ActivityLog(
+            id: 'l1',
+            eventType: EventTypeEnum::UserAction,
+            sourceName: 'http',
+            owner: $owner,
+        );
+
+        $arr = $log->toArray();
+
+        $this->assertSame(
+            ['id' => 'user-1', 'email' => 'owner@test.local', 'displayName' => 'Owner'],
+            $arr['owner'],
+        );
     }
 
     public function testToArrayRunningHasNullDuration(): void

@@ -91,7 +91,13 @@
       "volumes": "Volumes",
       "editions": "Editions",
       "prices": "Prices"
-    }
+    },
+    "volumeSheetTitle": "Volume {number}",
+    "volumeMenuLabel": "Volume {number} actions",
+    "coverUrlTitle": "Cover URL",
+    "readingStatusTitle": "Reading status",
+    "moreOptionsTitle": "More options",
+    "detailsAction": "Volume details"
   },
   "volume": {
     "price": "Price (€)",
@@ -149,21 +155,32 @@
     "allTypes": "All types",
     "allStatuses": "All statuses",
     "allMangas": "All mangas",
+    "allUsers": "All users",
     "running": "Running",
     "success": "Success",
     "error": "Error",
     "date": "Date",
     "type": "Type",
-    "manga": "Manga",
+    "user": "User",
     "source": "Source",
     "status": "Status",
-    "articles": "Articles",
     "duration": "Duration",
-    "entries": "entries",
     "empty": "No events recorded",
-    "userAction": "User action",
-    "search": "Search",
-    "hint": "Select filters and click Search"
+    "searchPlaceholder": "Search (source, error, API path)…",
+    "from": "From",
+    "to": "To",
+    "reset": "Reset",
+    "live": "Live",
+    "liveHint": "Auto-refreshes every 30 seconds",
+    "totalEntries": "Entries",
+    "pageErrors": "Errors (page)",
+    "pageErrorRate": "Error rate (page)",
+    "avgDuration": "Avg duration (page)",
+    "system": "System",
+    "copyJson": "Copy JSON",
+    "copied": "JSON copied to clipboard",
+    "copyFailed": "Copy failed",
+    "noMetadata": "No metadata"
   },
   "genre": {
     "shonen": "Shōnen",
@@ -260,6 +277,10 @@
     "scanPhone": "Scan with my phone",
     "coverFound": "Cover found",
     "noCoverForIsbn": "No cover found for this ISBN.",
+    "isbnSaved": "ISBN saved for this volume.",
+    "isbnSaveError": "Could not save the ISBN — try again.",
+    "isbnInvalid": "Invalid ISBN — check the 10 or 13 digits.",
+    "isbnSearchError": "Cover search failed — try again.",
     "isbnFromPhone": "ISBN received from phone: {isbn}",
     "searchByTitle": "Search by title",
     "cameraError": "Camera unavailable. Check permissions and ensure the page uses HTTPS.",
@@ -433,8 +454,18 @@
     "loading": "Fetching prices…",
     "empty": "No prices available for this volume.",
     "noIsbn": "This volume has no ISBN — cannot search for prices.",
+    "enterIsbn": "Enter the ISBN",
+    "retailersTitle": "Shops",
+    "otherOffers": "Other offers",
+    "notFound": "Not found",
+    "viewOn": "View on {merchant}",
     "merchantLive": "Live offer",
     "publisherReference": "Publisher price",
     "selectVolume": "Select a volume to see prices."
+  },
+  "admin": {
+    "approve": "Approve",
+    "resetLink": "Reset link",
+    "notConfigured": "not configured"
   }
 }

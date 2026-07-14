@@ -60,8 +60,10 @@ final readonly class WorkerFailureSubscriber
         $recentErrors = $this->activityLogRepository->countRecentErrors(self::WINDOW_MINUTES);
 
         if ($recentErrors >= self::ERROR_THRESHOLD) {
+            $alertTitle = sprintf('%d erreurs worker en %d min', $recentErrors, self::WINDOW_MINUTES);
+
             $this->discord->sendAlert(
-                title: sprintf('%d erreurs worker en %d min', $recentErrors, self::WINDOW_MINUTES),
+                title: $alertTitle,
                 description: sprintf(
                     "**Message:** `%s`\n**Erreur:** %s",
                     $messageName,
@@ -69,6 +71,19 @@ final readonly class WorkerFailureSubscriber
                 ),
                 critical: true,
             );
+
+            $discordLog = new ActivityLog(
+                id: Uuid::v4()->toRfc4122(),
+                eventType: EventTypeEnum::DiscordSent,
+                sourceName: 'discord',
+                metadata: [
+                    'title'         => $alertTitle,
+                    'message_class' => $messageName,
+                    'recent_errors' => $recentErrors,
+                ],
+            );
+            $discordLog->markSuccess();
+            $this->activityLogRepository->save($discordLog);
         }
     }
 

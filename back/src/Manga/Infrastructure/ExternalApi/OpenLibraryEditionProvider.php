@@ -18,6 +18,9 @@ final readonly class OpenLibraryEditionProvider implements EditionProviderInterf
 {
     private const string LOG_PREFIX = 'OPEN_LIBRARY EDITIONS : ';
 
+    /** Open Library splits one manga across several Work records — merge up to 3 of them. */
+    private const int MAX_WORKS = 3;
+
     private const array LANGUAGE_MAP = [
         '/languages/fre' => 'fr',
         '/languages/eng' => 'en',
@@ -77,17 +80,41 @@ final readonly class OpenLibraryEditionProvider implements EditionProviderInterf
     /** @return list<ExternalEditionDto> */
     private function doFindEditions(string $workTitle, ?string $author, ?string $language): array
     {
-        $workKey = $this->resolveWorkKey($workTitle, $author);
-        if ($workKey === null) {
+        $workKeys = $this->resolveWorkKeys($workTitle, $author);
+        if ($workKeys === []) {
             $this->logger->info(self::LOG_PREFIX . 'findEditions; no work found.', ['title' => $workTitle]);
 
             return [];
         }
 
-        return $this->fetchEditions($workKey, $workTitle, $language);
+        /** @var array<string, true> $seenKeys */
+        $seenKeys = [];
+        $editions = [];
+        foreach ($workKeys as $workKey) {
+            foreach ($this->fetchEditions($workKey, $workTitle, $language) as $edition) {
+                $dedupeKey = $edition->externalId ?? $edition->isbnSample;
+                if ($dedupeKey !== null) {
+                    if (isset($seenKeys[$dedupeKey])) {
+                        continue;
+                    }
+                    $seenKeys[$dedupeKey] = true;
+                }
+                $editions[] = $edition;
+            }
+        }
+
+        return $editions;
     }
 
-    private function resolveWorkKey(string $workTitle, ?string $author): ?string
+    /**
+     * The searched work can be split across several Open Library Work records (the main
+     * run, a deluxe re-release, an artbook…). Every doc whose title matches the searched
+     * title is a candidate; author-matching docs are preferred, and up to
+     * {@see self::MAX_WORKS} works contribute their editions.
+     *
+     * @return list<string>
+     */
+    private function resolveWorkKeys(string $workTitle, ?string $author): array
     {
         $url = sprintf(
             '%s/search.json?q=%s&fields=key,title,author_name,edition_count&limit=5',
@@ -100,7 +127,7 @@ final readonly class OpenLibraryEditionProvider implements EditionProviderInterf
         ]);
 
         if ($response->getStatusCode() !== 200) {
-            return null;
+            return [];
         }
 
         /** @var array{docs?: list<array{key: string, title: string, author_name?: list<string>}>} $data */
@@ -108,21 +135,54 @@ final readonly class OpenLibraryEditionProvider implements EditionProviderInterf
         $docs = $data['docs'] ?? [];
 
         if ($docs === []) {
-            return null;
+            return [];
         }
 
-        if ($author !== null && $author !== '') {
-            foreach ($docs as $doc) {
-                $authors = $doc['author_name'] ?? [];
-                foreach ($authors as $authorName) {
-                    if (stripos($authorName, $author) !== false) {
-                        return $doc['key'];
-                    }
-                }
+        $authorMatches = [];
+        $titleMatches  = [];
+        foreach ($docs as $doc) {
+            if (!$this->titleMatches($workTitle, $doc['title'])) {
+                continue;
+            }
+
+            if ($author !== null && $author !== '' && $this->hasAuthor($doc['author_name'] ?? [], $author)) {
+                $authorMatches[] = $doc['key'];
+                continue;
+            }
+
+            $titleMatches[] = $doc['key'];
+        }
+
+        $candidates = array_merge($authorMatches, $titleMatches);
+        if ($candidates === []) {
+            $candidates = [$docs[0]['key']];
+        }
+
+        return array_slice(array_values(array_unique($candidates)), 0, self::MAX_WORKS);
+    }
+
+    /** @param list<string> $authorNames */
+    private function hasAuthor(array $authorNames, string $author): bool
+    {
+        foreach ($authorNames as $authorName) {
+            if (stripos($authorName, $author) !== false) {
+                return true;
             }
         }
 
-        return $docs[0]['key'];
+        return false;
+    }
+
+    private function titleMatches(string $workTitle, string $docTitle): bool
+    {
+        $foldedWork = mb_strtolower(trim($workTitle));
+        $foldedDoc  = mb_strtolower(trim($docTitle));
+
+        if ($foldedWork === '' || $foldedDoc === '') {
+            return false;
+        }
+
+        return str_contains($foldedDoc, $foldedWork) || str_contains($foldedWork, $foldedDoc);
     }
 
     /** @return list<ExternalEditionDto> */
@@ -174,8 +234,9 @@ final readonly class OpenLibraryEditionProvider implements EditionProviderInterf
         $publisher  = $publishers !== [] ? (string) ($publishers[0] ?? '') : null;
         $publisher  = ($publisher !== '' && $publisher !== null) ? $publisher : null;
 
-        $entryTitle = (string) ($entry['title'] ?? '');
-        if (!$this->relevanceFilter->isRelevant($entryTitle !== '' ? $entryTitle : $workTitle, $publisher)) {
+        $entryTitle   = (string) ($entry['title'] ?? '');
+        $titleToCheck = $entryTitle !== '' ? $entryTitle : $workTitle;
+        if (!$this->relevanceFilter->isRelevant($workTitle, $titleToCheck, $publisher)) {
             return null;
         }
         $editionLine = $this->lineExtractor->extract($entryTitle);

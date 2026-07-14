@@ -29,6 +29,58 @@ defineProps<{
       </text>
     </svg>
 
+    <!-- Amazon — sober wordmark + orange smile arrow (not a trademark copy) -->
+    <svg
+      v-else-if="logo === 'amazon'"
+      class="h-full w-full"
+      viewBox="0 0 64 24"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <text
+        x="2"
+        y="15"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="13"
+        font-weight="bold"
+        letter-spacing="-0.5"
+        fill="currentColor"
+      >
+        amazon
+      </text>
+      <path
+        d="M8 18 C 20 23.5, 40 23.5, 52 18"
+        stroke="#FF9900"
+        stroke-width="2"
+        fill="none"
+        stroke-linecap="round"
+      />
+      <path d="M52 18 l-4.5 -0.6 M52 18 l-2.4 3.4" stroke="#FF9900" stroke-width="2" fill="none" stroke-linecap="round" />
+    </svg>
+
+    <!-- Fnac — sober mustard tile with italic lowercase wordmark (not a trademark copy) -->
+    <svg
+      v-else-if="logo === 'fnac'"
+      class="h-full w-full"
+      viewBox="0 0 48 24"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <rect x="0" y="0" width="48" height="24" rx="5" fill="#E9AA00" />
+      <text
+        x="24"
+        y="17"
+        text-anchor="middle"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="14"
+        font-weight="bold"
+        font-style="italic"
+        fill="#332F2C"
+      >
+        fnac
+      </text>
+    </svg>
+
     <!-- Google Play — multicolour G mark -->
     <svg
       v-else-if="logo === 'google_play'"

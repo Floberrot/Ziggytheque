@@ -6,10 +6,12 @@ namespace App\Tests\Unit\Notification\Infrastructure\Messenger;
 
 use App\Notification\Domain\ActivityLog;
 use App\Notification\Domain\ActivityLogRepositoryInterface;
+use App\Notification\Domain\EventTypeEnum;
 use App\Notification\Domain\DiscordNotifierInterface;
 use App\Notification\Domain\Service\RssFeedParserException;
 use App\Notification\Infrastructure\Messenger\WorkerFailureSubscriber;
 use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Symfony\Component\Messenger\Envelope;
@@ -19,6 +21,7 @@ use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 use Throwable;
 
+#[AllowMockObjectsWithoutExpectations]
 final class WorkerFailureSubscriberTest extends TestCase
 {
     private ActivityLogRepositoryInterface&MockObject $activityLogRepository;
@@ -39,12 +42,25 @@ final class WorkerFailureSubscriberTest extends TestCase
     {
         $event = $this->makeEvent(new RuntimeException('boom in our code'));
 
-        $this->expectLogSavedWithExternalFlag(false);
+        /** @var list<ActivityLog> $savedLogs */
+        $savedLogs = [];
+        $this->activityLogRepository->method('save')
+            ->willReturnCallback(static function (ActivityLog $log) use (&$savedLogs): void {
+                $savedLogs[] = $log;
+            });
         $this->activityLogRepository->method('countRecentErrors')->willReturn(5);
 
         $this->discord->expects($this->once())->method('sendAlert');
 
         ($this->subscriber)($event);
+
+        // First log: the worker failure itself; second log: the Discord alert sent.
+        $this->assertCount(2, $savedLogs);
+        $this->assertSame('error', $savedLogs[0]->status);
+        $this->assertSame(EventTypeEnum::WorkerFailure, $savedLogs[0]->eventType);
+        $this->assertSame(EventTypeEnum::DiscordSent, $savedLogs[1]->eventType);
+        $this->assertSame('success', $savedLogs[1]->status);
+        $this->assertSame('discord', $savedLogs[1]->sourceName);
     }
 
     public function testAppBugDoesNotAlertBelowThreshold(): void

@@ -10,6 +10,9 @@ doctrine:
             isbn: App\Manga\Infrastructure\Doctrine\Type\IsbnType
     orm:
         naming_strategy: doctrine.orm.naming_strategy.underscore
+        dql:
+            string_functions:
+                JSON_GET_TEXT: App\Shared\Infrastructure\Doctrine\Query\JsonGetTextFunction
         identity_generation_preferences:
             Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
         auto_mapping: false

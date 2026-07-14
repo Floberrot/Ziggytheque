@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/useAuthStore'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
+import BaseModal from '@/components/atoms/BaseModal.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -42,8 +43,14 @@ function cancel() {
 </script>
 
 <template>
-  <div class="modal modal-open">
-    <div class="modal-box max-w-sm">
+  <div class="min-h-screen bg-base-200" />
+
+  <BaseModal
+    :open="true"
+    max-width-class="sm:max-w-sm"
+    @close="cancel"
+  >
+    <div class="p-6 pb-4 sm:pb-6">
       <h3 class="font-bold text-lg">Accès administrateur</h3>
       <p class="py-2 text-sm text-base-content/70">
         Entrez le mot de passe d'accès pour débloquer cette section.
@@ -57,6 +64,7 @@ function cancel() {
             placeholder="Mot de passe d'accès"
             class="input input-bordered w-full"
             :class="{ 'input-error': error }"
+            autocomplete="current-password"
             autofocus
           />
           <label v-if="error" class="label">
@@ -64,7 +72,7 @@ function cancel() {
           </label>
         </div>
 
-        <div class="modal-action mt-0">
+        <div class="flex justify-end gap-2">
           <button
             type="button"
             class="btn btn-ghost"
@@ -84,6 +92,5 @@ function cancel() {
         </div>
       </form>
     </div>
-    <div class="modal-backdrop bg-base-200/80" />
-  </div>
+  </BaseModal>
 </template>

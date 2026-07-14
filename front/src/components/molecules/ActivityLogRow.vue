@@ -1,28 +1,18 @@
 <script setup lang="ts">
-import type { ActivityLog, EventType } from '@/types'
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { ChevronRight } from 'lucide-vue-next'
+import type { ActivityLog } from '@/types'
+import { EVENT_TYPE_BADGES, EVENT_TYPE_LABELS, STATUS_BADGES, formatDuration } from '@/utils/activityLog'
+import ActivityLogDetail from '@/components/molecules/ActivityLogDetail.vue'
 
 defineProps<{ log: ActivityLog }>()
+
+const { t, locale } = useI18n()
 const expanded = ref(false)
 
-const eventTypeLabel: Record<EventType, string> = {
-  rss_fetch:         'RSS',
-  jikan_fetch:       'Jikan',
-  discord_sent:      'Discord',
-  scheduler_fire:    'Scheduler',
-  http_error:        'HTTP Error',
-  worker_failure:    'Worker',
-  user_action:       'API',
-  collection_action: 'Collection',
-  manga_action:      'Manga',
-  auth_action:       'Auth',
-  wishlist_action:   'Wishlist',
-}
-
-const statusClass: Record<string, string> = {
-  running: 'badge-warning',
-  success: 'badge-success',
-  error:   'badge-error',
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleString(locale.value === 'fr' ? 'fr-FR' : 'en-GB')
 }
 </script>
 
@@ -32,34 +22,39 @@ const statusClass: Record<string, string> = {
     :class="{ 'bg-error/5': log.status === 'error' }"
     @click="expanded = !expanded"
   >
+    <td class="w-6 pr-0">
+      <ChevronRight
+        class="w-3 h-3 text-base-content/40 transition-transform"
+        :class="{ 'rotate-90': expanded }"
+      />
+    </td>
     <td class="text-[11px] text-base-content/50 whitespace-nowrap">
-      {{ new Date(log.startedAt).toLocaleString('fr-FR') }}
+      {{ formatDate(log.startedAt) }}
     </td>
     <td>
-      <span class="badge badge-xs badge-outline font-mono">
-        {{ eventTypeLabel[log.eventType] ?? log.eventType }}
+      <span class="badge badge-xs" :class="EVENT_TYPE_BADGES[log.eventType]">
+        {{ EVENT_TYPE_LABELS[log.eventType] ?? log.eventType }}
       </span>
     </td>
-    <td class="text-xs truncate max-w-40">{{ log.mangaTitle ?? '—' }}</td>
-    <td class="text-xs text-base-content/60 truncate max-w-32">{{ log.sourceName }}</td>
+    <td class="text-xs truncate max-w-40" :title="log.owner?.email">
+      {{ log.owner?.displayName ?? log.owner?.email ?? t('journal.system') }}
+    </td>
+    <td class="text-xs text-base-content/60 truncate max-w-48">
+      {{ log.sourceName }}<template v-if="log.mangaTitle"> · {{ log.mangaTitle }}</template>
+    </td>
     <td>
-      <span class="badge badge-xs" :class="statusClass[log.status]">{{ log.status }}</span>
-    </td>
-    <td class="text-xs text-right tabular-nums">
-      <span v-if="log.newArticlesCount !== null" class="text-success font-semibold">
-        +{{ log.newArticlesCount }}
+      <span class="badge badge-xs" :class="STATUS_BADGES[log.status]">
+        {{ t(`journal.${log.status}`) }}
       </span>
-      <span v-else>—</span>
     </td>
-    <td class="text-xs text-right tabular-nums text-base-content/40">
-      {{ log.durationMs !== null ? `${log.durationMs}ms` : '—' }}
+    <td class="text-xs text-right tabular-nums text-base-content/40 whitespace-nowrap">
+      {{ formatDuration(log.durationMs) }}
     </td>
   </tr>
   <!-- Expanded detail row -->
   <tr v-if="expanded">
-    <td colspan="7" class="bg-base-200 px-4 py-3 text-xs font-mono">
-      <div v-if="log.errorMessage" class="text-error mb-2">{{ log.errorMessage }}</div>
-      <pre v-if="log.metadata" class="text-base-content/60 whitespace-pre-wrap text-[10px]">{{ JSON.stringify(log.metadata, null, 2) }}</pre>
+    <td colspan="7" class="bg-base-200/60 px-4 py-3">
+      <ActivityLogDetail :log="log" />
     </td>
   </tr>
 </template>

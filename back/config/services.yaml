@@ -57,6 +57,10 @@ services:
     App\Shared\Domain\Security\CurrentUserProviderInterface:
         alias: App\Auth\Infrastructure\Security\SymfonyCurrentUserProvider
 
+    # ActivityLog owner attribution (security token in HTTP, null in worker)
+    App\Notification\Domain\ActivityLogOwnerResolverInterface:
+        alias: App\Auth\Infrastructure\Security\ActivityLogOwnerResolver
+
     # Gate auth (second factor admin)
     App\Auth\Application\Gate\GateHandler:
         arguments:

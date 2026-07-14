@@ -12,8 +12,11 @@ import {
 import type { User } from '@/api/auth'
 import { useUiStore } from '@/stores/useUiStore'
 import { X } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
+import BaseModal from '@/components/atoms/BaseModal.vue'
 
+const { t } = useI18n()
 const ui = useUiStore()
 const queryClient = useQueryClient()
 
@@ -168,7 +171,63 @@ async function copyResetLink(user: User): Promise<void> {
       Aucun utilisateur trouvé.
     </div>
 
-    <div v-else class="overflow-x-auto rounded-lg border border-base-200">
+    <!-- Mobile: stacked cards (the 6-column table is unusable on a phone) -->
+    <div v-else class="space-y-3 sm:hidden">
+      <div
+        v-for="user in data?.items"
+        :key="user.id"
+        class="rounded-xl border border-base-200 bg-base-100 p-4 space-y-3"
+      >
+        <div class="flex items-start gap-3">
+          <div class="avatar avatar-placeholder shrink-0">
+            <div class="w-10 rounded-full bg-primary/15 text-primary">
+              <span class="text-xs font-semibold">{{ initials(user.displayName) }}</span>
+            </div>
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="font-semibold leading-tight truncate">{{ user.displayName }}</p>
+            <p class="text-xs text-base-content/50 truncate">{{ user.email }}</p>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span
+            class="badge badge-sm"
+            :class="user.role === 'ROLE_ADMIN' ? 'badge-primary' : 'badge-ghost'"
+          >
+            {{ user.role === 'ROLE_ADMIN' ? 'Admin' : 'Utilisateur' }}
+          </span>
+          <span class="badge badge-sm" :class="STATUS_BADGES[user.status]">
+            {{ STATUS_LABELS[user.status] }}
+          </span>
+          <span class="badge badge-sm badge-ghost capitalize">
+            {{ user.notificationChannel }}<template v-if="user.notificationConfigured === false"> · {{ t('admin.notConfigured') }}</template>
+          </span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button
+            v-if="user.status === 'pending_admin_approval'"
+            class="btn btn-success btn-sm col-span-2"
+            @click="approve(user)"
+          >
+            {{ t('admin.approve') }}
+          </button>
+          <button class="btn btn-outline btn-sm" @click="openEdit(user)">
+            {{ t('common.edit') }}
+          </button>
+          <button class="btn btn-outline btn-sm" @click="copyResetLink(user)">
+            {{ t('admin.resetLink') }}
+          </button>
+          <button class="btn btn-error btn-outline btn-sm col-span-2" @click="remove(user)">
+            {{ t('common.delete') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Desktop: full table -->
+    <div v-if="!isPending && (data?.items.length ?? 0) > 0" class="hidden sm:block overflow-x-auto rounded-lg border border-base-200">
       <table class="table table-zebra">
         <thead>
           <tr>
@@ -251,8 +310,12 @@ async function copyResetLink(user: User): Promise<void> {
     </div>
 
     <!-- Edit modal -->
-    <dialog v-if="editing !== null" class="modal modal-open" @close="closeEdit">
-      <div class="modal-box max-w-md p-0 overflow-hidden">
+    <BaseModal
+      :open="editing !== null"
+      max-width-class="sm:max-w-md"
+      @close="closeEdit"
+    >
+      <template v-if="editing">
         <!-- Header -->
         <div class="flex items-center gap-3 px-5 py-4 border-b border-base-200">
           <div class="avatar avatar-placeholder">
@@ -270,7 +333,7 @@ async function copyResetLink(user: User): Promise<void> {
         </div>
 
         <!-- Body -->
-        <div class="px-5 py-4 space-y-4">
+        <div class="px-5 py-4 space-y-4 overflow-y-auto">
           <div>
             <label class="text-sm font-medium">Nom d'affichage</label>
             <input
@@ -311,8 +374,7 @@ async function copyResetLink(user: User): Promise<void> {
             Enregistrer
           </button>
         </div>
-      </div>
-      <form method="dialog" class="modal-backdrop"><button @click="closeEdit">close</button></form>
-    </dialog>
+      </template>
+    </BaseModal>
   </div>
 </template>

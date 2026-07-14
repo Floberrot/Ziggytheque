@@ -3,22 +3,11 @@ import { ExternalLink } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { PriceOffer } from '@/api/manga'
 import BaseMerchantLogo from '@/components/atoms/BaseMerchantLogo.vue'
+import { formatPrice } from '@/utils/price'
 
 defineProps<{ offer: PriceOffer }>()
 
 const { t } = useI18n()
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  EUR: '€',
-  USD: '$',
-  GBP: '£',
-  JPY: '¥',
-}
-
-function formatPrice(amount: number, currency: string): string {
-  const symbol = CURRENCY_SYMBOLS[currency] ?? currency
-  return amount.toFixed(2) + ' ' + symbol
-}
 </script>
 
 <template>
@@ -47,7 +36,7 @@ function formatPrice(amount: number, currency: string): string {
         target="_blank"
         rel="noopener noreferrer"
         class="btn btn-ghost btn-xs btn-circle"
-        :aria-label="`Voir sur ${offer.merchant}`"
+        :aria-label="t('prices.viewOn', { merchant: offer.merchant })"
       >
         <ExternalLink class="h-3.5 w-3.5" />
       </a>

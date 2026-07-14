@@ -11,6 +11,7 @@ enum EditionFormatEnum: string
     case Coffret = 'coffret';
     case Deluxe = 'deluxe';
     case Omnibus = 'omnibus';
+    case Artbook = 'artbook';
     case Unknown = 'unknown';
 
     public static function fromRawLabel(?string $raw): self
@@ -20,6 +21,18 @@ enum EditionFormatEnum: string
         }
 
         $normalized = mb_strtolower($raw);
+
+        // Companion print: artbooks, guidebooks, fanbooks, databooks (and their
+        // Japanese markers) — a dedicated shelf format, checked before everything else.
+        if (
+            preg_match(
+                '/art\s?book|artworks?|art\s+of|illustrations?|画集|イラスト集'
+                . '|guide\s?book|ガイドブック|fan\s?book|ファンブック|data\s?book/iu',
+                $normalized,
+            )
+        ) {
+            return self::Artbook;
+        }
 
         if (preg_match('/omnibus|int[eé]grale|3.?in.?1|3-en-1|mook/iu', $normalized)) {
             return self::Omnibus;

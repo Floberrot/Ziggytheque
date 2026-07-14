@@ -167,4 +167,89 @@ final class OpenLibraryEditionProviderTest extends TestCase
 
         $this->assertSame([], $editions);
     }
+
+    public function testMergesEditionsFromSeveralMatchingWorksAndSkipsUnrelatedOnes(): void
+    {
+        // Open Library splits one manga across several Work records (main run, deluxe
+        // re-release…): every title-matching work contributes, unrelated docs do not.
+        $searchJson = (string) json_encode([
+            'numFound' => 3,
+            'start'    => 0,
+            'docs'     => [
+                ['key' => '/works/OL1W', 'title' => 'Berserk', 'author_name' => ['Kentaro Miura']],
+                ['key' => '/works/OL2W', 'title' => 'Berserk Deluxe', 'author_name' => ['Kentaro Miura']],
+                ['key' => '/works/OL9W', 'title' => 'Cooking with Gordon', 'author_name' => ['Gordon Ramsay']],
+            ],
+        ]);
+
+        $mainRunJson = (string) json_encode([
+            'entries' => [
+                [
+                    'key'             => '/books/OL1001M',
+                    'title'           => 'Berserk Vol. 1',
+                    'publishers'      => ['Dark Horse Comics'],
+                    'languages'       => [['key' => '/languages/eng']],
+                    'isbn_13'         => ['9781593070205'],
+                    'physical_format' => 'Paperback',
+                ],
+            ],
+        ]);
+
+        // OL2001M overlaps with a fresh key; OL1001M is repeated to prove deduplication.
+        $deluxeJson = (string) json_encode([
+            'entries' => [
+                [
+                    'key'             => '/books/OL1001M',
+                    'title'           => 'Berserk Vol. 1',
+                    'publishers'      => ['Dark Horse Comics'],
+                    'languages'       => [['key' => '/languages/eng']],
+                    'isbn_13'         => ['9781593070205'],
+                    'physical_format' => 'Paperback',
+                ],
+                [
+                    'key'             => '/books/OL2001M',
+                    'title'           => 'Berserk Deluxe Volume 1',
+                    'publishers'      => ['Dark Horse Comics'],
+                    'languages'       => [['key' => '/languages/eng']],
+                    'isbn_13'         => ['9781506711980'],
+                    'physical_format' => 'Hardcover',
+                ],
+            ],
+        ]);
+
+        $requestedEditionUrls = [];
+        $httpClient           = new MockHttpClient(
+            function (string $method, string $url) use (
+                &$requestedEditionUrls,
+                $searchJson,
+                $mainRunJson,
+                $deluxeJson,
+            ): MockResponse {
+                if (str_contains($url, 'search.json')) {
+                    return new MockResponse($searchJson, ['http_code' => 200]);
+                }
+
+                $requestedEditionUrls[] = $url;
+                if (str_contains($url, '/works/OL1W/editions.json')) {
+                    return new MockResponse($mainRunJson, ['http_code' => 200]);
+                }
+                if (str_contains($url, '/works/OL2W/editions.json')) {
+                    return new MockResponse($deluxeJson, ['http_code' => 200]);
+                }
+
+                return new MockResponse('{}', ['http_code' => 404]);
+            },
+        );
+
+        $editions = $this->makeProvider($httpClient)->findEditions('Berserk', 'Miura', null);
+
+        $this->assertCount(2, $requestedEditionUrls);
+        $this->assertStringContainsString('/works/OL1W/editions.json', $requestedEditionUrls[0]);
+        $this->assertStringContainsString('/works/OL2W/editions.json', $requestedEditionUrls[1]);
+
+        // 1 + 2 entries with one duplicate key → 2 distinct editions.
+        $this->assertCount(2, $editions);
+        $externalIds = array_column(array_map(fn ($edition) => $edition->toArray(), $editions), 'externalId');
+        $this->assertSame(['/books/OL1001M', '/books/OL2001M'], $externalIds);
+    }
 }

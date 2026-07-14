@@ -266,8 +266,8 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Sticky filter bar -->
-    <div class="sticky top-0 z-10 bg-base-100/90 backdrop-blur-md border-b border-base-200/70 shadow-[0_1px_0_0_rgba(0,0,0,0.02)]">
+    <!-- Sticky filter bar — sticks below the fixed mobile header (h-14 + notch) -->
+    <div class="sticky top-mobile-header lg:top-0 z-20 bg-base-100/90 backdrop-blur-md border-b border-base-200/70 shadow-[0_1px_0_0_rgba(0,0,0,0.02)]">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 space-y-3">
 
         <!-- Row 1: Search + refine toggle + reset -->

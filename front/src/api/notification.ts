@@ -29,6 +29,13 @@ export interface ActivityLogParams {
   eventType?: string
   status?: string
   collectionEntryId?: string
+  ownerId?: string
+  /** ISO 8601 / ATOM datetime lower bound */
+  from?: string
+  /** ISO 8601 / ATOM datetime upper bound */
+  to?: string
+  /** Free-text search on source, error message and request path */
+  search?: string
 }
 
 export async function getActivityLogs(params: ActivityLogParams = {}): Promise<ActivityLogPage> {

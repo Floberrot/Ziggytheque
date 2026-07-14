@@ -73,4 +73,37 @@ final class PublisherNormalizerTest extends TestCase
         $this->assertNull($this->normalizer->displayName('   '));
         $this->assertSame('', $this->normalizer->canonicalKey(null));
     }
+
+    public function testImprintKeyKeepsDelcourtAndTonkamApart(): void
+    {
+        // Display merges (one house today) but the imprints group separately.
+        $this->assertSame('Delcourt/Tonkam', $this->normalizer->displayName('Tonkam'));
+        $this->assertSame('Delcourt/Tonkam', $this->normalizer->displayName('Delcourt'));
+        $this->assertNotSame(
+            $this->normalizer->imprintKey('Tonkam'),
+            $this->normalizer->imprintKey('Delcourt'),
+        );
+    }
+
+    public function testImprintKeyStillCollapsesSpellingVariantsOfOneHouse(): void
+    {
+        $this->assertSame(
+            $this->normalizer->imprintKey('Glénat (Grenoble)'),
+            $this->normalizer->imprintKey('Glénat'),
+        );
+        $this->assertSame(
+            $this->normalizer->imprintKey('VIZ Media LLC'),
+            $this->normalizer->imprintKey('Viz Communications'),
+        );
+        $this->assertSame(
+            $this->normalizer->imprintKey('Éd. Tonkam (Paris)'),
+            $this->normalizer->imprintKey('Tonkam'),
+        );
+    }
+
+    public function testImprintKeyIsEmptyForBlankPublisher(): void
+    {
+        $this->assertSame('', $this->normalizer->imprintKey(null));
+        $this->assertSame('', $this->normalizer->imprintKey('   '));
+    }
 }

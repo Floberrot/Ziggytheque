@@ -16,6 +16,7 @@ const FORMAT_LABELS: Record<string, string> = {
   coffret: 'Coffret',
   deluxe: 'Deluxe',
   omnibus: 'Omnibus',
+  artbook: 'Artbook',
   unknown: '',
 }
 

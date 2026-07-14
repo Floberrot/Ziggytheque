@@ -88,6 +88,49 @@
 @layer base {
   :root {
     --transition-speed: 200ms;
+    /* iOS safe areas (PWA standalone, viewport-fit=cover) — 0px elsewhere */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* ── iOS safe-area utilities ────────────────────────────────────────────────
+   Reusable helpers so env(safe-area-inset-*) is never repeated inline.
+   - safe-top / safe-bottom : bare padding equal to the inset
+   - pb-safe-sheet          : bottom-sheet footer padding + home-indicator room
+   - pt-mobile-header /
+     top-mobile-header      : offset for content under the fixed mobile header
+                              (h-14 = 3.5rem, grown by the notch inset)
+   - mb-safe                : margin clearance above the home indicator      */
+
+@utility safe-top {
+  padding-top: var(--safe-top);
+}
+@utility safe-bottom {
+  padding-bottom: var(--safe-bottom);
+}
+@utility pb-safe-sheet {
+  padding-bottom: calc(1.5rem + var(--safe-bottom));
+}
+@utility pt-mobile-header {
+  padding-top: calc(3.5rem + var(--safe-top));
+}
+@utility top-mobile-header {
+  top: calc(3.5rem + var(--safe-top));
+}
+@utility mb-safe {
+  margin-bottom: var(--safe-bottom);
+}
+
+/* ── Tooltips on mobile ─────────────────────────────────────────────────────
+   DaisyUI tooltip bubbles are absolutely positioned and rendered at opacity 0
+   even when idle: side-positioned ones (tooltip-right…) silently widen the
+   page and create an invisible horizontal body scroll on small screens.
+   Tooltips are a hover affordance — disable the bubbles below `sm`.         */
+@media (max-width: 639px) {
+  .tooltip::before,
+  .tooltip::after {
+    display: none;
   }
 }
 
