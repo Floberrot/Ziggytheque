@@ -69,6 +69,25 @@ final class GoogleBooksEditionProviderTest extends TestCase
         $this->assertSame(0, $requestCount);
     }
 
+    public function testFindEditionsWithPlaceholderApiKeyReturnsEmptyWithoutRequest(): void
+    {
+        // "change_me" is the committed .env default and "CHANGEME" the env-sync
+        // sentinel: sending either yields silent 403s, so no request must go out.
+        foreach (['change_me', 'CHANGEME', 'ChangeMe'] as $placeholderKey) {
+            $requestCount = 0;
+            $httpClient   = new MockHttpClient(function () use (&$requestCount): MockResponse {
+                $requestCount++;
+
+                return new MockResponse('{}', ['http_code' => 200]);
+            });
+
+            $editions = $this->makeProvider($httpClient, $placeholderKey)->findEditions('Berserk', null, null);
+
+            $this->assertSame([], $editions);
+            $this->assertSame(0, $requestCount);
+        }
+    }
+
     public function testFindEditionsReturnsEmptyOnNonOkResponse(): void
     {
         // Null language sweeps several locales; every call returns 429.
@@ -139,6 +158,57 @@ final class GoogleBooksEditionProviderTest extends TestCase
 
         // The same two volume ids come back from every locale → deduplicated to two.
         $this->assertCount(2, $editions);
+    }
+
+    public function testFetchesSecondPageWhenFirstPageIsFull(): void
+    {
+        $fullPage = (string) json_encode([
+            'items' => array_map(
+                static fn (int $itemIndex): array => [
+                    'id'         => 'vol-' . $itemIndex,
+                    'volumeInfo' => [
+                        'title'     => sprintf('Berserk, Vol. %d', $itemIndex + 1),
+                        'publisher' => 'Glénat',
+                        'language'  => 'fr',
+                    ],
+                ],
+                range(0, 39),
+            ),
+        ]);
+
+        $startIndexes = [];
+        $httpClient   = new MockHttpClient(
+            function (string $method, string $url) use (&$startIndexes, $fullPage): MockResponse {
+                preg_match('/startIndex=(\d+)/', $url, $matches);
+                $startIndexes[] = (int) ($matches[1] ?? -1);
+
+                // Full first page, short second page → pagination stops after two.
+                return count($startIndexes) === 1
+                    ? new MockResponse($fullPage, ['http_code' => 200])
+                    : new MockResponse($this->fixture(), ['http_code' => 200]);
+            },
+        );
+
+        $editions = $this->makeProvider($httpClient)->findEditions('Berserk', null, 'fr');
+
+        $this->assertSame([0, 40], $startIndexes);
+        // 40 volumes from page 1 + 2 from page 2, all with distinct Google ids.
+        $this->assertCount(42, $editions);
+    }
+
+    public function testDoesNotFetchSecondPageWhenFirstPageIsShort(): void
+    {
+        $requestCount = 0;
+        $httpClient   = new MockHttpClient(function () use (&$requestCount): MockResponse {
+            $requestCount++;
+
+            return new MockResponse($this->fixture(), ['http_code' => 200]);
+        });
+
+        $this->makeProvider($httpClient)->findEditions('Berserk', null, 'fr');
+
+        // The fixture holds 2 items (< 40): no second page must be requested.
+        $this->assertSame(1, $requestCount);
     }
 
     public function testFindEditionsSetsSourceAsGoogleBooks(): void

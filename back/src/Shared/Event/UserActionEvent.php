@@ -12,6 +12,8 @@ final readonly class UserActionEvent
         public int $statusCode,
         public string $routeName,
         public int $durationMs,
+        public ?string $clientIp = null,
+        public ?string $userAgent = null,
     ) {
     }
 }

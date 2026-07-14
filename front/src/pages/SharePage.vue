@@ -53,7 +53,7 @@ const tiles = computed(() => {
 <template>
   <div class="min-h-dvh bg-base-200/40">
     <!-- Top bar -->
-    <header class="sticky top-0 z-10 border-b border-base-200 bg-base-100/80 backdrop-blur">
+    <header class="sticky top-0 z-10 border-b border-base-200 bg-base-100/80 backdrop-blur safe-top">
       <div class="mx-auto max-w-3xl px-5 py-3 flex items-center justify-between">
         <AppLogo class="h-8" />
         <router-link to="/login" class="btn btn-ghost btn-sm">{{ t('share.public.signIn') }}</router-link>

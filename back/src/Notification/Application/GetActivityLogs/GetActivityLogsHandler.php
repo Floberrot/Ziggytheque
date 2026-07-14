@@ -14,23 +14,26 @@ final readonly class GetActivityLogsHandler
     {
     }
 
-    /** @return array<string, mixed> */
+    /** @return array{items: list<array<string, mixed>>, total: int, page: int, limit: int} */
     public function __invoke(GetActivityLogsQuery $query): array
     {
         $filters = array_filter([
             'eventType'         => $query->eventType,
             'status'            => $query->status,
             'collectionEntryId' => $query->collectionEntryId,
+            'ownerId'           => $query->ownerId,
+            'from'              => $query->from,
+            'to'                => $query->to,
+            'search'            => $query->search,
         ]);
 
         $result = $this->repository->findPaginated($query->page, $query->limit, $filters);
 
-        return [
-            'items'      => array_map(static fn ($l) => $l->toArray(), $result['items']),
-            'total'      => $result['total'],
-            'page'       => $query->page,
-            'limit'      => $query->limit,
-            'totalPages' => (int) ceil($result['total'] / $query->limit),
-        ];
+        return (new ActivityLogPaginatedResult(
+            items: $result['items'],
+            total: $result['total'],
+            page:  $query->page,
+            limit: $query->limit,
+        ))->toArray();
     }
 }

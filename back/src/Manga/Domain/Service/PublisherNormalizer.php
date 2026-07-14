@@ -52,6 +52,19 @@ final readonly class PublisherNormalizer
         'スクウェア'         => 'Square Enix',
     ];
 
+    /**
+     * Imprints that must NOT collapse when grouping editions, even though they display
+     * under one roof: Tonkam's Berserk run and a Delcourt run are distinct editorial
+     * lines a collector tells apart. Checked before {@see self::ALIASES} by
+     * {@see self::imprintKey()} only — display names still merge.
+     *
+     * @var array<string, string>
+     */
+    private const array IMPRINT_ALIASES = [
+        'tonkam'   => 'Tonkam',
+        'delcourt' => 'Delcourt',
+    ];
+
     /** Legal / corporate suffixes stripped from the tail of a publisher name. */
     private const array LEGAL_SUFFIXES = [
         'llc', 'inc', 'ltd', 'sa', 'sarl', 'gmbh', 'co', 'publishing', 'publications', 'media',
@@ -81,6 +94,29 @@ final readonly class PublisherNormalizer
         $display = $this->displayName($raw);
 
         return $display === null ? '' : $this->fold($display);
+    }
+
+    /**
+     * Like {@see canonicalKey} but preserves editorially distinct imprints sharing a
+     * display name ({@see self::IMPRINT_ALIASES}): "Tonkam" and "Delcourt" both display
+     * as "Delcourt/Tonkam" yet group separately, while pure spelling variants of one
+     * house (Viz Media / VIZ Media LLC, Glénat / Glénat (Grenoble)) still collapse.
+     */
+    public function imprintKey(?string $raw): string
+    {
+        $cleaned = $this->clean($raw ?? '');
+        if ($cleaned === '') {
+            return '';
+        }
+
+        $folded = $this->fold($cleaned);
+        foreach (self::IMPRINT_ALIASES as $needle => $imprint) {
+            if (str_contains($folded, $needle)) {
+                return $this->fold($imprint);
+            }
+        }
+
+        return $this->canonicalKey($raw);
     }
 
     /** Strips parenthetical/bracketed city suffixes and "Éd./Éditions" prefixes. */

@@ -2,15 +2,16 @@ import { ref } from 'vue'
 import type { MaybeRefOrGetter } from 'vue'
 import { toValue } from 'vue'
 import { getVolumePrices } from '@/api/manga'
-import type { PriceOffer } from '@/api/manga'
+import type { PriceOffer, RetailerOffer } from '@/api/manga'
 
-export type { PriceOffer }
+export type { PriceOffer, RetailerOffer }
 
 export function useVolumePrices(
   mangaId: MaybeRefOrGetter<string>,
   volumeId: MaybeRefOrGetter<string>,
 ) {
   const offers = ref<PriceOffer[]>([])
+  const retailers = ref<RetailerOffer[]>([])
   const hasIsbn = ref(false)
   const marketplace = ref<string | null>(null)
   const isLoading = ref(false)
@@ -26,16 +27,18 @@ export function useVolumePrices(
     try {
       const result = await getVolumePrices(mid, vid, marketplaceParam)
       offers.value = result.offers
+      retailers.value = result.retailers ?? []
       hasIsbn.value = result.hasIsbn
       marketplace.value = result.marketplace
       loaded.value = true
     } catch {
       error.value = 'Prix indisponibles'
       offers.value = []
+      retailers.value = []
     } finally {
       isLoading.value = false
     }
   }
 
-  return { offers, hasIsbn, marketplace, isLoading, error, loaded, load }
+  return { offers, retailers, hasIsbn, marketplace, isLoading, error, loaded, load }
 }

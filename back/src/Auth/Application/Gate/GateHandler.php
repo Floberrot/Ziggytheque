@@ -38,7 +38,7 @@ final readonly class GateHandler
 
             $this->eventBus->publish(new GateSucceededEvent(
                 correlationId: $started->correlationId,
-                token: $token,
+                userId: $command->user->id,
             ));
 
             return $token;

@@ -161,42 +161,8 @@ final class ArticleControllerTest extends AbstractApiTestCase
         $this->assertSame([], $otherData);
     }
 
-    // ── GET /api/articles/activity-logs ──────────────────────────────────────
-
-    public function testActivityLogsRequiresAuth(): void
-    {
-        $response = $this->jsonRequest('GET', '/api/articles/activity-logs', auth: false);
-        $this->assertSame(401, $response->getStatusCode());
-    }
-
-    public function testActivityLogsReturnsPagedResult(): void
-    {
-        $response = $this->jsonRequest('GET', '/api/articles/activity-logs');
-        $data     = $this->assertJsonStatus(200, $response);
-
-        $this->assertArrayHasKey('items', $data);
-        $this->assertArrayHasKey('total', $data);
-        $this->assertArrayHasKey('page', $data);
-        $this->assertArrayHasKey('limit', $data);
-        $this->assertArrayHasKey('totalPages', $data);
-    }
-
-    public function testActivityLogsWithFilters(): void
-    {
-        $response = $this->jsonRequest('GET', '/api/articles/activity-logs?eventType=auth_action&status=success');
-        $data     = $this->assertJsonStatus(200, $response);
-
-        $this->assertIsArray($data['items']);
-    }
-
-    public function testActivityLogsWithCustomPagination(): void
-    {
-        $response = $this->jsonRequest('GET', '/api/articles/activity-logs?page=1&limit=10');
-        $data     = $this->assertJsonStatus(200, $response);
-
-        $this->assertSame(1, $data['page']);
-        $this->assertSame(10, $data['limit']);
-    }
+    // Activity-log endpoint coverage lives in ActivityLogControllerTest
+    // (the endpoint is now restricted to ROLE_ADMIN_UNLOCKED).
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 

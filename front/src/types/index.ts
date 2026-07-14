@@ -105,10 +105,17 @@ export type EventType =
 
 export type LogStatus = 'running' | 'success' | 'error'
 
+export interface ActivityLogOwner {
+  id: string
+  email: string
+  displayName: string
+}
+
 export interface ActivityLog {
   id: string
   eventType: EventType
   sourceName: string
+  owner: ActivityLogOwner | null
   collectionEntryId: string | null
   mangaTitle: string | null
   status: LogStatus
@@ -125,7 +132,6 @@ export interface ActivityLogPage {
   total: number
   page: number
   limit: number
-  totalPages: number
 }
 
 export interface CollectionEntryDetail extends CollectionEntry {

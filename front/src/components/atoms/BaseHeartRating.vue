@@ -151,7 +151,7 @@ function onClick(heartIndex: number, half: 'left' | 'right') {
           enter-from-class="translate-y-full"
           leave-to-class="translate-y-full"
         >
-          <div v-if="sheetOpen" class="relative bg-base-100 rounded-t-2xl shadow-xl pb-10">
+          <div v-if="sheetOpen" class="relative bg-base-100 rounded-t-2xl shadow-xl pb-safe-sheet">
             <!-- Handle -->
             <div class="w-10 h-1 bg-base-300 rounded-full mx-auto mt-3 mb-2" />
 

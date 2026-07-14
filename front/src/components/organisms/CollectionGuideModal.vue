@@ -6,6 +6,7 @@ import {
   Search, QrCode, Camera, Link2, Sparkles, Lightbulb, Info, Barcode, BookOpenText,
 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import BaseModal from '@/components/atoms/BaseModal.vue'
 
 const { t } = useI18n()
 
@@ -52,231 +53,205 @@ const COVER_SOURCES = ['mangadex', 'googlebooks', 'bnf', 'openlibrary', 'hardcov
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="guide">
-      <div
-        v-if="open"
-        class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4"
-        role="dialog"
-        aria-modal="true"
-      >
-        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="emit('close')" />
-
-        <div class="relative z-10 w-full sm:max-w-2xl bg-base-100 rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[88dvh] sm:h-[640px]">
-          <!-- Header -->
-          <div class="flex items-center justify-between px-5 py-4 border-b border-base-200 bg-gradient-to-br from-primary/8 to-transparent">
-            <div class="flex items-center gap-2.5">
-              <div class="w-9 h-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center">
-                <Info class="h-5 w-5" />
-              </div>
-              <div>
-                <h2 class="font-bold text-lg leading-tight">{{ t('guide.title') }}</h2>
-                <p class="text-xs text-base-content/50">{{ t('guide.subtitle') }}</p>
-              </div>
-            </div>
-            <button class="btn btn-ghost btn-sm btn-circle" :aria-label="t('common.close')" @click="emit('close')">
-              <X class="h-4 w-4" />
-            </button>
-          </div>
-
-          <!-- Tabs -->
-          <div class="px-3 sm:px-5 pt-3 shrink-0">
-            <div class="inline-flex p-1 bg-base-200 rounded-xl gap-1 w-full sm:w-auto">
-              <button
-                class="btn btn-sm border-0 flex-1 sm:flex-none gap-1.5"
-                :class="tab === 'statuses' ? 'btn-primary' : 'btn-ghost'"
-                @click="tab = 'statuses'"
-              >
-                <BookMarked class="h-4 w-4" />
-                <span>{{ t('guide.tabStatuses') }}</span>
-              </button>
-              <button
-                class="btn btn-sm border-0 flex-1 sm:flex-none gap-1.5"
-                :class="tab === 'dashboard' ? 'btn-primary' : 'btn-ghost'"
-                @click="tab = 'dashboard'"
-              >
-                <PieChart class="h-4 w-4" />
-                <span>{{ t('guide.tabDashboard') }}</span>
-              </button>
-              <button
-                class="btn btn-sm border-0 flex-1 sm:flex-none gap-1.5"
-                :class="tab === 'covers' ? 'btn-primary' : 'btn-ghost'"
-                @click="tab = 'covers'"
-              >
-                <Search class="h-4 w-4" />
-                <span>{{ t('guide.tabCovers') }}</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Content -->
-          <div class="flex-1 overflow-y-auto px-5 py-4 min-h-0">
-            <!-- ── Statuses ── -->
-            <div v-if="tab === 'statuses'" class="space-y-4">
-              <p class="text-sm text-base-content/60 leading-relaxed">{{ t('guide.statusesIntro') }}</p>
-
-              <ul class="space-y-2.5">
-                <li
-                  v-for="s in STATUSES"
-                  :key="s.key"
-                  class="flex items-start gap-3 rounded-xl border border-base-200 bg-base-100 p-3"
-                >
-                  <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" :class="s.chip">
-                    <component :is="s.icon" class="h-5 w-5" />
-                  </div>
-                  <div class="min-w-0">
-                    <p class="font-semibold text-sm leading-tight">{{ t(`guide.status.${s.key}.name`) }}</p>
-                    <p class="text-xs text-base-content/55 mt-0.5 leading-snug">{{ t(`guide.status.${s.key}.desc`) }}</p>
-                  </div>
-                </li>
-              </ul>
-
-              <div class="rounded-xl bg-primary/5 border border-primary/15 p-3.5">
-                <p class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-primary/80 mb-2">
-                  <Lightbulb class="h-3.5 w-3.5" />
-                  {{ t('guide.rulesTitle') }}
-                </p>
-                <ul class="space-y-1.5">
-                  <li
-                    v-for="rule in RULES"
-                    :key="rule"
-                    class="flex items-start gap-2 text-xs text-base-content/65 leading-snug"
-                  >
-                    <span class="mt-1 h-1.5 w-1.5 rounded-full bg-primary/60 shrink-0" />
-                    {{ t(`guide.${rule}`) }}
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            <!-- ── Dashboard ── -->
-            <div v-else-if="tab === 'dashboard'" class="space-y-4">
-              <p class="text-sm text-base-content/60 leading-relaxed">{{ t('guide.dashboardIntro') }}</p>
-
-              <ul class="space-y-2.5">
-                <li
-                  v-for="m in METRICS"
-                  :key="m.key"
-                  class="flex items-start gap-3 rounded-xl border border-base-200 bg-base-100 p-3"
-                >
-                  <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" :class="m.chip">
-                    <component :is="m.icon" class="h-5 w-5" />
-                  </div>
-                  <div class="min-w-0">
-                    <p class="font-semibold text-sm leading-tight">{{ t(`guide.metric.${m.key}.name`) }}</p>
-                    <p class="text-xs text-base-content/55 mt-0.5 leading-snug">{{ t(`guide.metric.${m.key}.formula`) }}</p>
-                  </div>
-                </li>
-              </ul>
-
-              <div class="rounded-xl bg-secondary/5 border border-secondary/15 p-3.5">
-                <p class="flex items-start gap-2 text-xs text-base-content/65 leading-snug">
-                  <Wallet class="h-4 w-4 text-secondary shrink-0 mt-px" />
-                  {{ t('guide.priceNote') }}
-                </p>
-              </div>
-            </div>
-
-            <!-- ── Covers ── -->
-            <div v-else class="space-y-4">
-              <p class="text-sm text-base-content/60 leading-relaxed">{{ t('guide.coversIntro') }}</p>
-
-              <!-- ── What is an ISBN? — illustrated explainer (mirrors the volume "ISBN du tome" hint) ── -->
-              <div class="rounded-xl border border-secondary/20 bg-secondary/5 p-3.5">
-                <div class="flex items-start gap-3">
-                  <div class="w-9 h-9 rounded-lg bg-secondary/15 text-secondary flex items-center justify-center shrink-0">
-                    <BookOpenText class="h-5 w-5" />
-                  </div>
-                  <div class="min-w-0 flex-1">
-                    <p class="font-semibold text-sm leading-tight">{{ t('guide.isbnExplainer.title') }}</p>
-                    <p class="text-xs text-base-content/60 mt-1 leading-snug">{{ t('guide.isbnExplainer.line1') }}</p>
-                    <p class="text-xs text-base-content/60 mt-1 leading-snug">{{ t('guide.isbnExplainer.line2') }}</p>
-
-                    <!-- Mock back-of-book label : barcode + ISBN, like the real thing -->
-                    <div class="mt-3 inline-flex flex-col items-center gap-1 rounded-lg bg-base-100 border border-base-300 px-4 py-2.5 shadow-sm">
-                      <Barcode class="h-9 w-16 text-base-content/80" stroke-width="1.25" />
-                      <span class="font-mono text-[11px] tracking-widest text-base-content/70">9 782811 645632</span>
-                      <span class="text-[9px] uppercase tracking-wider text-base-content/35">{{ t('guide.isbnExplainer.barcodeLabel') }}</span>
-                    </div>
-
-                    <div class="flex flex-wrap gap-1.5 mt-3">
-                      <span class="badge badge-sm bg-secondary/15 text-secondary border-0 font-medium">{{ t('guide.isbnExplainer.badge13') }}</span>
-                      <span class="badge badge-sm bg-base-content/10 text-base-content/60 border-0 font-medium">{{ t('guide.isbnExplainer.badge10') }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div
-                v-for="method in COVER_METHODS"
-                :key="method.key"
-                class="rounded-xl border border-base-200 bg-base-100 p-3.5"
-              >
-                <div class="flex items-start gap-3">
-                  <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" :class="method.chip">
-                    <component :is="method.icon" class="h-5 w-5" />
-                  </div>
-                  <div class="min-w-0 flex-1">
-                    <p class="font-semibold text-sm leading-tight">{{ t(`guide.cover.${method.key}.name`) }}</p>
-                    <p class="text-xs text-base-content/55 mt-0.5 leading-snug">{{ t(`guide.cover.${method.key}.desc`) }}</p>
-                    <ol v-if="method.steps > 0" class="mt-2.5 space-y-1.5">
-                      <li
-                        v-for="step in method.steps"
-                        :key="step"
-                        class="flex items-start gap-2 text-xs text-base-content/65 leading-snug"
-                      >
-                        <span class="flex items-center justify-center h-4 w-4 rounded-full bg-base-200 text-[10px] font-bold text-base-content/60 shrink-0 mt-px">
-                          {{ step }}
-                        </span>
-                        {{ t(`guide.cover.${method.key}.step${step}`) }}
-                      </li>
-                    </ol>
-                  </div>
-                </div>
-              </div>
-
-              <div class="rounded-xl bg-base-200/50 border border-base-200 p-3.5">
-                <p class="text-xs font-bold uppercase tracking-wide text-base-content/50 mb-2">{{ t('guide.coverSourcesTitle') }}</p>
-                <div class="flex flex-wrap gap-1.5">
-                  <span
-                    v-for="src in COVER_SOURCES"
-                    :key="src"
-                    class="badge badge-sm badge-ghost font-medium"
-                  >
-                    {{ t(`guide.coverSource.${src}`) }}
-                  </span>
-                </div>
-                <p class="text-xs text-base-content/50 mt-2.5 leading-snug">{{ t('guide.coverSourcesNote') }}</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Footer -->
-          <div class="shrink-0 px-5 py-3 border-t border-base-200">
-            <button class="btn btn-primary btn-sm w-full sm:w-auto sm:float-right" @click="emit('close')">
-              {{ t('guide.gotIt') }}
-            </button>
-          </div>
+  <BaseModal
+    :open="open"
+    max-width-class="sm:max-w-2xl"
+    panel-class="h-[88dvh] sm:h-[640px]"
+    @close="emit('close')"
+  >
+    <!-- Header -->
+    <div class="flex items-center justify-between px-5 py-4 border-b border-base-200 bg-gradient-to-br from-primary/8 to-transparent">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center">
+          <Info class="h-5 w-5" />
+        </div>
+        <div>
+          <h2 class="font-bold text-lg leading-tight">{{ t('guide.title') }}</h2>
+          <p class="text-xs text-base-content/50">{{ t('guide.subtitle') }}</p>
         </div>
       </div>
-    </Transition>
-  </Teleport>
-</template>
+      <button class="btn btn-ghost btn-sm btn-circle" :aria-label="t('common.close')" @click="emit('close')">
+        <X class="h-4 w-4" />
+      </button>
+    </div>
 
-<style scoped>
-.guide-enter-active,
-.guide-leave-active {
-  transition: opacity 0.2s ease;
-}
-.guide-enter-active .relative,
-.guide-leave-active .relative {
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.guide-enter-from,
-.guide-leave-to {
-  opacity: 0;
-}
-.guide-enter-from .relative {
-  transform: translateY(40px) scale(0.97);
-}
-</style>
+    <!-- Tabs -->
+    <div class="px-3 sm:px-5 pt-3 shrink-0">
+      <div class="inline-flex p-1 bg-base-200 rounded-xl gap-1 w-full sm:w-auto">
+        <button
+          class="btn btn-sm border-0 flex-1 sm:flex-none gap-1.5"
+          :class="tab === 'statuses' ? 'btn-primary' : 'btn-ghost'"
+          @click="tab = 'statuses'"
+        >
+          <BookMarked class="h-4 w-4" />
+          <span>{{ t('guide.tabStatuses') }}</span>
+        </button>
+        <button
+          class="btn btn-sm border-0 flex-1 sm:flex-none gap-1.5"
+          :class="tab === 'dashboard' ? 'btn-primary' : 'btn-ghost'"
+          @click="tab = 'dashboard'"
+        >
+          <PieChart class="h-4 w-4" />
+          <span>{{ t('guide.tabDashboard') }}</span>
+        </button>
+        <button
+          class="btn btn-sm border-0 flex-1 sm:flex-none gap-1.5"
+          :class="tab === 'covers' ? 'btn-primary' : 'btn-ghost'"
+          @click="tab = 'covers'"
+        >
+          <Search class="h-4 w-4" />
+          <span>{{ t('guide.tabCovers') }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="flex-1 overflow-y-auto px-5 py-4 min-h-0">
+      <!-- ── Statuses ── -->
+      <div v-if="tab === 'statuses'" class="space-y-4">
+        <p class="text-sm text-base-content/60 leading-relaxed">{{ t('guide.statusesIntro') }}</p>
+
+        <ul class="space-y-2.5">
+          <li
+            v-for="s in STATUSES"
+            :key="s.key"
+            class="flex items-start gap-3 rounded-xl border border-base-200 bg-base-100 p-3"
+          >
+            <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" :class="s.chip">
+              <component :is="s.icon" class="h-5 w-5" />
+            </div>
+            <div class="min-w-0">
+              <p class="font-semibold text-sm leading-tight">{{ t(`guide.status.${s.key}.name`) }}</p>
+              <p class="text-xs text-base-content/55 mt-0.5 leading-snug">{{ t(`guide.status.${s.key}.desc`) }}</p>
+            </div>
+          </li>
+        </ul>
+
+        <div class="rounded-xl bg-primary/5 border border-primary/15 p-3.5">
+          <p class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-primary/80 mb-2">
+            <Lightbulb class="h-3.5 w-3.5" />
+            {{ t('guide.rulesTitle') }}
+          </p>
+          <ul class="space-y-1.5">
+            <li
+              v-for="rule in RULES"
+              :key="rule"
+              class="flex items-start gap-2 text-xs text-base-content/65 leading-snug"
+            >
+              <span class="mt-1 h-1.5 w-1.5 rounded-full bg-primary/60 shrink-0" />
+              {{ t(`guide.${rule}`) }}
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ── Dashboard ── -->
+      <div v-else-if="tab === 'dashboard'" class="space-y-4">
+        <p class="text-sm text-base-content/60 leading-relaxed">{{ t('guide.dashboardIntro') }}</p>
+
+        <ul class="space-y-2.5">
+          <li
+            v-for="m in METRICS"
+            :key="m.key"
+            class="flex items-start gap-3 rounded-xl border border-base-200 bg-base-100 p-3"
+          >
+            <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" :class="m.chip">
+              <component :is="m.icon" class="h-5 w-5" />
+            </div>
+            <div class="min-w-0">
+              <p class="font-semibold text-sm leading-tight">{{ t(`guide.metric.${m.key}.name`) }}</p>
+              <p class="text-xs text-base-content/55 mt-0.5 leading-snug">{{ t(`guide.metric.${m.key}.formula`) }}</p>
+            </div>
+          </li>
+        </ul>
+
+        <div class="rounded-xl bg-secondary/5 border border-secondary/15 p-3.5">
+          <p class="flex items-start gap-2 text-xs text-base-content/65 leading-snug">
+            <Wallet class="h-4 w-4 text-secondary shrink-0 mt-px" />
+            {{ t('guide.priceNote') }}
+          </p>
+        </div>
+      </div>
+
+      <!-- ── Covers ── -->
+      <div v-else class="space-y-4">
+        <p class="text-sm text-base-content/60 leading-relaxed">{{ t('guide.coversIntro') }}</p>
+
+        <!-- ── What is an ISBN? — illustrated explainer (mirrors the volume "ISBN du tome" hint) ── -->
+        <div class="rounded-xl border border-secondary/20 bg-secondary/5 p-3.5">
+          <div class="flex items-start gap-3">
+            <div class="w-9 h-9 rounded-lg bg-secondary/15 text-secondary flex items-center justify-center shrink-0">
+              <BookOpenText class="h-5 w-5" />
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="font-semibold text-sm leading-tight">{{ t('guide.isbnExplainer.title') }}</p>
+              <p class="text-xs text-base-content/60 mt-1 leading-snug">{{ t('guide.isbnExplainer.line1') }}</p>
+              <p class="text-xs text-base-content/60 mt-1 leading-snug">{{ t('guide.isbnExplainer.line2') }}</p>
+
+              <!-- Mock back-of-book label : barcode + ISBN, like the real thing -->
+              <div class="mt-3 inline-flex flex-col items-center gap-1 rounded-lg bg-base-100 border border-base-300 px-4 py-2.5 shadow-sm">
+                <Barcode class="h-9 w-16 text-base-content/80" stroke-width="1.25" />
+                <span class="font-mono text-[11px] tracking-widest text-base-content/70">9 782811 645632</span>
+                <span class="text-[9px] uppercase tracking-wider text-base-content/35">{{ t('guide.isbnExplainer.barcodeLabel') }}</span>
+              </div>
+
+              <div class="flex flex-wrap gap-1.5 mt-3">
+                <span class="badge badge-sm bg-secondary/15 text-secondary border-0 font-medium">{{ t('guide.isbnExplainer.badge13') }}</span>
+                <span class="badge badge-sm bg-base-content/10 text-base-content/60 border-0 font-medium">{{ t('guide.isbnExplainer.badge10') }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-for="method in COVER_METHODS"
+          :key="method.key"
+          class="rounded-xl border border-base-200 bg-base-100 p-3.5"
+        >
+          <div class="flex items-start gap-3">
+            <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" :class="method.chip">
+              <component :is="method.icon" class="h-5 w-5" />
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="font-semibold text-sm leading-tight">{{ t(`guide.cover.${method.key}.name`) }}</p>
+              <p class="text-xs text-base-content/55 mt-0.5 leading-snug">{{ t(`guide.cover.${method.key}.desc`) }}</p>
+              <ol v-if="method.steps > 0" class="mt-2.5 space-y-1.5">
+                <li
+                  v-for="step in method.steps"
+                  :key="step"
+                  class="flex items-start gap-2 text-xs text-base-content/65 leading-snug"
+                >
+                  <span class="flex items-center justify-center h-4 w-4 rounded-full bg-base-200 text-[10px] font-bold text-base-content/60 shrink-0 mt-px">
+                    {{ step }}
+                  </span>
+                  {{ t(`guide.cover.${method.key}.step${step}`) }}
+                </li>
+              </ol>
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-xl bg-base-200/50 border border-base-200 p-3.5">
+          <p class="text-xs font-bold uppercase tracking-wide text-base-content/50 mb-2">{{ t('guide.coverSourcesTitle') }}</p>
+          <div class="flex flex-wrap gap-1.5">
+            <span
+              v-for="src in COVER_SOURCES"
+              :key="src"
+              class="badge badge-sm badge-ghost font-medium"
+            >
+              {{ t(`guide.coverSource.${src}`) }}
+            </span>
+          </div>
+          <p class="text-xs text-base-content/50 mt-2.5 leading-snug">{{ t('guide.coverSourcesNote') }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="shrink-0 px-5 py-3 border-t border-base-200">
+      <button class="btn btn-primary btn-sm w-full sm:w-auto sm:float-right" @click="emit('close')">
+        {{ t('guide.gotIt') }}
+      </button>
+    </div>
+  </BaseModal>
+</template>

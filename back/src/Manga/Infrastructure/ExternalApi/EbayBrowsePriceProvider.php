@@ -22,7 +22,7 @@ final readonly class EbayBrowsePriceProvider implements VolumePriceProviderInter
         private HttpClientInterface $httpClient,
         private EbayOAuthTokenProvider $tokenProvider,
         private string $baseUrl,
-        private string $campaignId,
+        private ?string $campaignId,
         private LoggerInterface $logger,
     ) {
     }
@@ -65,7 +65,7 @@ final readonly class EbayBrowsePriceProvider implements VolumePriceProviderInter
             'X-EBAY-C-MARKETPLACE-ID'  => $marketplace->ebayId(),
         ];
 
-        if ($this->campaignId !== '') {
+        if ($this->campaignId !== null && $this->campaignId !== '') {
             $headers['X-EBAY-C-ENDUSERCTX'] = sprintf('affiliateCampaignId=%s', $this->campaignId);
         }
 

@@ -51,7 +51,7 @@ final class NdlEditionProviderTest extends TestCase
         }
     }
 
-    public function testUnknownPublisherIsFilteredOut(): void
+    public function testUnknownPublisherIsKeptWhenTitleMatchesWork(): void
     {
         $httpClient = new MockHttpClient([
             new MockResponse($this->fixtureXml(), ['http_code' => 200]),
@@ -59,8 +59,12 @@ final class NdlEditionProviderTest extends TestCase
 
         $editions = $this->makeProvider($httpClient)->findEditions('進撃の巨人', null, 'ja');
 
-        // 4 records in the fixture, the unknown-publisher one is dropped → 3 remain.
-        $this->assertCount(3, $editions);
+        // All 4 records are kept: the unknown-publisher record still titles the work,
+        // so it is a legitimate edition (relevance is title-driven, not publisher-driven).
+        $this->assertCount(4, $editions);
+
+        $publishers = array_column(array_map(fn ($edition) => $edition->toArray(), $editions), 'publisher');
+        $this->assertContains('未知の出版社', $publishers);
     }
 
     public function testExtractsKanjiEditionLines(): void
@@ -133,5 +137,43 @@ final class NdlEditionProviderTest extends TestCase
         $httpClient = new MockHttpClient([new MockResponse('<broken', ['http_code' => 200])]);
 
         $this->assertSame([], $this->makeProvider($httpClient)->findEditions('進撃の巨人', null, 'ja'));
+    }
+
+    public function testStopsAfterSinglePageWhenAllRecordsFetched(): void
+    {
+        // numberOfRecords=4 in the fixture: everything fits in the first page.
+        $requestCount = 0;
+        $httpClient   = new MockHttpClient(function () use (&$requestCount): MockResponse {
+            $requestCount++;
+
+            return new MockResponse($this->fixtureXml(), ['http_code' => 200]);
+        });
+
+        $this->makeProvider($httpClient)->findEditions('進撃の巨人', null, 'ja');
+
+        $this->assertSame(1, $requestCount);
+    }
+
+    public function testPaginatesUpToThreePagesWhenCatalogueIsLarger(): void
+    {
+        $hugeCatalogueXml = str_replace(
+            '<numberOfRecords>4</numberOfRecords>',
+            '<numberOfRecords>1000</numberOfRecords>',
+            $this->fixtureXml(),
+        );
+
+        $startRecords = [];
+        $httpClient   = new MockHttpClient(
+            function (string $method, string $url) use (&$startRecords, $hugeCatalogueXml): MockResponse {
+                preg_match('/startRecord=(\d+)/', $url, $matches);
+                $startRecords[] = (int) ($matches[1] ?? 0);
+
+                return new MockResponse($hugeCatalogueXml, ['http_code' => 200]);
+            },
+        );
+
+        $this->makeProvider($httpClient)->findEditions('進撃の巨人', null, 'ja');
+
+        $this->assertSame([1, 101, 201], $startRecords);
     }
 }

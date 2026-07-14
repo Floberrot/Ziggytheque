@@ -24,6 +24,10 @@ final readonly class DnbEditionProvider implements EditionProviderInterface
 {
     private const string LOG_PREFIX = 'DNB EDITIONS : ';
 
+    /** SRU pagination: up to 3 pages of 100 records. */
+    private const int PAGE_SIZE = 100;
+    private const int MAX_PAGES = 3;
+
     public function __construct(
         private HttpClientInterface $httpClient,
         private string $baseUrl,
@@ -66,12 +70,38 @@ final readonly class DnbEditionProvider implements EditionProviderInterface
             $cqlQuery .= sprintf(' and PER=%s', $author);
         }
 
+        $editions    = [];
+        $startRecord = 1;
+
+        for ($pageIndex = 0; $pageIndex < self::MAX_PAGES; $pageIndex++) {
+            $page = $this->fetchPage($cqlQuery, $workTitle, $startRecord);
+            if ($page === null) {
+                break;
+            }
+
+            foreach ($page['editions'] as $edition) {
+                $editions[] = $edition;
+            }
+
+            $startRecord += self::PAGE_SIZE;
+            if ($page['recordCount'] === 0 || $startRecord > $page['numberOfRecords']) {
+                break;
+            }
+        }
+
+        return $editions;
+    }
+
+    /** @return array{editions: list<ExternalEditionDto>, numberOfRecords: int, recordCount: int}|null */
+    private function fetchPage(string $cqlQuery, string $workTitle, int $startRecord): ?array
+    {
         $sruParams = http_build_query([
             'version'        => '1.1',
             'operation'      => 'searchRetrieve',
             'query'          => $cqlQuery,
             'recordSchema'   => 'oai_dc',
-            'maximumRecords' => '100',
+            'maximumRecords' => (string) self::PAGE_SIZE,
+            'startRecord'    => (string) $startRecord,
         ]);
         $url = sprintf('%s?%s', $this->baseUrl, $sruParams);
 
@@ -81,17 +111,17 @@ final readonly class DnbEditionProvider implements EditionProviderInterface
                 'status' => $response->getStatusCode(),
             ]);
 
-            return [];
+            return null;
         }
 
         return $this->parseResponse($response->getContent(), $workTitle);
     }
 
-    /** @return list<ExternalEditionDto> */
-    private function parseResponse(string $xmlContent, string $workTitle): array
+    /** @return array{editions: list<ExternalEditionDto>, numberOfRecords: int, recordCount: int}|null */
+    private function parseResponse(string $xmlContent, string $workTitle): ?array
     {
         if ($xmlContent === '') {
-            return [];
+            return null;
         }
 
         libxml_use_internal_errors(true);
@@ -100,10 +130,16 @@ final readonly class DnbEditionProvider implements EditionProviderInterface
         $xml->registerXPathNamespace('srw', 'http://www.loc.gov/zing/srw/');
         $xml->registerXPathNamespace('dc', 'http://purl.org/dc/elements/1.1/');
 
+        /** @var array<SimpleXMLElement>|false $totalNodes */
+        $totalNodes      = $xml->xpath('//srw:numberOfRecords');
+        $numberOfRecords = $totalNodes !== false && $totalNodes !== []
+            ? (int) ($totalNodes[0] ?? 0)
+            : 0;
+
         /** @var array<SimpleXMLElement>|false $records */
         $records = $xml->xpath('//srw:record/srw:recordData');
         if ($records === false || $records === []) {
-            return [];
+            return ['editions' => [], 'numberOfRecords' => $numberOfRecords, 'recordCount' => 0];
         }
 
         $editions = [];
@@ -114,7 +150,11 @@ final readonly class DnbEditionProvider implements EditionProviderInterface
             }
         }
 
-        return $editions;
+        return [
+            'editions'        => $editions,
+            'numberOfRecords' => $numberOfRecords,
+            'recordCount'     => count($records),
+        ];
     }
 
     private function parseRecord(SimpleXMLElement $record, string $workTitle): ?ExternalEditionDto
@@ -143,7 +183,7 @@ final readonly class DnbEditionProvider implements EditionProviderInterface
         $dcFormat    = $formatNodes !== false && $formatNodes !== [] ? (string) ($formatNodes[0] ?? '') : '';
         $dcType      = $typeNodes !== false && $typeNodes !== [] ? (string) ($typeNodes[0] ?? '') : '';
 
-        if (!$this->relevanceFilter->isRelevant($recordTitle, $publisher, $dcType)) {
+        if (!$this->relevanceFilter->isRelevant($workTitle, $recordTitle, $publisher, $dcType)) {
             return null;
         }
 

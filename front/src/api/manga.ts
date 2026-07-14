@@ -130,7 +130,14 @@ export async function autoFillCovers(
   return res.data
 }
 
-export type EditionFormat = 'broche' | 'relie' | 'coffret' | 'deluxe' | 'omnibus' | 'unknown'
+export type EditionFormat =
+  | 'broche'
+  | 'relie'
+  | 'coffret'
+  | 'deluxe'
+  | 'omnibus'
+  | 'artbook'
+  | 'unknown'
 
 export interface ExternalEdition {
   workTitle: string
@@ -173,8 +180,19 @@ export interface PriceOffer {
   source: string
 }
 
+export type Retailer = 'amazon' | 'fnac' | 'ebay'
+export type RetailerStatus = 'found' | 'not_found'
+
+export interface RetailerOffer {
+  retailer: Retailer
+  label: string
+  status: RetailerStatus
+  bestOffer: PriceOffer | null
+}
+
 export interface VolumePricesResponse {
   offers: PriceOffer[]
+  retailers: RetailerOffer[]
   hasIsbn: boolean
   marketplace: string | null
 }

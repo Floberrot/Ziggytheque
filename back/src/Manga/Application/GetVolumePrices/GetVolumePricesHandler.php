@@ -9,6 +9,7 @@ use App\Manga\Domain\MangaRepositoryInterface;
 use App\Manga\Domain\PriceOfferCacheInterface;
 use App\Manga\Domain\PriceOfferDto;
 use App\Manga\Domain\Service\PriceOfferSorter;
+use App\Manga\Domain\Service\RetailerOfferResolver;
 use App\Manga\Domain\VolumePriceProviderInterface;
 use App\Shared\Domain\Exception\NotFoundException;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -21,6 +22,7 @@ final readonly class GetVolumePricesHandler
         private VolumePriceProviderInterface $priceProvider,
         private PriceOfferCacheInterface $cache,
         private PriceOfferSorter $sorter,
+        private RetailerOfferResolver $retailerOfferResolver,
     ) {
     }
 
@@ -45,7 +47,12 @@ final readonly class GetVolumePricesHandler
         }
 
         if ($volume->isbn === null) {
-            return ['offers' => [], 'hasIsbn' => false, 'marketplace' => null];
+            return [
+                'offers'      => [],
+                'retailers'   => $this->retailerOfferResolver->resolve([]),
+                'hasIsbn'     => false,
+                'marketplace' => null,
+            ];
         }
 
         $marketplace = $query->marketplace !== null
@@ -54,7 +61,12 @@ final readonly class GetVolumePricesHandler
 
         $cachedOffers = $this->cache->get($volume->isbn, $marketplace);
         if ($cachedOffers !== null) {
-            return ['offers' => $cachedOffers, 'hasIsbn' => true, 'marketplace' => $marketplace->value];
+            return [
+                'offers'      => $cachedOffers,
+                'retailers'   => $this->retailerOfferResolver->resolve($cachedOffers),
+                'hasIsbn'     => true,
+                'marketplace' => $marketplace->value,
+            ];
         }
 
         $offers = $this->sorter->sort($this->priceProvider->findOffers($volume->isbn, $marketplace));
@@ -66,6 +78,11 @@ final readonly class GetVolumePricesHandler
 
         $this->cache->put($volume->isbn, $marketplace, $offersArray);
 
-        return ['offers' => $offersArray, 'hasIsbn' => true, 'marketplace' => $marketplace->value];
+        return [
+            'offers'      => $offersArray,
+            'retailers'   => $this->retailerOfferResolver->resolve($offersArray),
+            'hasIsbn'     => true,
+            'marketplace' => $marketplace->value,
+        ];
     }
 }

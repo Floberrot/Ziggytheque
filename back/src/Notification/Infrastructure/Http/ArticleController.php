@@ -11,6 +11,7 @@ use App\Shared\Application\Bus\QueryBusInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[Route('/api/articles')]
 final readonly class ArticleController
@@ -42,16 +43,24 @@ final readonly class ArticleController
     }
 
     #[Route('/activity-logs', methods: ['GET'])]
+    #[IsGranted('ROLE_ADMIN_UNLOCKED')]
     public function activityLogs(Request $request): JsonResponse
     {
-        $page              = max(1, (int) $request->query->get('page', 1));
-        $limit             = min(100, max(1, (int) $request->query->get('limit', 50)));
-        $eventType         = $request->query->get('eventType') ?: null;
-        $status            = $request->query->get('status') ?: null;
-        $collectionEntryId = $request->query->get('collectionEntryId') ?: null;
+        $page  = max(1, (int) $request->query->get('page', 1));
+        $limit = min(100, max(1, (int) $request->query->get('limit', 50)));
 
         return new JsonResponse(
-            $this->queryBus->ask(new GetActivityLogsQuery($page, $limit, $eventType, $status, $collectionEntryId)),
+            $this->queryBus->ask(new GetActivityLogsQuery(
+                eventType: $request->query->get('eventType') ?: null,
+                status: $request->query->get('status') ?: null,
+                collectionEntryId: $request->query->get('collectionEntryId') ?: null,
+                ownerId: $request->query->get('ownerId') ?: null,
+                from: $request->query->get('from') ?: null,
+                to: $request->query->get('to') ?: null,
+                search: $request->query->get('search') ?: null,
+                page: $page,
+                limit: $limit,
+            )),
         );
     }
 }

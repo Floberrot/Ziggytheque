@@ -168,4 +168,54 @@ final class EditionGrouperTest extends TestCase
         $this->assertCount(1, $result);
         $this->assertSame('Glénat — Perfect Edition', $result[0]->editionLabel);
     }
+
+    public function testDistinctImprintsSharingDisplayNameStaySeparate(): void
+    {
+        // Tonkam's run and a Delcourt run both display as "Delcourt/Tonkam", but they
+        // are distinct editorial lines — the display merge must not group them.
+        $tonkam   = $this->makeDto('Tonkam', 'fr', EditionFormatEnum::Broche, isbnSample: '9782845803350');
+        $delcourt = $this->makeDto('Delcourt', 'fr', EditionFormatEnum::Broche, isbnSample: '9782756071121');
+
+        $result = $this->grouper->group([$tonkam, $delcourt]);
+
+        $this->assertCount(2, $result);
+        foreach ($result as $edition) {
+            $this->assertSame('Delcourt/Tonkam', $edition->publisher);
+        }
+    }
+
+    public function testConflictingIsbnRegistrationGroupsAreNotMerged(): void
+    {
+        // Same normalised publisher + language, but a 978-2 (French) ISBN and a 978-4
+        // (Japanese) ISBN cannot belong to the same edition line.
+        $french   = $this->makeDto('Glénat', 'fr', EditionFormatEnum::Broche, isbnSample: '9782344001233');
+        $japanese = $this->makeDto('Glénat', 'fr', EditionFormatEnum::Broche, isbnSample: '9784063842760');
+
+        $result = $this->grouper->group([$french, $japanese]);
+
+        $this->assertCount(2, $result);
+    }
+
+    public function testEnglishIsbnGroupsZeroAndOneAreMergedTogether(): void
+    {
+        // 978-0 and 978-1 are both the English-speaking registration area — a US line
+        // printing under both must stay one entry.
+        $groupZero = $this->makeDto('Dark Horse', 'en', EditionFormatEnum::Broche, isbnSample: '9780123456786');
+        $groupOne  = $this->makeDto('Dark Horse', 'en', EditionFormatEnum::Broche, isbnSample: '9781593070205');
+
+        $result = $this->grouper->group([$groupZero, $groupOne]);
+
+        $this->assertCount(1, $result);
+    }
+
+    public function testDtosWithoutIsbnNeverForceASplit(): void
+    {
+        $withIsbn    = $this->makeDto('Glénat', 'fr', EditionFormatEnum::Broche, isbnSample: '9782344001233');
+        $withoutIsbn = $this->makeDto('Glénat', 'fr', EditionFormatEnum::Broche, isbnSample: null);
+
+        $result = $this->grouper->group([$withIsbn, $withoutIsbn]);
+
+        $this->assertCount(1, $result);
+        $this->assertSame('9782344001233', $result[0]->isbnSample);
+    }
 }

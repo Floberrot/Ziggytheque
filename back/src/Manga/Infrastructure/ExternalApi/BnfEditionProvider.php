@@ -19,6 +19,10 @@ final readonly class BnfEditionProvider implements EditionProviderInterface
 {
     private const string LOG_PREFIX = 'BNF EDITIONS : ';
 
+    /** SRU pagination: up to 3 pages of 100 records (BnF caps maximumRecords at 100). */
+    private const int PAGE_SIZE = 100;
+    private const int MAX_PAGES = 3;
+
     public function __construct(
         private HttpClientInterface $httpClient,
         private string $baseUrl,
@@ -51,18 +55,78 @@ final readonly class BnfEditionProvider implements EditionProviderInterface
     /** @return list<ExternalEditionDto> */
     private function doFindEditions(string $workTitle, ?string $author): array
     {
+        $cqlQueries = [$this->buildCql($workTitle, $author)];
+
+        // Artbooks, coffrets and companion volumes are often catalogued under another
+        // creator (illustrator, studio) — sweep once more without the author restriction
+        // so they are not silently excluded. Results are deduplicated by ISBN below.
+        if ($author !== null && $author !== '') {
+            $cqlQueries[] = $this->buildCql($workTitle, null);
+        }
+
+        /** @var array<string, true> $seenKeys */
+        $seenKeys = [];
+        $editions = [];
+        foreach ($cqlQueries as $cqlQuery) {
+            foreach ($this->fetchAllPages($cqlQuery, $workTitle) as $edition) {
+                $dedupeKey = $edition->isbnSample
+                    ?? mb_strtolower($edition->editionLabel . '|' . $edition->format->value);
+                if (isset($seenKeys[$dedupeKey])) {
+                    continue;
+                }
+                $seenKeys[$dedupeKey] = true;
+                $editions[]           = $edition;
+            }
+        }
+
+        return $editions;
+    }
+
+    private function buildCql(string $workTitle, ?string $author): string
+    {
         $cqlQuery = sprintf('bib.title all "%s"', $this->escapeCql($workTitle));
         if ($author !== null && $author !== '') {
             $cqlQuery .= sprintf(' and bib.author all "%s"', $this->escapeCql($author));
         }
 
+        return $cqlQuery;
+    }
+
+    /** @return list<ExternalEditionDto> */
+    private function fetchAllPages(string $cqlQuery, string $workTitle): array
+    {
+        $editions    = [];
+        $startRecord = 1;
+
+        for ($pageIndex = 0; $pageIndex < self::MAX_PAGES; $pageIndex++) {
+            $page = $this->fetchPage($cqlQuery, $workTitle, $startRecord);
+            if ($page === null) {
+                break;
+            }
+
+            foreach ($page['editions'] as $edition) {
+                $editions[] = $edition;
+            }
+
+            $startRecord += self::PAGE_SIZE;
+            if ($page['recordCount'] === 0 || $startRecord > $page['numberOfRecords']) {
+                break;
+            }
+        }
+
+        return $editions;
+    }
+
+    /** @return array{editions: list<ExternalEditionDto>, numberOfRecords: int, recordCount: int}|null */
+    private function fetchPage(string $cqlQuery, string $workTitle, int $startRecord): ?array
+    {
         $sruParams = http_build_query([
             'version'        => '1.2',
             'operation'      => 'searchRetrieve',
             'query'          => $cqlQuery,
             'recordSchema'   => 'dublincore',
-            'maximumRecords' => '100',
-            'startRecord'    => '1',
+            'maximumRecords' => (string) self::PAGE_SIZE,
+            'startRecord'    => (string) $startRecord,
         ]);
         $url = sprintf('%s/api/SRU?%s', $this->baseUrl, $sruParams);
 
@@ -72,17 +136,17 @@ final readonly class BnfEditionProvider implements EditionProviderInterface
                 'status' => $response->getStatusCode(),
             ]);
 
-            return [];
+            return null;
         }
 
         return $this->parseResponse($response->getContent(), $workTitle);
     }
 
-    /** @return list<ExternalEditionDto> */
-    private function parseResponse(string $xmlContent, string $workTitle): array
+    /** @return array{editions: list<ExternalEditionDto>, numberOfRecords: int, recordCount: int}|null */
+    private function parseResponse(string $xmlContent, string $workTitle): ?array
     {
         if ($xmlContent === '') {
-            return [];
+            return null;
         }
 
         libxml_use_internal_errors(true);
@@ -91,10 +155,16 @@ final readonly class BnfEditionProvider implements EditionProviderInterface
         $xml->registerXPathNamespace('srw', 'http://www.loc.gov/zing/srw/');
         $xml->registerXPathNamespace('dc', 'http://purl.org/dc/elements/1.1/');
 
+        /** @var array<SimpleXMLElement>|false $totalNodes */
+        $totalNodes      = $xml->xpath('//srw:numberOfRecords');
+        $numberOfRecords = $totalNodes !== false && $totalNodes !== []
+            ? (int) ($totalNodes[0] ?? 0)
+            : 0;
+
         /** @var array<SimpleXMLElement>|false $records */
         $records = $xml->xpath('//srw:record/srw:recordData');
         if ($records === false || $records === []) {
-            return [];
+            return ['editions' => [], 'numberOfRecords' => $numberOfRecords, 'recordCount' => 0];
         }
 
         $editions = [];
@@ -105,7 +175,11 @@ final readonly class BnfEditionProvider implements EditionProviderInterface
             }
         }
 
-        return $editions;
+        return [
+            'editions'        => $editions,
+            'numberOfRecords' => $numberOfRecords,
+            'recordCount'     => count($records),
+        ];
     }
 
     private function parseRecord(SimpleXMLElement $record, string $workTitle): ?ExternalEditionDto
@@ -134,8 +208,9 @@ final readonly class BnfEditionProvider implements EditionProviderInterface
         $dcFormat    = $formatNodes !== false && $formatNodes !== [] ? (string) ($formatNodes[0] ?? '') : '';
         $dcType      = $typeNodes !== false && $typeNodes !== [] ? (string) ($typeNodes[0] ?? '') : '';
 
-        // Drop video releases, figurine partworks, guides/artbooks/novels — keep manga.
-        if (!$this->relevanceFilter->isRelevant($recordTitle, $publisher, $dcType)) {
+        // Drop video releases, figurine partworks and derivative noise — keep every
+        // print edition whose title matches the work, artbooks included.
+        if (!$this->relevanceFilter->isRelevant($workTitle, $recordTitle, $publisher, $dcType)) {
             return null;
         }
 

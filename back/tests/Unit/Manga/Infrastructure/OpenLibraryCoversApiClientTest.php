@@ -70,6 +70,51 @@ final class OpenLibraryCoversApiClientTest extends TestCase
         $this->assertNull($result);
     }
 
+    public function testFindByIsbnFallsBackToGetWhenHeadHasNoContentLength(): void
+    {
+        $requestedMethods = [];
+        $largeBody = str_repeat('x', 50000);
+        $httpClient = new MockHttpClient(function (string $method) use (&$requestedMethods, $largeBody): MockResponse {
+            $requestedMethods[] = $method;
+
+            // HEAD answers 200 without any content-length header; GET returns the image.
+            return $method === 'HEAD'
+                ? new MockResponse('', ['http_code' => 200])
+                : new MockResponse($largeBody, ['http_code' => 200]);
+        });
+
+        $result = $this->makeClient($httpClient)->findByIsbn($this->makeIsbn());
+
+        $this->assertSame(['HEAD', 'GET'], $requestedMethods);
+        $this->assertInstanceOf(MangaVolumeCoverDto::class, $result);
+    }
+
+    public function testFindByIsbnReturnsNullWhenGetFallbackBodyIsTooSmall(): void
+    {
+        $httpClient = new MockHttpClient(function (string $method): MockResponse {
+            return $method === 'HEAD'
+                ? new MockResponse('', ['http_code' => 200])
+                : new MockResponse('tiny', ['http_code' => 200]);
+        });
+
+        $result = $this->makeClient($httpClient)->findByIsbn($this->makeIsbn());
+
+        $this->assertNull($result);
+    }
+
+    public function testFindByIsbnReturnsNullWhenGetFallbackFails(): void
+    {
+        $httpClient = new MockHttpClient(function (string $method): MockResponse {
+            return $method === 'HEAD'
+                ? new MockResponse('', ['http_code' => 200])
+                : new MockResponse('', ['http_code' => 404]);
+        });
+
+        $result = $this->makeClient($httpClient)->findByIsbn($this->makeIsbn());
+
+        $this->assertNull($result);
+    }
+
     public function testFindByIsbnReturnsNullOnHttpError(): void
     {
         $httpClient = new MockHttpClient([

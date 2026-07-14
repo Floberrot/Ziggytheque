@@ -71,6 +71,35 @@ final class EbayBrowsePriceProviderTest extends TestCase
         $this->assertSame('ebay', $offers[0]->source);
     }
 
+    public function testFindOffersAcceptsNullCampaignId(): void
+    {
+        $httpClient = new MockHttpClient([
+            new MockResponse($this->oauthFixture(), ['http_code' => 200]),
+            new MockResponse($this->browseFixture(), ['http_code' => 200]),
+        ]);
+
+        $cache         = new ArrayAdapter();
+        $tokenProvider = new EbayOAuthTokenProvider(
+            $httpClient,
+            self::OAUTH_URL,
+            self::CLIENT_ID,
+            self::CLIENT_SECRET,
+            $cache,
+            new NullLogger(),
+        );
+        $provider = new EbayBrowsePriceProvider($httpClient, $tokenProvider, self::BASE_URL, null, new NullLogger());
+
+        $isbn   = Isbn::fromString('9782723425483');
+        $offers = $provider->findOffers($isbn, Marketplace::Fr);
+
+        $this->assertNotEmpty($offers);
+        $this->assertSame(PriceKindEnum::MerchantLive, $offers[0]->kind);
+        $this->assertSame('eBay', $offers[0]->merchant);
+        $this->assertSame('EUR', $offers[0]->currency);
+        $this->assertIsFloat($offers[0]->amount);
+        $this->assertSame('ebay', $offers[0]->source);
+    }
+
     public function testFindOffersUsesAffiliateUrlWhenAvailable(): void
     {
         $httpClient = new MockHttpClient([

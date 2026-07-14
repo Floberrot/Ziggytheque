@@ -14,11 +14,14 @@ import { useCoverProvider } from '@/composables/useCoverProvider'
 import BaseQrCode from '@/components/atoms/BaseQrCode.vue'
 import BaseCoverProviderLogo from '@/components/atoms/BaseCoverProviderLogo.vue'
 import PriceOfferCard from '@/components/molecules/PriceOfferCard.vue'
+import RetailerPriceCard from '@/components/molecules/RetailerPriceCard.vue'
+import { normalizeIsbn13 } from '@/utils/isbn'
 import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
 import { useI18n } from 'vue-i18n'
 import type { CollectionEntryDetail, VolumeEntry, VolumeToggleField } from '@/types'
 import { coverUrl } from '@/utils/coverUrl'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
+import BaseModal from '@/components/atoms/BaseModal.vue'
 
 const { t } = useI18n()
 
@@ -74,8 +77,12 @@ function selectCoverProvider(key: CoverProvider): void {
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
 }
 
-function buildContextQuery(title: string, volumeNumber: number, edition: string | null): string {
-  return `${title} tome ${volumeNumber}${edition ? ' ' + edition : ''}`.trim()
+// The field only carries the series title: the volume number and edition are
+// already sent as dedicated params by runSearch, so repeating them here made
+// providers receive a polluted title ("Berserk tome 1 Glénat — Édition
+// classique") that matched nothing.
+function buildContextQuery(title: string): string {
+  return title.trim()
 }
 
 watch(searchQuery, (val) => {
@@ -151,12 +158,25 @@ const mode = ref<'search' | 'isbn' | 'scan' | 'prix'>(props.initialMode ?? 'sear
 const volumeIdForPrices = computed(() => props.volume?.volumeId ?? '')
 const {
   offers: priceOffers,
+  retailers: priceRetailers,
   hasIsbn: priceHasIsbn,
   isLoading: pricesLoading,
   error: pricesError,
   loaded: pricesLoaded,
   load: loadPrices,
 } = useVolumePrices(() => props.mangaId, volumeIdForPrices)
+
+// Offers not already surfaced as a target shop's best offer (shown below the 3 cards).
+const otherPriceOffers = computed(() => {
+  const bestOffers = priceRetailers.value
+    .map((retailerBlock) => retailerBlock.bestOffer)
+    .filter((offer) => offer !== null)
+  return priceOffers.value.filter(
+    (offer) => !bestOffers.some(
+      (best) => best.merchant === offer.merchant && best.amount === offer.amount && best.url === offer.url,
+    ),
+  )
+})
 
 // ── ISBN mode state ──
 const isbnInput = ref('')
@@ -173,17 +193,45 @@ watch(isbnInput, () => {
   isbnSearched.value = false
 })
 
+// ── ISBN auto-save ──
+// The typed/scanned ISBN is persisted on its own (field blur + before every cover
+// search), so it is never lost when no cover is found or the modal is closed.
+const isbnSaveMutation = useMutation({
+  mutationFn: (isbn: string) =>
+    updateVolume(props.mangaId, props.volume!.volumeId, { isbn }),
+  onSuccess: () => {
+    qc.invalidateQueries({ queryKey: ['collection', props.collectionEntryId] })
+    // Keep the price tab in sync — a fresh ISBN unlocks the price search.
+    if (pricesLoaded.value) loadPrices()
+    ui.addToast(t('enrich.isbnSaved'), 'success')
+  },
+  onError: () => {
+    ui.addToast(t('enrich.isbnSaveError'), 'error')
+  },
+})
+
+function autoSaveIsbn(): void {
+  const vol = props.volume
+  if (!vol) return
+  const normalized = normalizeIsbn13(isbnInput.value)
+  if (!normalized || normalized === vol.isbn || isbnSaveMutation.isPending.value) return
+  isbnSaveMutation.mutate(normalized)
+}
+
 async function runIsbnSearch(): Promise<void> {
   if (!isbnInput.value.trim()) return
+  autoSaveIsbn()
   await isbnSearch()
   isbnSearched.value = true
 }
 
 function applyIsbnCover(cover: { coverUrl: string; spineUrl: string | null; isbn: string | null }): void {
+  // The ISBN the user typed/scanned wins over the one echoed back by the cover API.
+  const typedIsbn = normalizeIsbn13(isbnInput.value)
   enrichMutation.mutate({
     coverUrl: cover.coverUrl,
     spineUrl: cover.spineUrl ?? undefined,
-    isbn: cover.isbn ?? undefined,
+    isbn: typedIsbn ?? cover.isbn ?? undefined,
   })
 }
 
@@ -205,7 +253,7 @@ function fallbackToTitleSearch(): void {
   if (!props.volume) return
   mode.value = 'search'
   // Seeding the field triggers the debounced search below.
-  searchQuery.value = buildContextQuery(props.mangaTitle, props.volume.number, props.mangaEdition)
+  searchQuery.value = buildContextQuery(props.mangaTitle)
 }
 
 // Clears every per-tome result so switching tomes never shows the previous one's.
@@ -238,7 +286,7 @@ watch(() => props.volume?.id ?? null, (volumeEntryId, previousId) => {
   if (props.open && vol && !vol.coverUrl && mode.value !== 'prix') {
     // Seed the field with the default context query — visible and editable —
     // which triggers the (debounced) search.
-    searchQuery.value = buildContextQuery(props.mangaTitle, vol.number, props.mangaEdition)
+    searchQuery.value = buildContextQuery(props.mangaTitle)
   }
   if (props.open && mode.value === 'prix') {
     loadPrices()
@@ -456,15 +504,18 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="modal">
-      <div v-if="open && volume" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-        <!-- Backdrop -->
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="emit('close')" />
-
-        <!-- Modal -->
-        <div class="relative z-10 w-full sm:max-w-5xl bg-base-100 rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[90dvh] sm:h-[680px]">
-          <!-- Header -->
+  <!-- Escape is handled by this component's own keydown listener (guide and
+       lightbox close first), so BaseModal's Escape handling is disabled. -->
+  <BaseModal
+    :open="open && volume !== null"
+    max-width-class="sm:max-w-5xl"
+    panel-class="h-[90dvh] sm:h-[680px]"
+    z-class="z-50"
+    :close-on-escape="false"
+    @close="emit('close')"
+  >
+    <template v-if="volume">
+      <!-- Header -->
           <div class="flex items-center justify-between px-5 py-4 border-b border-base-200">
             <div class="flex items-center gap-2.5">
               <div>
@@ -636,23 +687,24 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
             <div class="min-w-0 flex flex-col sm:flex-1 sm:overflow-hidden">
               <div class="px-4 sm:px-5 pt-4">
                 <p class="text-xs font-semibold uppercase tracking-wide text-base-content/40 mb-2">{{ t('enrich.findCover') }}</p>
-                <!-- Segmented switcher -->
-                <div class="inline-flex p-1 bg-base-200 rounded-xl gap-1">
-                  <button class="btn btn-sm border-0 gap-1.5" :class="mode === 'search' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'search'">
-                    <Search class="h-4 w-4" />
-                    {{ t('enrich.tabSearch') }}
+                <!-- Segmented switcher — full width with flex-1 tabs on mobile so
+                     the 4 tabs never overflow at 360px (icons hidden when cramped) -->
+                <div class="flex sm:inline-flex w-full sm:w-auto p-1 bg-base-200 rounded-xl gap-1">
+                  <button class="btn btn-sm border-0 gap-1.5 flex-1 sm:flex-none min-w-0 max-[440px]:px-1 max-[440px]:text-xs" :class="mode === 'search' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'search'">
+                    <Search class="h-4 w-4 shrink-0 max-[400px]:hidden" />
+                    <span class="truncate">{{ t('enrich.tabSearch') }}</span>
                   </button>
-                  <button class="btn btn-sm border-0 gap-1.5" :class="mode === 'isbn' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'isbn'">
-                    <QrCode class="h-4 w-4" />
-                    {{ t('enrich.tabIsbn') }}
+                  <button class="btn btn-sm border-0 gap-1.5 flex-1 sm:flex-none min-w-0 max-[440px]:px-1 max-[440px]:text-xs" :class="mode === 'isbn' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'isbn'">
+                    <QrCode class="h-4 w-4 shrink-0 max-[400px]:hidden" />
+                    <span class="truncate">{{ t('enrich.tabIsbn') }}</span>
                   </button>
-                  <button class="btn btn-sm border-0 gap-1.5" :class="mode === 'scan' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'scan'">
-                    <Camera class="h-4 w-4" />
-                    {{ t('enrich.tabScan') }}
+                  <button class="btn btn-sm border-0 gap-1.5 flex-1 sm:flex-none min-w-0 max-[440px]:px-1 max-[440px]:text-xs" :class="mode === 'scan' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'scan'">
+                    <Camera class="h-4 w-4 shrink-0 max-[400px]:hidden" />
+                    <span class="truncate">{{ t('enrich.tabScan') }}</span>
                   </button>
-                  <button class="btn btn-sm border-0 gap-1.5" :class="mode === 'prix' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'prix'">
-                    <Tag class="h-4 w-4" />
-                    {{ t('prices.tabLabel') }}
+                  <button class="btn btn-sm border-0 gap-1.5 flex-1 sm:flex-none min-w-0 max-[440px]:px-1 max-[440px]:text-xs" :class="mode === 'prix' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'prix'">
+                    <Tag class="h-4 w-4 shrink-0 max-[400px]:hidden" />
+                    <span class="truncate">{{ t('prices.tabLabel') }}</span>
                   </button>
                 </div>
               </div>
@@ -750,13 +802,14 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                       class="input input-bordered input-sm flex-1"
                       :placeholder="t('enrich.isbnPlaceholder')"
                       @keyup.enter="runIsbnSearch()"
+                      @blur="autoSaveIsbn()"
                     />
                     <button class="btn btn-sm btn-primary shrink-0" :disabled="!isbnInput.trim() || isbnLoading" @click="runIsbnSearch()">
                       <BaseLoader v-if="isbnLoading" size="xs" />
                       {{ t('enrich.searchIsbn') }}
                     </button>
                   </div>
-                  <p v-if="isbnError" class="text-error text-xs mt-2">{{ isbnError }}</p>
+                  <p v-if="isbnError" class="text-error text-xs mt-2">{{ t(isbnError) }}</p>
                 </template>
 
                 <!-- Résultats ISBN/Scan regroupés par source — affichés EN PRIORITÉ, au-dessus du scan -->
@@ -814,19 +867,44 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                   </div>
                   <p v-else-if="pricesError" class="text-sm text-error">{{ pricesError }}</p>
                   <template v-else-if="pricesLoaded">
-                    <p v-if="!priceHasIsbn" class="text-sm text-base-content/50 py-4 text-center">
-                      {{ t('prices.noIsbn') }}
-                    </p>
-                    <template v-else-if="priceOffers.length">
-                      <PriceOfferCard
-                        v-for="(offer, idx) in priceOffers"
-                        :key="`${offer.source}-${idx}`"
-                        :offer="offer"
-                      />
+                    <!-- No ISBN: explain + shortcut to the ISBN tab (no dead end) -->
+                    <div v-if="!priceHasIsbn" class="flex flex-col items-center gap-3 py-4">
+                      <p class="text-sm text-base-content/50 text-center">
+                        {{ t('prices.noIsbn') }}
+                      </p>
+                      <button class="btn btn-sm btn-primary gap-2" @click="mode = 'isbn'">
+                        <QrCode class="h-4 w-4" />
+                        {{ t('prices.enterIsbn') }}
+                      </button>
+                    </div>
+                    <template v-else>
+                      <!-- The 3 target shops — always shown, found or honestly "not found" -->
+                      <p class="text-[11px] font-bold uppercase tracking-wide text-base-content/45">
+                        {{ t('prices.retailersTitle') }}
+                      </p>
+                      <div class="grid grid-cols-3 gap-2 sm:gap-3">
+                        <RetailerPriceCard
+                          v-for="retailerBlock in priceRetailers"
+                          :key="retailerBlock.retailer"
+                          :retailer="retailerBlock"
+                        />
+                      </div>
+
+                      <!-- Remaining offers (other merchants, publisher references) -->
+                      <template v-if="otherPriceOffers.length">
+                        <p class="text-[11px] font-bold uppercase tracking-wide text-base-content/45 mt-2">
+                          {{ t('prices.otherOffers') }}
+                        </p>
+                        <PriceOfferCard
+                          v-for="(offer, idx) in otherPriceOffers"
+                          :key="`${offer.source}-${idx}`"
+                          :offer="offer"
+                        />
+                      </template>
+                      <p v-else-if="!priceOffers.length" class="text-sm text-base-content/40 py-2 text-center">
+                        {{ t('prices.empty') }}
+                      </p>
                     </template>
-                    <p v-else class="text-sm text-base-content/40 py-4 text-center">
-                      {{ t('prices.empty') }}
-                    </p>
                   </template>
                   <p v-else class="text-sm text-base-content/40 py-4 text-center">
                     {{ t('prices.loading') }}
@@ -854,10 +932,8 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+    </template>
+  </BaseModal>
 
   <!-- Lightbox -->
   <Teleport to="body">
@@ -882,21 +958,6 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
 </template>
 
 <style scoped>
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.2s ease;
-}
-.modal-enter-active .relative,
-.modal-leave-active .relative {
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-.modal-enter-from .relative {
-  transform: translateY(40px) scale(0.97);
-}
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.18s ease;

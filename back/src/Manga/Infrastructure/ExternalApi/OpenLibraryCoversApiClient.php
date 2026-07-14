@@ -41,7 +41,7 @@ final readonly class OpenLibraryCoversApiClient implements MangaCoverProviderInt
                 return null;
             }
 
-            $contentLength = (int) ($response->getHeaders()['content-length'][0] ?? 0);
+            $contentLength = $this->resolveContentLength($response->getHeaders(), $coverUrl);
             if ($contentLength < self::MIN_COVER_CONTENT_LENGTH) {
                 $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; IMAGE TOO SMALL.', [
                     'isbn' => $isbn->value,
@@ -65,6 +65,30 @@ final readonly class OpenLibraryCoversApiClient implements MangaCoverProviderInt
             ]);
             return null;
         }
+    }
+
+    /**
+     * Reads the content-length announced by the HEAD response. Some responses omit the
+     * header entirely — treating that as 0 would wrongly reject a perfectly valid
+     * cover, so fall back to a real GET and measure the actual body instead.
+     *
+     * @param array<string, list<string>> $headers
+     */
+    private function resolveContentLength(array $headers, string $coverUrl): int
+    {
+        $rawContentLength = $headers['content-length'][0] ?? null;
+        if ($rawContentLength !== null && is_numeric($rawContentLength) && (int) $rawContentLength > 0) {
+            return (int) $rawContentLength;
+        }
+
+        $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; NO CONTENT-LENGTH ON HEAD, FALLING BACK TO GET.');
+
+        $getResponse = $this->httpClient->request('GET', $coverUrl);
+        if ($getResponse->getStatusCode() !== 200) {
+            return 0;
+        }
+
+        return strlen($getResponse->getContent());
     }
 
     public function findByContext(

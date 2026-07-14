@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Manga\Infrastructure;
 
+use App\Manga\Domain\EditionFormatEnum;
 use App\Manga\Domain\Service\EditionLineExtractor;
 use App\Manga\Domain\Service\EditionRelevanceFilter;
 use App\Manga\Domain\Service\PublisherNormalizer;
@@ -51,7 +52,7 @@ final class DnbEditionProviderTest extends TestCase
         }
     }
 
-    public function testFiltersOutArtbookAndKeepsRealEditions(): void
+    public function testKeepsArtbookAsDedicatedFormat(): void
     {
         $httpClient = new MockHttpClient([
             new MockResponse($this->fixtureXml(), ['http_code' => 200]),
@@ -59,11 +60,16 @@ final class DnbEditionProviderTest extends TestCase
 
         $editions = $this->makeProvider($httpClient)->findEditions('Dragon Ball', null, null);
 
-        // 3 records, the artbook is dropped → 2 real editions remain.
-        $this->assertCount(2, $editions);
-        foreach ($editions as $edition) {
-            $this->assertStringNotContainsStringIgnoringCase('artbook', $edition->editionLabel);
-        }
+        // All 3 records are kept — the artbook is a legitimate edition, surfaced with
+        // its own format instead of being dropped.
+        $this->assertCount(3, $editions);
+
+        $artbooks = array_values(array_filter(
+            $editions,
+            static fn ($edition) => $edition->format === EditionFormatEnum::Artbook,
+        ));
+        $this->assertCount(1, $artbooks);
+        $this->assertSame('Artbook', $artbooks[0]->editionLine);
     }
 
     public function testExtractsColorEditionLine(): void
@@ -121,5 +127,45 @@ final class DnbEditionProviderTest extends TestCase
         $editions = $this->makeProvider($httpClient)->findEditions('Dragon Ball', null, null);
 
         $this->assertSame([], $editions);
+    }
+
+    public function testStopsAfterSinglePageWhenAllRecordsFetched(): void
+    {
+        // numberOfRecords=3 in the fixture: everything fits in the first page.
+        $requestCount = 0;
+        $httpClient   = new MockHttpClient(function () use (&$requestCount): MockResponse {
+            $requestCount++;
+
+            return new MockResponse($this->fixtureXml(), ['http_code' => 200]);
+        });
+
+        $this->makeProvider($httpClient)->findEditions('Dragon Ball', null, null);
+
+        $this->assertSame(1, $requestCount);
+    }
+
+    public function testPaginatesUpToThreePagesWhenCatalogueIsLarger(): void
+    {
+        $hugeCatalogueXml = str_replace(
+            '<numberOfRecords>3</numberOfRecords>',
+            '<numberOfRecords>1000</numberOfRecords>',
+            $this->fixtureXml(),
+        );
+
+        $startRecords = [];
+        $httpClient   = new MockHttpClient(
+            function (string $method, string $url) use (&$startRecords, $hugeCatalogueXml): MockResponse {
+                preg_match('/startRecord=(\d+)/', $url, $matches);
+                $startRecords[] = (int) ($matches[1] ?? 0);
+
+                return new MockResponse($hugeCatalogueXml, ['http_code' => 200]);
+            },
+        );
+
+        $editions = $this->makeProvider($httpClient)->findEditions('Dragon Ball', null, null);
+
+        $this->assertSame([1, 101, 201], $startRecords);
+        // 3 pages × 3 relevant records — downstream grouping deduplicates them.
+        $this->assertCount(9, $editions);
     }
 }

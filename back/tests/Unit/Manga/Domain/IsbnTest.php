@@ -71,6 +71,44 @@ final class IsbnTest extends TestCase
         $this->assertSame('978', $isbn->prefix());
     }
 
+    // --- EAN add-on codes (barcode scanners append them after the 13 digits) ---
+
+    public function testFromStringDropsEan5AddOn(): void
+    {
+        $isbn = Isbn::fromString(self::VALID_ISBN13 . '12345');
+
+        $this->assertSame(self::VALID_ISBN13, $isbn->value);
+    }
+
+    public function testFromStringDropsEan2AddOn(): void
+    {
+        $isbn = Isbn::fromString(self::VALID_ISBN13 . '99');
+
+        $this->assertSame(self::VALID_ISBN13, $isbn->value);
+    }
+
+    public function testFromStringDropsAddOnAfterStrippingSeparators(): void
+    {
+        $isbn = Isbn::fromString('978-2-1234-5678-0 12345');
+
+        $this->assertSame(self::VALID_ISBN13, $isbn->value);
+    }
+
+    public function testFromStringStillValidatesChecksumWhenAddOnIsDropped(): void
+    {
+        $this->expectException(InvalidIsbnException::class);
+        // 9782123456789 has a wrong check digit — the EAN-5 add-on must not mask it
+        Isbn::fromString('978212345678912345');
+    }
+
+    public function testTryFromDropsEan5AddOn(): void
+    {
+        $isbn = Isbn::tryFrom(self::VALID_ISBN13 . '12345');
+
+        $this->assertInstanceOf(Isbn::class, $isbn);
+        $this->assertSame(self::VALID_ISBN13, $isbn->value);
+    }
+
     // --- Invalid ISBN-13 ---
 
     public function testFromStringRejectsInvalidPrefix(): void

@@ -10,10 +10,12 @@ use App\Shared\Domain\Event\StartedEventInterface;
 final readonly class GateStartedEvent implements StartedEventInterface
 {
     public string $correlationId;
+    public string $sourceName;
 
     public function __construct(
         ?string $correlationId = null,
     ) {
         $this->correlationId = $correlationId ?? Uuid::v4()->toRfc4122();
+        $this->sourceName    = 'gate';
     }
 }

@@ -6,6 +6,7 @@ namespace App\Notification\Domain\Service;
 
 use App\Collection\Domain\CollectionRepositoryInterface;
 use App\Notification\Domain\ActivityLog;
+use App\Notification\Domain\ActivityLogOwnerResolverInterface;
 use App\Notification\Domain\ActivityLogRepositoryInterface;
 use App\Notification\Domain\EventTypeEnum;
 use ReflectionObject;
@@ -19,12 +20,21 @@ use Throwable;
  * - Single Responsibility: handles ActivityLog lifecycle only
  * - Open/Closed: new event types automatically supported via reflection
  * - Dependency Inversion: depends on interfaces (ActivityLogRepositoryInterface, CollectionRepositoryInterface)
+ *
+ * Metadata extracted from events is sanitized: properties whose name matches
+ * the sensitive denylist (token, password, secret, jwt, authorization, apikey)
+ * are never copied, only scalars / arrays of scalars are kept, and strings are
+ * truncated so a single event can never flood the journal.
  */
 final readonly class ActivityLogEventHandler
 {
+    private const SENSITIVE_NAME_PATTERN = '/token|password|secret|jwt|authorization|apikey/i';
+    private const MAX_STRING_LENGTH      = 500;
+
     public function __construct(
         private ActivityLogRepositoryInterface $activityLogRepository,
         private CollectionRepositoryInterface $collectionRepository,
+        private ActivityLogOwnerResolverInterface $ownerResolver,
     ) {
     }
 
@@ -52,6 +62,7 @@ final readonly class ActivityLogEventHandler
             id: $correlationId,
             eventType: $eventType,
             sourceName: (string) $sourceName,
+            owner: $this->ownerResolver->currentOwner(),
             collectionEntry: $collectionEntry,
         );
 
@@ -61,7 +72,7 @@ final readonly class ActivityLogEventHandler
     /**
      * Handle a Succeeded event: find ActivityLog by correlationId and mark success.
      *
-     * @param object $event Must have: correlationId. Optional: newCount, addedCount, itemsScanned
+     * @param object $event Must have: correlationId. Optional: newCount, addedCount, itemsScanned, userId
      */
     public function handleSucceededEvent(object $event, ?int $forcedCount = null): void
     {
@@ -78,6 +89,8 @@ final readonly class ActivityLogEventHandler
         // Extract count from event properties or use forced value
         $count = $forcedCount ?? $this->extractCountFromEvent($event);
         $metadata = $this->extractMetadata($event);
+
+        $this->attributeOwnerFromEvent($log, $event);
 
         $log->markSuccess($count, $metadata);
         $this->activityLogRepository->save($log);
@@ -103,7 +116,10 @@ final readonly class ActivityLogEventHandler
         $error = $this->extractProperty($event, 'error') ?? 'Unknown error';
         $exceptionClass = $this->extractProperty($event, 'exceptionClass') ?? Throwable::class;
 
-        $metadata = ['exception_class' => $exceptionClass];
+        $metadata = array_merge(
+            $this->extractMetadata($event),
+            ['exception_class' => $exceptionClass],
+        );
         $log->markError((string) $error, $metadata);
 
         $this->activityLogRepository->save($log);
@@ -115,13 +131,28 @@ final readonly class ActivityLogEventHandler
         $namespace = $event::class;
 
         return match (true) {
+            str_contains($namespace, 'Wishlist') => EventTypeEnum::WishlistAction,
             str_contains($namespace, 'Auth\\Shared\\') => EventTypeEnum::AuthAction,
             str_contains($namespace, 'Collection\\Shared\\') => EventTypeEnum::CollectionAction,
             str_contains($namespace, 'Manga\\Shared\\') => EventTypeEnum::MangaAction,
-            str_contains($namespace, 'Wishlist\\Shared\\') => EventTypeEnum::WishlistAction,
             str_contains($namespace, 'Notification\\Shared\\') => EventTypeEnum::UserAction,
             default => EventTypeEnum::UserAction,
         };
+    }
+
+    /** Attribute the log to the user identified by the event's userId, if not already owned. */
+    private function attributeOwnerFromEvent(ActivityLog $log, object $event): void
+    {
+        if ($log->owner !== null) {
+            return;
+        }
+
+        $userId = $this->extractProperty($event, 'userId');
+        if (!is_string($userId) || $userId === '') {
+            return;
+        }
+
+        $log->owner = $this->ownerResolver->findById($userId);
     }
 
     /** Extract a public property value via reflection */
@@ -140,8 +171,8 @@ final readonly class ActivityLogEventHandler
     /** Extract count value from common property names */
     private function extractCountFromEvent(object $event): int
     {
-        foreach (['newCount', 'addedCount', 'itemsScanned', 'count', 'articleCount'] as $prop) {
-            $value = $this->extractProperty($event, $prop);
+        foreach (['newCount', 'addedCount', 'itemsScanned', 'count', 'articleCount'] as $propertyName) {
+            $value = $this->extractProperty($event, $propertyName);
             if ($value !== null && is_int($value)) {
                 return $value;
             }
@@ -149,7 +180,7 @@ final readonly class ActivityLogEventHandler
         return 0;
     }
 
-    /** Extract non-reserved properties as metadata.
+    /** Extract non-reserved, non-sensitive properties as sanitized metadata.
      * @return array<string, mixed>
      */
     private function extractMetadata(object $event): array
@@ -157,19 +188,24 @@ final readonly class ActivityLogEventHandler
         $reserved = [
             'correlationId', 'newCount', 'addedCount', 'itemsScanned',
             'sourceName', 'collectionEntryId', 'eventType', 'count', 'articleCount',
+            'error', 'exceptionClass', 'userId',
         ];
         $metadata = [];
 
         try {
             $reflection = new ReflectionObject($event);
-            foreach ($reflection->getProperties() as $prop) {
-                $name = $prop->getName();
-                if (!in_array($name, $reserved, true)) {
-                    $prop->setAccessible(true);
-                    $value = $prop->getValue($event);
-                    if ($value !== null) {
-                        $metadata[$name] = $value;
-                    }
+            foreach ($reflection->getProperties() as $property) {
+                $propertyName = $property->getName();
+                if (in_array($propertyName, $reserved, true)) {
+                    continue;
+                }
+                if (preg_match(self::SENSITIVE_NAME_PATTERN, $propertyName) === 1) {
+                    continue;
+                }
+                $property->setAccessible(true);
+                $sanitizedValue = $this->sanitizeValue($property->getValue($event));
+                if ($sanitizedValue !== null) {
+                    $metadata[$propertyName] = $sanitizedValue;
                 }
             }
         } catch (Throwable) {
@@ -177,5 +213,36 @@ final readonly class ActivityLogEventHandler
         }
 
         return $metadata;
+    }
+
+    /**
+     * Keep only scalars and arrays of scalars; truncate long strings; drop
+     * objects, resources and sensitive array keys.
+     */
+    private function sanitizeValue(mixed $value): mixed
+    {
+        if (is_string($value)) {
+            return mb_substr($value, 0, self::MAX_STRING_LENGTH);
+        }
+
+        if (is_int($value) || is_float($value) || is_bool($value)) {
+            return $value;
+        }
+
+        if (is_array($value)) {
+            $sanitizedArray = [];
+            foreach ($value as $arrayKey => $arrayValue) {
+                if (is_string($arrayKey) && preg_match(self::SENSITIVE_NAME_PATTERN, $arrayKey) === 1) {
+                    continue;
+                }
+                $sanitizedItem = $this->sanitizeValue($arrayValue);
+                if ($sanitizedItem !== null) {
+                    $sanitizedArray[$arrayKey] = $sanitizedItem;
+                }
+            }
+            return $sanitizedArray;
+        }
+
+        return null;
     }
 }

@@ -185,6 +185,53 @@ final class MangaControllerTest extends AbstractApiTestCase
         $this->assertSame('9782811645632', $volume['isbn']);
     }
 
+    public function testUpdateVolumeWithIsbnAlone(): void
+    {
+        $mangaId = $this->importManga();
+
+        $volData = $this->assertJsonStatus(201, $this->jsonRequest(
+            'POST',
+            '/api/manga/' . $mangaId . '/volumes',
+            ['number' => 1],
+        ));
+        $volumeId = $volData['id'];
+
+        // The ISBN is the only field of the PATCH — the auto-save flow of the front
+        $response = $this->jsonRequest(
+            'PATCH',
+            '/api/manga/' . $mangaId . '/volumes/' . $volumeId,
+            ['isbn' => '978-2-8116-4563-2'],
+        );
+        $this->assertSame(204, $response->getStatusCode());
+
+        $detail = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/manga/' . $mangaId));
+        $volume = $detail['volumes'][0];
+        $this->assertSame('9782811645632', $volume['isbn']);
+    }
+
+    public function testUpdateVolumeConvertsIsbn10ToIsbn13(): void
+    {
+        $mangaId = $this->importManga();
+
+        $volData = $this->assertJsonStatus(201, $this->jsonRequest(
+            'POST',
+            '/api/manga/' . $mangaId . '/volumes',
+            ['number' => 1],
+        ));
+        $volumeId = $volData['id'];
+
+        // 2723425487 is a checksum-valid ISBN-10 — stored as its ISBN-13 form
+        $response = $this->jsonRequest(
+            'PATCH',
+            '/api/manga/' . $mangaId . '/volumes/' . $volumeId,
+            ['isbn' => '2723425487'],
+        );
+        $this->assertSame(204, $response->getStatusCode());
+
+        $detail = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/manga/' . $mangaId));
+        $this->assertSame('9782723425483', $detail['volumes'][0]['isbn']);
+    }
+
     public function testUpdateVolumeRejectsInvalidIsbn(): void
     {
         $mangaId = $this->importManga();

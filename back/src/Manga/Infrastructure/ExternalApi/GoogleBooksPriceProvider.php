@@ -18,6 +18,15 @@ final readonly class GoogleBooksPriceProvider implements VolumePriceProviderInte
     private const string BASE_URL   = 'https://www.googleapis.com/books/v1';
     private const string LOG_PREFIX = 'GOOGLE BOOKS PRICES : ';
 
+    /**
+     * Sentinel values the env-sync tooling (and back/.env defaults) leave in place of a
+     * real key — sending them yields silent 403s, so treat them as "no key configured".
+     * Same pattern as {@see GoogleBooksEditionProvider}.
+     *
+     * @var list<string>
+     */
+    private const array PLACEHOLDER_API_KEYS = ['change_me', 'changeme'];
+
     public function __construct(
         private HttpClientInterface $httpClient,
         private string $apiKey,
@@ -27,7 +36,7 @@ final readonly class GoogleBooksPriceProvider implements VolumePriceProviderInte
 
     public function findOffers(Isbn $isbn, Marketplace $marketplace): array
     {
-        if ($this->apiKey === '') {
+        if (!$this->isApiKeyConfigured()) {
             return [];
         }
 
@@ -46,6 +55,12 @@ final readonly class GoogleBooksPriceProvider implements VolumePriceProviderInte
 
             return [];
         }
+    }
+
+    private function isApiKeyConfigured(): bool
+    {
+        return $this->apiKey !== ''
+            && !in_array(strtolower($this->apiKey), self::PLACEHOLDER_API_KEYS, true);
     }
 
     /** @return list<PriceOfferDto> */

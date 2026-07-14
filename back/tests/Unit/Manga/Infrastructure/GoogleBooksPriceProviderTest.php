@@ -94,4 +94,22 @@ final class GoogleBooksPriceProviderTest extends TestCase
         $this->assertSame([], $offers);
         $this->assertSame(0, $requestCount);
     }
+
+    public function testFindOffersTreatsPlaceholderApiKeyAsNotConfigured(): void
+    {
+        foreach (['change_me', 'CHANGE_ME', 'changeme'] as $placeholderKey) {
+            $requestCount = 0;
+            $httpClient   = new MockHttpClient(function () use (&$requestCount): MockResponse {
+                $requestCount++;
+
+                return new MockResponse('{}', ['http_code' => 200]);
+            });
+
+            $isbn   = Isbn::fromString('9782723425483');
+            $offers = $this->makeProvider($httpClient, $placeholderKey)->findOffers($isbn, Marketplace::Fr);
+
+            $this->assertSame([], $offers, sprintf('Placeholder "%s" must disable the provider', $placeholderKey));
+            $this->assertSame(0, $requestCount);
+        }
+    }
 }

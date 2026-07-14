@@ -91,7 +91,13 @@
       "volumes": "Tomes",
       "editions": "Éditions",
       "prices": "Prix"
-    }
+    },
+    "volumeSheetTitle": "Tome {number}",
+    "volumeMenuLabel": "Actions du tome {number}",
+    "coverUrlTitle": "URL de la couverture",
+    "readingStatusTitle": "Statut de lecture",
+    "moreOptionsTitle": "Plus d'options",
+    "detailsAction": "Détails du tome"
   },
   "volume": {
     "price": "Prix (€)",
@@ -149,21 +155,32 @@
     "allTypes": "Tous les types",
     "allStatuses": "Tous les statuts",
     "allMangas": "Tous les mangas",
+    "allUsers": "Tous les utilisateurs",
     "running": "En cours",
     "success": "Succès",
     "error": "Erreur",
     "date": "Date",
     "type": "Type",
-    "manga": "Manga",
+    "user": "Utilisateur",
     "source": "Source",
     "status": "Statut",
-    "articles": "Articles",
     "duration": "Durée",
-    "entries": "entrées",
     "empty": "Aucun événement enregistré",
-    "userAction": "Action utilisateur",
-    "search": "Rechercher",
-    "hint": "Sélectionnez des filtres et cliquez sur Rechercher"
+    "searchPlaceholder": "Rechercher (source, erreur, chemin d'API)…",
+    "from": "Du",
+    "to": "Au",
+    "reset": "Réinitialiser",
+    "live": "Live",
+    "liveHint": "Actualisation automatique toutes les 30 secondes",
+    "totalEntries": "Entrées",
+    "pageErrors": "Erreurs (page)",
+    "pageErrorRate": "Taux d'erreur (page)",
+    "avgDuration": "Durée moyenne (page)",
+    "system": "Système",
+    "copyJson": "Copier le JSON",
+    "copied": "JSON copié dans le presse-papiers",
+    "copyFailed": "La copie a échoué",
+    "noMetadata": "Aucune métadonnée"
   },
   "genre": {
     "shonen": "Shōnen",
@@ -260,6 +277,10 @@
     "scanPhone": "Scanner avec mon téléphone",
     "coverFound": "Couverture trouvée",
     "noCoverForIsbn": "Aucune couverture pour cet ISBN.",
+    "isbnSaved": "ISBN enregistré pour ce tome.",
+    "isbnSaveError": "Impossible d'enregistrer l'ISBN — réessayez.",
+    "isbnInvalid": "ISBN invalide — vérifiez les 10 ou 13 chiffres.",
+    "isbnSearchError": "Erreur lors de la recherche de couverture — réessayez.",
     "isbnFromPhone": "ISBN reçu du téléphone : {isbn}",
     "searchByTitle": "Chercher par titre",
     "cameraError": "Caméra indisponible. Vérifiez les autorisations et que la page est en HTTPS.",
@@ -433,8 +454,18 @@
     "loading": "Recherche des prix…",
     "empty": "Aucun prix disponible pour ce tome.",
     "noIsbn": "Ce tome n'a pas d'ISBN — impossible de chercher les prix.",
+    "enterIsbn": "Saisir l'ISBN",
+    "retailersTitle": "Boutiques",
+    "otherOffers": "Autres offres",
+    "notFound": "Introuvable",
+    "viewOn": "Voir sur {merchant}",
     "merchantLive": "Offre en direct",
     "publisherReference": "Prix éditeur",
     "selectVolume": "Sélectionnez un tome pour voir les prix."
+  },
+  "admin": {
+    "approve": "Approuver",
+    "resetLink": "Lien de réinitialisation",
+    "notConfigured": "non configuré"
   }
 }

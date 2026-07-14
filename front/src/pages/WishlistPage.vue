@@ -406,7 +406,7 @@ onUnmounted(() => {
     <Transition name="slide-up">
       <div
         v-if="batchMode && selectedVeIds.size > 0"
-        class="fixed bottom-16 lg:bottom-0 left-0 right-0 z-50 bg-base-100/95 backdrop-blur-sm border-t-2 border-warning/40 shadow-2xl"
+        class="fixed bottom-0 left-0 right-0 z-50 bg-base-100/95 backdrop-blur-sm border-t-2 border-warning/40 shadow-2xl safe-bottom"
       >
         <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3 flex-wrap">
           <span class="badge badge-warning badge-lg shrink-0">

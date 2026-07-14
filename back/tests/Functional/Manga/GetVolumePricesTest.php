@@ -82,6 +82,21 @@ final class GetVolumePricesTest extends AbstractApiTestCase
 
         $this->assertFalse($data['hasIsbn']);
         $this->assertSame([], $data['offers']);
+        $this->assertRetailersAllNotFound($data);
+    }
+
+    /** @param array<string, mixed> $data */
+    private function assertRetailersAllNotFound(array $data): void
+    {
+        $this->assertArrayHasKey('retailers', $data);
+        $this->assertCount(3, $data['retailers']);
+        $this->assertSame(['amazon', 'fnac', 'ebay'], array_column($data['retailers'], 'retailer'));
+        $this->assertSame(['Amazon', 'Fnac', 'eBay'], array_column($data['retailers'], 'label'));
+
+        foreach ($data['retailers'] as $retailerBlock) {
+            $this->assertSame('not_found', $retailerBlock['status']);
+            $this->assertNull($retailerBlock['bestOffer']);
+        }
     }
 
     public function testVolumePricesReturnsOffersWhenVolumeHasIsbn(): void
@@ -104,6 +119,9 @@ final class GetVolumePricesTest extends AbstractApiTestCase
         $this->assertArrayHasKey('marketplace', $data);
         // NullPriceProvider returns empty offers — just check shape is correct
         $this->assertIsArray($data['offers']);
+
+        // With no offer at all, the three target shops honestly report not_found
+        $this->assertRetailersAllNotFound($data);
     }
 
     public function testVolumePricesRespectsMarketplaceQueryParam(): void

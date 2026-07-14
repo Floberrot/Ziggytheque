@@ -23,7 +23,17 @@ final readonly class EditionLineExtractor
      * @var array<string, string>
      */
     private const array PATTERNS = [
-        // Japanese edition markers (NDL records are titled in kanji).
+        // Companion volumes a collector shelves next to the run — detected first so an
+        // "Art of … Deluxe" resolves to Artbook, not Deluxe.
+        '/画集|イラスト集|原画集/u'                                              => 'Artbook',
+        '/\bart\s?books?\b|\bartworks?\b|\bart\s+of\b|\bl\'?art\s+de\s|\billustrations?\b/iu' => 'Artbook',
+        '/ガイドブック|公式ガイド/u'                                              => 'Guidebook',
+        '/\bguide\s?books?\b|\bofficial\s+guide\b|\bguide\s+officiel\b/iu'    => 'Guidebook',
+        '/ファンブック/u'                                                       => 'Fanbook',
+        '/\bfan\s?books?\b/iu'                                                => 'Fanbook',
+        '/\bdata\s?books?\b|\bcharacter\s?books?\b/iu'                        => 'Databook',
+        // Japanese edition markers (NDL records are titled in kanji), with their
+        // transliterated (romaji) counterparts used by western catalogues.
         '/完全版/u'                                                           => 'Perfect Edition',
         '/愛蔵版/u'                                                           => 'Deluxe',
         '/新装版/u'                                                           => 'Nouvelle édition',
@@ -32,14 +42,21 @@ final readonly class EditionLineExtractor
         '/総集編/u'                                                           => 'Intégrale',
         '/perfect\s*edition/iu'                                              => 'Perfect Edition',
         '/kanzenban/iu'                                                      => 'Perfect Edition',
+        '/\baizoban\b/iu'                                                    => 'Deluxe',
+        '/\bshinso\s?ban\b/iu'                                               => 'Nouvelle édition',
+        '/\bbunko\b/iu'                                                      => 'Bunko',
         '/(?:é|e)dition\s+originale|sens\s+de\s+lecture\s+original/iu'       => 'Édition originale',
         '/(?:é|e)dition\s+double|\bdouble\s+edition\b|\bdouble\b(?=.*tome)/iu' => 'Édition double',
+        '/(?:é|e)dition\s+pilote|\bpilot\s+edition\b/iu'                      => 'Édition pilote',
+        '/\bblack\s+edition\b/iu'                                             => 'Black Edition',
         '/\bprestige\b/iu'                                                    => 'Prestige',
         '/\bmaximum\b/iu'                                                     => 'Maximum',
         '/\bultimate\b/iu'                                                    => 'Ultimate',
         '/\bcollector\b/iu'                                                   => 'Collector',
         '/(?:é|e)dition\s+de\s+luxe|\bdeluxe\b|de\s+luxe/iu'                  => 'Deluxe',
         '/\bcoffret\b|box\s*set|\bbox\b/iu'                                   => 'Coffret',
+        // "20 ans", "20th anniversary", "édition anniversaire", 周年記念…
+        '/anniversair\w*|\banniversary\b|(?:é|e)dition\s+\d+\s*ans|\b\d+\s*ans\s+d|周年/iu' => 'Anniversaire',
         '/(?:é|e)dition\s+couleur|\bcolou?r\s+edition\b|\ben\s+couleur\b/iu'  => 'Édition couleur',
         '/\bint(?:é|e)grale\b|\bomnibus\b|\d\s*[-]?in[-]?\s*\d|\bvizbig\b/iu' => 'Intégrale',
     ];

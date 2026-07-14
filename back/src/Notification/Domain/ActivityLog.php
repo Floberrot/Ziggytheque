@@ -77,6 +77,11 @@ class ActivityLog
             'id'               => $this->id,
             'eventType'        => $this->eventType->value,
             'sourceName'       => $this->sourceName,
+            'owner'            => $this->owner === null ? null : [
+                'id'          => $this->owner->id,
+                'email'       => $this->owner->email,
+                'displayName' => $this->owner->displayName,
+            ],
             'collectionEntryId' => $this->collectionEntry?->id,
             'mangaTitle'       => $this->collectionEntry?->manga->title,
             'status'           => $this->status,
