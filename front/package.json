@@ -19,7 +19,7 @@
     "@tanstack/vue-query": "^5.99.0",
     "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.3",
-    "axios": "^1.16.0",
+    "axios": "^1.18.0",
     "chart.js": "^4.5.1",
     "lucide-vue-next": "^1.0.0",
     "pinia": "^3.0.4",
