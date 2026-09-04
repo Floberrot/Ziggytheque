@@ -8,6 +8,8 @@ use App\Auth\Domain\NotificationChannelEnum;
 use App\Auth\Domain\User;
 use App\Auth\Domain\UserRoleEnum;
 use App\Auth\Domain\UserStatusEnum;
+use App\Shared\Domain\Exception\InvalidDiscordWebhookUrlException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class UserTest extends TestCase
@@ -95,12 +97,61 @@ final class UserTest extends TestCase
         $user->updateNotificationPreferences(
             channel: NotificationChannelEnum::Discord,
             notificationEmail: null,
-            discordWebhookUrl: 'https://discord.com/webhook/xxx',
+            discordWebhookUrl: 'https://discord.com/api/webhooks/123/token',
         );
 
         $this->assertSame(NotificationChannelEnum::Discord, $user->notificationChannel);
         $this->assertNull($user->notificationEmail);
-        $this->assertSame('https://discord.com/webhook/xxx', $user->discordWebhookUrl);
+        $this->assertSame('https://discord.com/api/webhooks/123/token', $user->discordWebhookUrl);
+    }
+
+    /**
+     * The webhook URL is called server-side, so the invariant lives on the
+     * entity: no caller can persist a URL pointing somewhere else.
+     */
+    #[DataProvider('nonDiscordWebhookUrls')]
+    public function testUpdateNotificationPreferencesRejectsNonDiscordWebhook(string $webhookUrl): void
+    {
+        $user = $this->makeUser();
+
+        $this->expectException(InvalidDiscordWebhookUrlException::class);
+
+        $user->updateNotificationPreferences(
+            channel: NotificationChannelEnum::Discord,
+            notificationEmail: null,
+            discordWebhookUrl: $webhookUrl,
+        );
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function nonDiscordWebhookUrls(): iterable
+    {
+        yield 'cloud metadata'     => ['http://169.254.169.254/latest/meta-data/'];
+        yield 'internal service'   => ['http://back:80/api/me'];
+        yield 'lookalike host'     => ['https://discord.com.attacker.example/api/webhooks/1/t'];
+        yield 'userinfo smuggling' => ['https://discord.com@attacker.example/api/webhooks/1/t'];
+        yield 'wrong path'         => ['https://discord.com/webhook/xxx'];
+    }
+
+    /** An absent webhook is normalised to null, so "not set" has one representation. */
+    #[DataProvider('emptyWebhookUrls')]
+    public function testUpdateNotificationPreferencesAcceptsNoWebhook(?string $webhookUrl): void
+    {
+        $user = $this->makeUser();
+        $user->updateNotificationPreferences(
+            channel: NotificationChannelEnum::Email,
+            notificationEmail: 'user@example.com',
+            discordWebhookUrl: $webhookUrl,
+        );
+
+        $this->assertNull($user->discordWebhookUrl);
+    }
+
+    /** @return iterable<string, array{string|null}> */
+    public static function emptyWebhookUrls(): iterable
+    {
+        yield 'null'         => [null];
+        yield 'empty string' => [''];
     }
 
     public function testRecordLoginSetsLastLoginAt(): void

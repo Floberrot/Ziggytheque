@@ -1,7 +1,7 @@
 name: Deploy — Staging
 
-# Continuous staging: every merge to `main` deploys the staging environment.
-# Production stays tag-gated and manual (see deploy-production.yml).
+# Manual staging deploys only. Merging to `main` does NOT deploy anywhere —
+# production is released by dispatching deploy-production.yml from a tag.
 #
 # SAFETY: this workflow deploys ONLY to the staging environment. A `guard` job
 # refuses to run unless a DEDICATED, staging-scoped token and a staging
@@ -10,14 +10,14 @@ name: Deploy — Staging
 #
 # Quality gates mirror deploy-production.yml exactly (phpcs, deptrac, phpstan,
 # db-migrations, tests, frontend, docker-build). The only differences vs prod:
-#   - trigger is a merge to `main` (or manual dispatch), not a tag;
-#   - there is no manual approval gate (staging deploys continuously);
+#   - trigger is a manual dispatch, not a tag;
+#   - there is no manual approval gate;
 #   - every job checks out the chosen `ref` so a manual branch deploy tests and
 #     deploys that branch.
 #
-# Manual branch deploy: deploy ANY branch to staging BEFORE merging to main —
-# run this workflow ("Run workflow"), pick the branch in "Use workflow from"
-# and/or set the `ref` input.
+# Manual branch deploy: deploy ANY branch to staging — run this workflow
+# ("Run workflow"), pick the branch in "Use workflow from" and/or set the
+# `ref` input.
 #
 # Required GitHub secrets:
 #   RAILWAY_STAGING_TOKEN             — Railway token scoped to STAGING (a project
@@ -29,10 +29,8 @@ name: Deploy — Staging
 #   RAILWAY_PRODUCTION_ENVIRONMENT_ID — already set; used only by the guard to
 #                                       assert we are NOT pointing at production
 on:
-  push:
-    branches: [main]
-  # Manual branch deploy: pick a branch in "Use workflow from" and/or fill the
-  # `ref` input to deploy that branch to staging BEFORE merging it to main.
+  # Manual only: pick a branch in "Use workflow from" and/or fill the `ref`
+  # input to deploy that branch to staging.
   workflow_dispatch:
     inputs:
       ref:

@@ -216,6 +216,83 @@ final class AuthControllerTest extends AbstractApiTestCase
         $this->assertJsonStatus(400, $response);
     }
 
+    // ── Rate limiting ──────────────────────────────────────────────────────
+
+    public function testRepeatedLoginFailuresAreRateLimited(): void
+    {
+        UserFixtureFactory::createActiveUser(static::getContainer(), email: 'bruteforce@test.local');
+
+        for ($attempt = 1; $attempt <= 10; $attempt++) {
+            $response = $this->jsonRequest(
+                'POST',
+                '/api/auth/login',
+                ['email' => 'bruteforce@test.local', 'password' => 'wrong-password'],
+                auth: false,
+            );
+
+            self::assertSame(
+                401,
+                $response->getStatusCode(),
+                sprintf('Attempt %d should still be allowed through to the credential check.', $attempt),
+            );
+        }
+
+        $response = $this->jsonRequest(
+            'POST',
+            '/api/auth/login',
+            ['email' => 'bruteforce@test.local', 'password' => 'wrong-password'],
+            auth: false,
+        );
+        $this->assertJsonStatus(429, $response);
+    }
+
+    public function testLoginRateLimitIsScopedToTheTargetedEmail(): void
+    {
+        UserFixtureFactory::createActiveUser(static::getContainer(), email: 'victim@test.local');
+        UserFixtureFactory::createActiveUser(static::getContainer(), email: 'bystander@test.local');
+
+        for ($attempt = 1; $attempt <= 11; $attempt++) {
+            $this->jsonRequest(
+                'POST',
+                '/api/auth/login',
+                ['email' => 'victim@test.local', 'password' => 'wrong-password'],
+                auth: false,
+            );
+        }
+
+        // Another account must not be locked out by the attack on the first one.
+        $response = $this->jsonRequest(
+            'POST',
+            '/api/auth/login',
+            ['email' => 'bystander@test.local', 'password' => 'Test1234!'],
+            auth: false,
+        );
+        $this->assertJsonStatus(200, $response);
+    }
+
+    public function testRepeatedResetRequestsAreRateLimited(): void
+    {
+        UserFixtureFactory::createActiveUser(static::getContainer(), email: 'mailbomb@test.local');
+
+        for ($attempt = 1; $attempt <= 5; $attempt++) {
+            $response = $this->jsonRequest(
+                'POST',
+                '/api/auth/request-reset',
+                ['email' => 'mailbomb@test.local'],
+                auth: false,
+            );
+            $this->assertJsonStatus(200, $response);
+        }
+
+        $response = $this->jsonRequest(
+            'POST',
+            '/api/auth/request-reset',
+            ['email' => 'mailbomb@test.local'],
+            auth: false,
+        );
+        $this->assertJsonStatus(429, $response);
+    }
+
     public function testResetPasswordWithMissingFieldsReturns400(): void
     {
         $response = $this->jsonRequest('POST', '/api/auth/reset-password', [], auth: false);

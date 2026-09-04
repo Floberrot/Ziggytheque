@@ -6,3 +6,20 @@ framework:
         # service in the /messenger dashboard served by the back service.
         app: cache.adapter.doctrine_dbal
         default_doctrine_dbal_provider: doctrine.dbal.default_connection
+        pools:
+            # Rate-limit counters live in their own namespace on top of the app
+            # cache, so clearing the app cache cannot hand a caller a fresh
+            # budget. Still PostgreSQL-backed, so back and worker agree.
+            rate_limiter_cache:
+                adapter: cache.app
+
+when@test:
+    framework:
+        cache:
+            pools:
+                # Filesystem rather than array: an ArrayAdapter is tagged
+                # kernel.reset, so Symfony empties it after every request and a
+                # counter could never span the requests a rate-limit test makes.
+                # AbstractApiTestCase clears this pool per test for isolation.
+                rate_limiter_cache:
+                    adapter: cache.adapter.filesystem

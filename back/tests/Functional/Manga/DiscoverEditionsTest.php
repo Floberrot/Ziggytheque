@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Manga;
 
 use App\Tests\Functional\AbstractApiTestCase;
+use App\Tests\Functional\Fixtures\UserFixtureFactory;
 
 final class DiscoverEditionsTest extends AbstractApiTestCase
 {
@@ -23,6 +24,42 @@ final class DiscoverEditionsTest extends AbstractApiTestCase
 
         $this->assertIsArray($data);
         $this->assertSame([], $data);
+    }
+
+    /**
+     * The limit is keyed on the authenticated user, so one account cannot spend
+     * another's budget — which is what an IP key did behind the proxy.
+     */
+    public function testEditionsRateLimitIsPerUser(): void
+    {
+        $otherUser = UserFixtureFactory::createActiveUser(
+            static::getContainer(),
+            email: 'editions-other@test.local',
+        );
+
+        for ($attempt = 1; $attempt <= 20; $attempt++) {
+            $response = $this->jsonRequest('GET', '/api/manga/editions?q=berserk');
+            $this->assertJsonStatus(200, $response);
+        }
+
+        $response = $this->jsonRequest('GET', '/api/manga/editions?q=berserk');
+        $this->assertJsonStatus(429, $response);
+
+        // A different account still has its own full budget.
+        $otherToken = $this->tokenForUser($otherUser->email);
+        $this->client->request(
+            'GET',
+            '/api/manga/editions?q=berserk',
+            [],
+            [],
+            [
+                'CONTENT_TYPE'       => 'application/json',
+                'HTTP_ACCEPT'        => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $otherToken,
+            ],
+        );
+
+        $this->assertSame(200, $this->client->getResponse()->getStatusCode());
     }
 
     public function testEditionsWithAuthorAndLanguageParams(): void
