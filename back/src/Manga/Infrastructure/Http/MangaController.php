@@ -19,6 +19,7 @@ use App\Manga\Application\Update\UpdateMangaCommand;
 use App\Manga\Application\UpdateVolume\UpdateVolumeCommand;
 use App\Shared\Application\Bus\CommandBusInterface;
 use App\Shared\Application\Bus\QueryBusInterface;
+use App\Shared\Domain\Security\CurrentUserProviderInterface;
 use App\Shared\Infrastructure\RateLimit\CacheRateLimiter;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -37,6 +38,7 @@ final readonly class MangaController
         private CommandBusInterface $commandBus,
         private QueryBusInterface $queryBus,
         private CacheRateLimiter $rateLimiter,
+        private CurrentUserProviderInterface $currentUserProvider,
     ) {
     }
 
@@ -100,8 +102,11 @@ final readonly class MangaController
     #[Route('/editions', methods: ['GET'])]
     public function editions(Request $request): JsonResponse
     {
+        // Keyed on the authenticated user, not getClientIp(): the app runs behind
+        // a proxy with no trusted-proxy configuration, so every request reports
+        // the same IP and an IP key would be one bucket shared by all accounts.
         $this->rateLimiter->consume(
-            'manga_editions:' . ($request->getClientIp() ?? 'anon'),
+            'manga_editions:' . $this->currentUserProvider->currentUserId(),
             self::EDITIONS_RATE_LIMIT,
             self::EDITIONS_RATE_WINDOW,
         );

@@ -5,6 +5,17 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    # Baseline hardening. `always` so they are set on error responses too.
+    # No CSP here: the SPA's inline styles and the camera-based scanner need a
+    # policy tuned against a real build, which belongs in its own change.
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options SAMEORIGIN always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    add_header Cross-Origin-Opener-Policy same-origin always;
+    # HSTS: Railway terminates TLS in front of nginx and serves www over HTTPS
+    # only. No `preload`, and no includeSubDomains while other hosts exist.
+    add_header Strict-Transport-Security "max-age=31536000" always;
+
     # Public DNS resolver — 127.0.0.11 is Docker Compose only, not available on Railway
     resolver 8.8.8.8 8.8.4.4 valid=30s ipv6=off;
 

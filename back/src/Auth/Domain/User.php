@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Auth\Domain;
 
+use App\Shared\Domain\Exception\InvalidDiscordWebhookUrlException;
+use App\Shared\Domain\ValueObject\DiscordWebhookUrl;
 use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
 use RuntimeException;
@@ -84,14 +86,22 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->passwordHash = $newPasswordHash;
     }
 
+    /** @throws InvalidDiscordWebhookUrlException when $discordWebhookUrl is not a Discord webhook. */
     public function updateNotificationPreferences(
         NotificationChannelEnum $channel,
         ?string $notificationEmail,
         ?string $discordWebhookUrl,
     ): void {
+        // The server POSTs to this URL itself, so an arbitrary value would be an
+        // SSRF vector. Enforced here so every caller — profile, admin, future —
+        // is covered, not only the HTTP payload validator.
+        $webhook = $discordWebhookUrl === null || $discordWebhookUrl === ''
+            ? null
+            : DiscordWebhookUrl::fromString($discordWebhookUrl)->value;
+
         $this->notificationChannel = $channel;
         $this->notificationEmail   = $notificationEmail;
-        $this->discordWebhookUrl   = $discordWebhookUrl;
+        $this->discordWebhookUrl   = $webhook;
     }
 
     public function recordLogin(): void

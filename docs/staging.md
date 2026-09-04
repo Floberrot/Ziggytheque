@@ -2,12 +2,12 @@
 
 Staging est un **réplica isolé de la production** sur le même projet Railway :
 les mêmes 4 services (backend FrankenPHP, worker Messenger, frontend nginx,
-PostgreSQL), déployés en continu à chaque merge sur `main`, avec une copie des
+PostgreSQL), déployés **à la demande** (dispatch manuel), avec une copie des
 **données de prod anonymisées** (RGPD).
 
 | | Production | Staging |
 |---|---|---|
-| Déclencheur de déploiement | Tag + dispatch manuel (`deploy-production.yml`) | Merge sur `main` (`deploy-staging.yml`) |
+| Déclencheur de déploiement | Tag + dispatch manuel (`deploy-production.yml`) | Dispatch manuel (`deploy-staging.yml`) |
 | Données | Réelles | Copie de prod **anonymisée** |
 | Base de données | Postgres prod | Postgres staging (séparée) |
 | Domaine | `www.ziggytheque.fr` | domaine staging dédié |
@@ -80,20 +80,22 @@ railway run --environment staging --service ziggytheque-back -- \
 
 ---
 
-## 3. Auto-déploiement au merge sur `main`
+## 3. Déploiement manuel de staging
 
 Le workflow [`.github/workflows/deploy-staging.yml`](../.github/workflows/deploy-staging.yml)
-déploie staging **à chaque merge sur `main`** : il rejoue **les mêmes gates QA
+se déclenche **uniquement sur dispatch manuel** : il rejoue **les mêmes gates QA
 que la prod** (PHP_CodeSniffer, Deptrac, PHPStan, migrations, PHPUnit, frontend
 vue-tsc + ESLint, build Docker), puis `railway up` des 3 services vers
 l'environnement staging (worker → backend, frontend en parallèle). Seules
-différences avec la prod : le déclencheur est un merge sur `main` (pas un tag)
-et il n'y a pas de gate d'approbation manuelle (staging déploie en continu). La
-prod reste tag-gated et manuelle.
+différences avec la prod : le déclencheur n'est pas un tag et il n'y a pas de
+gate d'approbation manuelle. La prod reste tag-gated et manuelle.
 
-### Déployer une branche sur staging *avant* de merger sur `main`
+> Un merge sur `main` ne déploie **rien**, ni staging ni prod : la seule mise en
+> production passe par un tag dispatché sur `deploy-production.yml`.
 
-Pour tester une branche sur staging avant le merge :
+### Déployer une branche sur staging
+
+Pour tester une branche sur staging :
 
 1. GitHub → onglet **Actions** → workflow **« Deploy — Staging »** → **Run workflow**.
 2. Dans **« Use workflow from »**, choisis ta branche *(et/ou renseigne le champ
@@ -103,7 +105,7 @@ Pour tester une branche sur staging avant le merge :
    écrase le précédent).
 
 > Le workflow n'est dispatchable que s'il existe sur la branche par défaut
-> (`main`) : cette PR doit donc être mergée une première fois pour que l'option
+> (`main`) : il doit donc y avoir été mergé une première fois pour que l'option
 > « Run workflow » apparaisse.
 
 **Secrets GitHub à ajouter** (Settings → Secrets and variables → Actions) :
@@ -119,11 +121,10 @@ dernier sert au garde-fou ci-dessous).
 > 🛡️ **Garde-fou anti-prod** : un job `guard` en tête du workflow **refuse de
 > déployer** si `RAILWAY_STAGING_TOKEN` ou `RAILWAY_STAGING_ENVIRONMENT_ID` est
 > absent, ou si l'id staging = id prod. Tant que ces secrets ne sont pas
-> configurés, chaque merge sur `main` fait **échouer** le workflow (croix rouge)
-> sans rien déployer — il ne peut donc **plus** retomber sur la production.
+> configurés, chaque dispatch fait **échouer** le workflow (croix rouge) sans
+> rien déployer — il ne peut donc **plus** retomber sur la production.
 
-> Pour ajuster le déclencheur (ex. déployer depuis une branche `staging` plutôt
-> que `main`), modifie le bloc `on:` du workflow.
+> Pour ajouter un déclencheur automatique, modifie le bloc `on:` du workflow.
 
 ---
 
@@ -178,4 +179,4 @@ railway run --environment staging --service ziggytheque-back -- \
 - [ ] Ajouter le secret GitHub `RAILWAY_STAGING_ENVIRONMENT_ID` (id de l'env staging).
 - [ ] Re-saisir les variables sealed + régler CORS/Mercure/domaine staging.
 - [ ] (optionnel) Copier + anonymiser les données de prod.
-- [ ] Vérifier un premier déploiement (`workflow_dispatch`, puis merge sur `main`).
+- [ ] Vérifier un premier déploiement (`workflow_dispatch`).

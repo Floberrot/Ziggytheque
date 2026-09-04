@@ -308,7 +308,7 @@ services:
     # Generic cache-backed rate limiter (no symfony/rate-limiter dependency).
     App\Shared\Infrastructure\RateLimit\CacheRateLimiter:
         arguments:
-            $pool: '@cache.app'
+            $pool: '@rate_limiter_cache'
 
     # Keyless summary translation (Google "gtx" web endpoint) — English → French.
     App\Manga\Domain\SummaryTranslatorInterface:
@@ -414,6 +414,11 @@ services:
 
 when@test:
     services:
+        # Lets AbstractApiTestCase clear rate-limit counters between tests.
+        test.rate_limiter_cache:
+            alias: rate_limiter_cache
+            public: true
+
         App\Manga\Domain\ExternalApiClientInterface:
             alias: App\Manga\Infrastructure\ExternalApi\NullMangaApiClient
         App\Manga\Domain\EditionProviderInterface:

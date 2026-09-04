@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Functional;
 
 use App\Tests\Functional\Fixtures\UserFixtureFactory;
+use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
@@ -18,7 +19,21 @@ abstract class AbstractApiTestCase extends WebTestCase
     {
         parent::setUp();
         $this->client = static::createClient();
+        $this->clearRateLimitCounters();
         $this->token  = $this->fetchAuthToken();
+    }
+
+    /**
+     * Rate-limit counters live in a filesystem pool in the test env (an array
+     * pool is reset after every request, so a counter could never span the
+     * requests a rate-limit test makes). That pool outlives the kernel, so it
+     * is emptied here: no test may spend another test's budget.
+     */
+    private function clearRateLimitCounters(): void
+    {
+        /** @var CacheItemPoolInterface $pool */
+        $pool = static::getContainer()->get('test.rate_limiter_cache');
+        $pool->clear();
     }
 
     private function fetchAuthToken(): string

@@ -82,6 +82,18 @@ final class GateControllerTest extends AbstractApiTestCase
         $this->assertSame(403, $this->client->getResponse()->getStatusCode());
     }
 
+    public function testRepeatedWrongPasswordsAreRateLimited(): void
+    {
+        for ($attempt = 1; $attempt <= 10; $attempt++) {
+            $response = $this->jsonRequest('POST', '/api/auth/gate', ['password' => 'wrong']);
+
+            $this->assertJsonStatus(401, $response);
+        }
+
+        $response = $this->jsonRequest('POST', '/api/auth/gate', ['password' => 'wrong']);
+        $this->assertJsonStatus(429, $response);
+    }
+
     public function testTokenIsUsableForProtectedRoute(): void
     {
         $response = $this->jsonRequest('GET', '/api/collection');

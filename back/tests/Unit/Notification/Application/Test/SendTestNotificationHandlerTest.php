@@ -14,6 +14,7 @@ use App\Notification\Domain\TestNotificationRecipient;
 use App\Notification\Domain\TestNotificationRecipientResolverInterface;
 use App\Shared\Domain\Exception\NotFoundException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -149,6 +150,35 @@ final class SendTestNotificationHandlerTest extends TestCase
         $this->notificationRepository->expects($this->once())->method('save');
 
         $this->handler()(new SendTestNotificationMessage('user-1'));
+    }
+
+    /**
+     * Preferences saved before the URL was validated are still in the database,
+     * so the webhook is re-checked here rather than trusted on read.
+     */
+    #[DataProvider('nonDiscordWebhooks')]
+    public function testDiscordWebhookOutsideDiscordIsNeverRequested(string $webhook): void
+    {
+        $this->recipientResolver->method('resolve')->willReturn($this->discordRecipient($webhook));
+
+        $this->httpClient->expects($this->never())->method('request');
+        $this->notificationRepository->expects($this->once())
+            ->method('save')
+            ->with($this->callback(function (Notification $notification): bool {
+                $this->assertSame('test_failure', $notification->type);
+                return true;
+            }));
+
+        $this->handler()(new SendTestNotificationMessage('user-1'));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function nonDiscordWebhooks(): iterable
+    {
+        yield 'cloud metadata'     => ['http://169.254.169.254/latest/meta-data/'];
+        yield 'internal service'   => ['http://back:80/api/me'];
+        yield 'lookalike host'     => ['https://discord.com.attacker.example/api/webhooks/1/t'];
+        yield 'userinfo smuggling' => ['https://discord.com@attacker.example/api/webhooks/1/t'];
     }
 
     public function testUnknownUserPropagatesNotFound(): void

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Auth;
 
 use App\Tests\Functional\AbstractApiTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 final class ProfileControllerTest extends AbstractApiTestCase
 {
@@ -45,6 +46,32 @@ final class ProfileControllerTest extends AbstractApiTestCase
             'discordWebhookUrl' => 'https://discord.com/api/webhooks/xxx/yyy',
         ]);
         $this->assertJsonStatus(200, $response);
+    }
+
+    /**
+     * The server POSTs to this URL itself, so anything but a real Discord
+     * webhook would turn the endpoint into an SSRF primitive.
+     */
+    #[DataProvider('rejectedWebhookUrls')]
+    public function testUpdateNotificationsRejectsNonDiscordWebhook(string $webhookUrl): void
+    {
+        $response = $this->jsonRequest('PATCH', '/api/me/notifications', [
+            'channel' => 'discord',
+            'discordWebhookUrl' => $webhookUrl,
+        ]);
+        $this->assertJsonStatus(422, $response);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function rejectedWebhookUrls(): iterable
+    {
+        yield 'cloud metadata'     => ['http://169.254.169.254/latest/meta-data/'];
+        yield 'internal service'   => ['http://back:80/api/me'];
+        yield 'loopback'           => ['http://127.0.0.1:8000/api/stats'];
+        yield 'lookalike host'     => ['https://discord.com.attacker.example/api/webhooks/1/t'];
+        yield 'userinfo smuggling' => ['https://discord.com@attacker.example/api/webhooks/1/t'];
+        yield 'plain http discord' => ['http://discord.com/api/webhooks/1/t'];
+        yield 'wrong discord path' => ['https://discord.com/api/users/@me'];
     }
 
     public function testUpdateNotificationsRequiresChannel(): void

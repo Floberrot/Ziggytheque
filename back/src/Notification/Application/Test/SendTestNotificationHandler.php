@@ -8,6 +8,7 @@ use App\Notification\Domain\Notification;
 use App\Notification\Domain\NotificationRepositoryInterface;
 use App\Notification\Domain\TestNotificationRecipient;
 use App\Notification\Domain\TestNotificationRecipientResolverInterface;
+use App\Shared\Domain\ValueObject\DiscordWebhookUrl;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Psr\Log\LoggerInterface;
@@ -96,6 +97,14 @@ final readonly class SendTestNotificationHandler
         $webhook = $recipient->discordWebhookUrl;
         if ($webhook === null || $webhook === '') {
             throw new TestNotificationConfigurationException('No Discord webhook configured.');
+        }
+
+        // Re-checked at send time, not only when the preference was saved: rows
+        // stored before the URL was validated must not become an SSRF vector.
+        if (!DiscordWebhookUrl::isValid($webhook)) {
+            throw new TestNotificationConfigurationException(
+                'Configured Discord webhook is not a valid discord.com webhook URL.',
+            );
         }
 
         $payload = [
