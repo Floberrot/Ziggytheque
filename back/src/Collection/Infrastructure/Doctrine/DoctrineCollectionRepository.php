@@ -37,6 +37,18 @@ final readonly class DoctrineCollectionRepository implements CollectionRepositor
             ->findOneBy(['manga' => $mangaId]);
     }
 
+    public function findByMangaIds(array $mangaIds): array
+    {
+        if ($mangaIds === []) {
+            return [];
+        }
+
+        /** @var list<CollectionEntry> $entries */
+        $entries = $this->em->getRepository(CollectionEntry::class)->findBy(['manga' => $mangaIds]);
+
+        return $entries;
+    }
+
     public function findAll(): array
     {
         return $this->em->getRepository(CollectionEntry::class)
@@ -51,7 +63,7 @@ final readonly class DoctrineCollectionRepository implements CollectionRepositor
             ->join('ce.manga', 'm');
 
         if ($query->search !== null && $query->search !== '') {
-            $qb->andWhere('LOWER(m.title) LIKE LOWER(:search)')
+            $qb->andWhere("LOWER(CONCAT(m.title, ' ', COALESCE(m.specialEdition, ''))) LIKE LOWER(:search)")
                ->setParameter('search', '%' . $query->search . '%');
         }
 
@@ -61,7 +73,7 @@ final readonly class DoctrineCollectionRepository implements CollectionRepositor
         }
 
         if ($query->edition !== null && $query->edition !== '') {
-            $qb->andWhere('LOWER(m.edition) LIKE LOWER(:edition)')
+            $qb->andWhere('LOWER(m.edition) LIKE LOWER(:edition) OR LOWER(m.specialEdition) LIKE LOWER(:edition)')
                ->setParameter('edition', '%' . $query->edition . '%');
         }
 
@@ -109,7 +121,15 @@ final readonly class DoctrineCollectionRepository implements CollectionRepositor
             CollectionSortEnum::RatingDesc => $qb
                 ->addSelect('COALESCE(ce.rating, -1) AS HIDDEN sort_key')
                 ->orderBy('sort_key', 'DESC'),
-            default => $qb->orderBy('ce.addedAt', 'DESC'),
+            CollectionSortEnum::AddedDesc => $qb->orderBy('ce.addedAt', 'DESC'),
+            default => $qb
+                ->addSelect('LOWER(m.title) AS HIDDEN title_key')
+                ->addSelect("LOWER(COALESCE(m.edition, '')) AS HIDDEN publisher_key")
+                ->addSelect("LOWER(COALESCE(m.specialEdition, '')) AS HIDDEN special_edition_key")
+                ->orderBy('title_key', 'ASC')
+                ->addOrderBy('publisher_key', 'ASC')
+                ->addOrderBy('special_edition_key', 'ASC')
+                ->addOrderBy('ce.id', 'ASC'),
         };
 
         $offset = ($query->page - 1) * $query->limit;
@@ -139,7 +159,7 @@ final readonly class DoctrineCollectionRepository implements CollectionRepositor
             );
 
         if ($query->search !== null && $query->search !== '') {
-            $qb->andWhere('LOWER(m.title) LIKE LOWER(:search)')
+            $qb->andWhere("LOWER(CONCAT(m.title, ' ', COALESCE(m.specialEdition, ''))) LIKE LOWER(:search)")
                ->setParameter('search', '%' . $query->search . '%');
         }
 

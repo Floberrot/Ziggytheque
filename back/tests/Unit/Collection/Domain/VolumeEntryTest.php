@@ -55,4 +55,23 @@ final class VolumeEntryTest extends TestCase
         $this->assertSame('Great volume!', $arr['review']);
         $this->assertSame(8, $arr['rating']);
     }
+
+    public function testMarkOwnedClearsWishedAndAnnounced(): void
+    {
+        $manga       = new Manga(id: 'm-owned', title: 'Berserk', edition: null, language: 'fr');
+        $entry       = new CollectionEntry(id: 'ce-owned', manga: $manga);
+        $volumeEntry = new VolumeEntry(
+            id: 've-owned',
+            collectionEntry: $entry,
+            volume: new Volume(id: 'v-owned', manga: $manga, number: 1),
+            isWished: true,
+            isAnnounced: true,
+        );
+
+        $volumeEntry->markOwned();
+
+        $this->assertTrue($volumeEntry->isOwned);
+        $this->assertFalse($volumeEntry->isWished);
+        $this->assertFalse($volumeEntry->isAnnounced);
+    }
 }

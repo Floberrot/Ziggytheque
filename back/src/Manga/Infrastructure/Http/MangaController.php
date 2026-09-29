@@ -6,21 +6,17 @@ namespace App\Manga\Infrastructure\Http;
 
 use App\Manga\Application\AddVolume\AddVolumeCommand;
 use App\Manga\Application\AutoCovers\StartCoverBatchCommand;
-use App\Manga\Application\DiscoverEditions\DiscoverEditionsQuery;
 use App\Manga\Application\FindCoverByIsbn\FindCoverByIsbnQuery;
 use App\Manga\Application\Get\GetMangaQuery;
 use App\Manga\Application\GetVolumePrices\GetVolumePricesQuery;
 use App\Manga\Application\Import\ImportMangaCommand;
 use App\Manga\Application\Search\SearchMangaQuery;
-use App\Manga\Application\SearchExternal\SearchExternalMangaQuery;
 use App\Manga\Application\SearchVolumeExternal\SearchVolumeExternalQuery;
 use App\Manga\Application\TranslateSummary\TranslateSummaryQuery;
 use App\Manga\Application\Update\UpdateMangaCommand;
 use App\Manga\Application\UpdateVolume\UpdateVolumeCommand;
 use App\Shared\Application\Bus\CommandBusInterface;
 use App\Shared\Application\Bus\QueryBusInterface;
-use App\Shared\Domain\Security\CurrentUserProviderInterface;
-use App\Shared\Infrastructure\RateLimit\CacheRateLimiter;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -30,15 +26,9 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/api/manga')]
 final readonly class MangaController
 {
-    /** Edition discovery fans out to many catalogues — cap it per client. */
-    private const int EDITIONS_RATE_LIMIT = 20;
-    private const int EDITIONS_RATE_WINDOW = 60;
-
     public function __construct(
         private CommandBusInterface $commandBus,
         private QueryBusInterface $queryBus,
-        private CacheRateLimiter $rateLimiter,
-        private CurrentUserProviderInterface $currentUserProvider,
     ) {
     }
 
@@ -48,17 +38,6 @@ final readonly class MangaController
         $query = $request->query->get('q', '');
 
         return new JsonResponse($this->queryBus->ask(new SearchMangaQuery($query)));
-    }
-
-    #[Route('/external', methods: ['GET'])]
-    public function searchExternal(Request $request): JsonResponse
-    {
-        $query    = $request->query->get('q', '');
-        $type     = $request->query->get('type', 'manga');
-        $page     = max(1, (int) $request->query->get('page', 1));
-        $provider = $request->query->get('provider', '');
-
-        return new JsonResponse($this->queryBus->ask(new SearchExternalMangaQuery($query, $type, $page, $provider)));
     }
 
     #[Route('/cover-by-isbn', methods: ['GET'])]
@@ -98,26 +77,6 @@ final readonly class MangaController
         return new JsonResponse($this->queryBus->ask(new TranslateSummaryQuery($request->text)));
     }
 
-    /** Discover all editions of a work across sources (BnF, Open Library, Google Books). */
-    #[Route('/editions', methods: ['GET'])]
-    public function editions(Request $request): JsonResponse
-    {
-        // Keyed on the authenticated user, not getClientIp(): the app runs behind
-        // a proxy with no trusted-proxy configuration, so every request reports
-        // the same IP and an IP key would be one bucket shared by all accounts.
-        $this->rateLimiter->consume(
-            'manga_editions:' . $this->currentUserProvider->currentUserId(),
-            self::EDITIONS_RATE_LIMIT,
-            self::EDITIONS_RATE_WINDOW,
-        );
-
-        return new JsonResponse($this->queryBus->ask(new DiscoverEditionsQuery(
-            query:    (string) $request->query->get('q', ''),
-            author:   $request->query->get('author'),
-            language: $request->query->get('language'),
-        )));
-    }
-
     #[Route('/{id}', methods: ['GET'])]
     public function get(string $id): JsonResponse
     {
@@ -130,6 +89,7 @@ final readonly class MangaController
         $id = $this->commandBus->dispatch(new ImportMangaCommand(
             title: $request->title,
             edition: $request->edition,
+            specialEdition: $request->specialEdition,
             language: $request->language,
             author: $request->author,
             summary: $request->summary,
@@ -149,6 +109,7 @@ final readonly class MangaController
             mangaId: $id,
             title: $request->title,
             edition: $request->edition,
+            specialEdition: $request->specialEdition,
             coverUrl: $request->coverUrl,
         ));
 
@@ -196,20 +157,6 @@ final readonly class MangaController
         ));
 
         return new JsonResponse($result->toArray(), Response::HTTP_ACCEPTED);
-    }
-
-    /** Discover all editions of a specific manga work (by its persisted title/author). */
-    #[Route('/{id}/editions', methods: ['GET'])]
-    public function mangaEditions(string $id): JsonResponse
-    {
-        /** @var array{title?: string, author?: string|null} $manga */
-        $manga = $this->queryBus->ask(new GetMangaQuery($id));
-
-        return new JsonResponse($this->queryBus->ask(new DiscoverEditionsQuery(
-            query:    $manga['title'] ?? '',
-            author:   $manga['author'] ?? null,
-            language: null,
-        )));
     }
 
     /** Fetch live price offers for a volume via its ISBN. */

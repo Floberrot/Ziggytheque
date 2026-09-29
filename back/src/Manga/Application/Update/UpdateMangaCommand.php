@@ -10,6 +10,7 @@ final readonly class UpdateMangaCommand
         public string $mangaId,
         public ?string $title = null,
         public ?string $edition = null,
+        public ?string $specialEdition = null,
         public ?string $coverUrl = null,
     ) {
     }

@@ -37,6 +37,9 @@ final readonly class UpdateMangaHandler
                 $manga->edition = $command->edition === '' ? null : $command->edition;
             }
 
+            if ($command->specialEdition !== null) {
+                $manga->specialEdition = $command->specialEdition === '' ? null : $command->specialEdition;
+            }
             if ($command->coverUrl !== null) {
                 $manga->coverUrl = $command->coverUrl === '' ? null : $command->coverUrl;
             }

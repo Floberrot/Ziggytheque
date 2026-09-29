@@ -17,6 +17,8 @@ final readonly class ImportMangaRequest
         public string $language,
         #[Assert\Length(max: 100)]
         public ?string $edition = null,
+        #[Assert\Length(max: 150)]
+        public ?string $specialEdition = null,
         public ?string $author = null,
         public ?string $summary = null,
         public ?string $coverUrl = null,

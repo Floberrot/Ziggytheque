@@ -21,6 +21,7 @@ export async function importManga(payload: {
   title: string
   language: string
   edition?: string
+  specialEdition?: string
   author?: string
   summary?: string
   coverUrl?: string
@@ -59,7 +60,7 @@ export async function searchVolumeExternal(
 
 export async function updateManga(
   id: string,
-  payload: { title?: string; edition?: string; coverUrl?: string },
+  payload: { title?: string; edition?: string; specialEdition?: string; coverUrl?: string },
 ): Promise<void> {
   await client.patch(`/manga/${id}`, payload)
 }
@@ -101,10 +102,10 @@ export interface ScanSessionResponse {
   topic: string
 }
 
-export async function createScanSession(payload: {
-  mangaId: string
-  volumeId: string
-}): Promise<ScanSessionResponse> {
+/** With a manga + volume the session targets that tome; without, it feeds the add page. */
+export async function createScanSession(
+  payload: { mangaId: string; volumeId: string } | Record<string, never> = {},
+): Promise<ScanSessionResponse> {
   const res = await client.post('/scan/sessions', payload)
   return res.data
 }
@@ -125,44 +126,6 @@ export async function autoFillCovers(
   payload: { force?: boolean; volumeIds?: string[] | null } = {},
 ): Promise<CoverBatchStartResponse> {
   const res = await client.post(`/manga/${mangaId}/auto-covers`, payload)
-  return res.data
-}
-
-export type EditionFormat =
-  | 'broche'
-  | 'relie'
-  | 'coffret'
-  | 'deluxe'
-  | 'omnibus'
-  | 'artbook'
-  | 'unknown'
-
-export interface ExternalEdition {
-  workTitle: string
-  editionLabel: string
-  publisher: string | null
-  language: string
-  country: string | null
-  format: EditionFormat
-  volumeCount: number | null
-  isbnSample: string | null
-  coverUrl: string | null
-  source: string
-  externalId: string | null
-  editionLine: string | null
-}
-
-export async function discoverEditions(params: {
-  q: string
-  author?: string | null
-  language?: string | null
-}): Promise<ExternalEdition[]> {
-  const res = await client.get('/manga/editions', { params })
-  return res.data
-}
-
-export async function mangaEditions(mangaId: string): Promise<ExternalEdition[]> {
-  const res = await client.get(`/manga/${mangaId}/editions`)
   return res.data
 }
 

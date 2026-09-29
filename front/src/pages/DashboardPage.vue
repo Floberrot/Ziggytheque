@@ -13,6 +13,7 @@ import TopAuthorsList from '@/components/molecules/TopAuthorsList.vue'
 import ShareModal from '@/components/organisms/ShareModal.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
 import { coverUrl } from '@/utils/coverUrl'
+import { editionLabel } from '@/utils/edition'
 
 const { t, locale } = useI18n()
 const { data: stats, isPending } = useQuery({ queryKey: ['stats'], queryFn: getStats })
@@ -213,7 +214,9 @@ const today = computed(() =>
                 </div>
               </div>
               <p class="text-xs font-medium text-center line-clamp-2 leading-tight w-full">{{ entry.manga.title }}</p>
-              <p class="text-xs text-base-content/40 text-center truncate w-full">{{ entry.manga.edition }}</p>
+              <p class="text-xs text-base-content/40 text-center truncate w-full">
+                {{ editionLabel(entry.manga.edition, entry.manga.specialEdition) }}
+              </p>
             </router-link>
           </div>
         </div>

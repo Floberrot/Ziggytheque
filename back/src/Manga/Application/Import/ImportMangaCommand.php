@@ -10,6 +10,7 @@ final readonly class ImportMangaCommand
         public string $title,
         public string $language,
         public ?string $edition = null,
+        public ?string $specialEdition = null,
         public ?string $author = null,
         public ?string $summary = null,
         public ?string $coverUrl = null,

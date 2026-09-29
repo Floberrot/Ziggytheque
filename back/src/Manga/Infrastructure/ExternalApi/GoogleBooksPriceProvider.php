@@ -21,7 +21,7 @@ final readonly class GoogleBooksPriceProvider implements VolumePriceProviderInte
     /**
      * Sentinel values the env-sync tooling (and back/.env defaults) leave in place of a
      * real key — sending them yields silent 403s, so treat them as "no key configured".
-     * Same pattern as {@see GoogleBooksEditionProvider}.
+     * Same pattern as {@see GoogleBooksCatalogue}.
      *
      * @var list<string>
      */

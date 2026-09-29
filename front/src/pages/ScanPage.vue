@@ -9,22 +9,30 @@ import BaseLoader from '@/components/atoms/BaseLoader.vue'
 const { t } = useI18n()
 const route = useRoute()
 const token = route.params.token as string
+// Opened from the "add a manga" page: scan a whole shelf without tapping in between.
+const isBatch = route.query.batch === '1'
 
 const videoRef = ref<HTMLVideoElement | null>(null)
-const { isScanning, errorMessage: cameraError, start: startScanner } = useBarcodeScanner()
+const { isScanning, errorMessage: cameraError, start: startScanner, startContinuous } = useBarcodeScanner()
 
 const successIsbn = ref<string | null>(null)
 const scanError = ref<string | null>(null)
 const isSubmitting = ref(false)
+const sentIsbns = ref<string[]>([])
 
 async function onScan(isbn: string): Promise<void> {
-  if (isSubmitting.value) return
+  // One-shot mode waits for the answer; a shelf scan never drops the next book.
+  if (isSubmitting.value && !isBatch) return
   isSubmitting.value = true
   scanError.value = null
 
   try {
     await submitScan({ scanToken: token, isbn })
-    successIsbn.value = isbn
+    if (isBatch) {
+      sentIsbns.value = [isbn, ...sentIsbns.value]
+    } else {
+      successIsbn.value = isbn
+    }
   } catch (err: unknown) {
     const status = (err as { response?: { status?: number } })?.response?.status
     if (status === 410) {
@@ -48,7 +56,10 @@ function scanAnother(): void {
 }
 
 onMounted(() => {
-  if (videoRef.value) {
+  if (!videoRef.value) return
+  if (isBatch) {
+    startContinuous(videoRef.value, onScan)
+  } else {
     startScanner(videoRef.value, onScan)
   }
 })
@@ -94,6 +105,11 @@ onMounted(() => {
           <div v-if="isScanning && !cameraError" class="flex items-center gap-2 text-sm text-base-content/50 justify-center">
             <BaseLoader size="xs" />
             Recherche du code-barres…
+          </div>
+
+          <div v-if="isBatch && sentIsbns.length" class="space-y-1 text-center">
+            <p class="text-success font-semibold text-sm">{{ t('scan.batchSent', { count: sentIsbns.length }, sentIsbns.length) }}</p>
+            <p class="text-xs text-base-content/50 font-mono">{{ sentIsbns[0] }}</p>
           </div>
         </template>
       </div>

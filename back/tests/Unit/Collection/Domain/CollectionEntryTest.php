@@ -112,4 +112,69 @@ final class CollectionEntryTest extends TestCase
 
         $this->assertSame('in_progress', $entry->toArray()['readingStatus']);
     }
+
+    public function testTrackMissingVolumesAddsAnEntryForEveryUntrackedVolume(): void
+    {
+        $manga = $this->makeManga();
+        $entry = new CollectionEntry(id: 'ce-track', manga: $manga);
+        $this->addVolume($entry, 'v1', 1, owned: true);
+        $manga->addVolume($entry->volumeEntries->first()->volume);
+        $manga->ensureVolumesUpTo(3);
+
+        $this->assertSame(2, $entry->trackMissingVolumes());
+        $this->assertCount(3, $entry->volumeEntries);
+        $this->assertSame(0, $entry->trackMissingVolumes());
+        $this->assertTrue($entry->volumeEntryForNumber(1)?->isOwned);
+    }
+
+    public function testVolumeEntryForNumberReturnsNullWhenUntracked(): void
+    {
+        $entry = new CollectionEntry(id: 'ce-number', manga: $this->makeManga());
+        $this->addVolume($entry, 'v1', 1);
+
+        $this->assertSame('ve-v1', $entry->volumeEntryForNumber(1)?->id);
+        $this->assertNull($entry->volumeEntryForNumber(2));
+    }
+
+    public function testRefreshReadingStatusFollowsOwnedAndReadVolumes(): void
+    {
+        $entry = new CollectionEntry(id: 'ce-status', manga: $this->makeManga());
+        $first = $this->addVolume($entry, 'v1', 1);
+        $second = $this->addVolume($entry, 'v2', 2);
+
+        $entry->refreshReadingStatus();
+        $this->assertSame(ReadingStatusEnum::NotStarted, $entry->readingStatus);
+
+        $first->isOwned = true;
+        $entry->refreshReadingStatus();
+        $this->assertSame(ReadingStatusEnum::InProgress, $entry->readingStatus);
+
+        $first->isRead = true;
+        $second->isRead = true;
+        $entry->refreshReadingStatus();
+        $this->assertSame(ReadingStatusEnum::Completed, $entry->readingStatus);
+    }
+
+    public function testRefreshReadingStatusKeepsDroppedAndOnHold(): void
+    {
+        $dropped = new CollectionEntry(id: 'ce-dropped', manga: $this->makeManga(), readingStatus: ReadingStatusEnum::Dropped);
+        $this->addVolume($dropped, 'v1', 1, owned: true, read: true);
+        $onHold = new CollectionEntry(id: 'ce-hold', manga: $this->makeManga('m2'), readingStatus: ReadingStatusEnum::OnHold);
+        $this->addVolume($onHold, 'v2', 1, owned: true);
+
+        $dropped->refreshReadingStatus();
+        $onHold->refreshReadingStatus();
+
+        $this->assertSame(ReadingStatusEnum::Dropped, $dropped->readingStatus);
+        $this->assertSame(ReadingStatusEnum::OnHold, $onHold->readingStatus);
+    }
+
+    public function testRefreshReadingStatusIgnoresAnEntryWithoutVolumes(): void
+    {
+        $entry = new CollectionEntry(id: 'ce-empty', manga: $this->makeManga(), readingStatus: ReadingStatusEnum::Completed);
+
+        $entry->refreshReadingStatus();
+
+        $this->assertSame(ReadingStatusEnum::Completed, $entry->readingStatus);
+    }
 }

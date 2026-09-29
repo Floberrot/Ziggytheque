@@ -6,7 +6,8 @@ export interface CollectionFilters {
   genre?: string
   edition?: string
   readingStatus?: string
-  sort?: 'rating_asc' | 'rating_desc'
+  /** Omitted = by work (A → Z), so every edition of a work sits together. */
+  sort?: 'added_desc' | 'rating_asc' | 'rating_desc'
   followed?: boolean
   hasOwned?: boolean
   hasRead?: boolean

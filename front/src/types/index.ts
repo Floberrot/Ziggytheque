@@ -10,7 +10,10 @@ export interface Volume {
 export interface Manga {
   id: string
   title: string
+  /** Publisher ("Glénat", "Pika"…) — historically named `edition`. */
   edition: string | null
+  /** Special edition name as the catalogue records it ("Prestige"…) — null for the standard run. */
+  specialEdition: string | null
   language: string
   author: string | null
   summary: string | null
@@ -194,3 +197,30 @@ export interface Notification {
   isRead: boolean
   createdAt: string
 }
+
+/** Tomes picked in a catalogue series, plus the user's corrections of the series. */
+export interface CatalogueSelection {
+  ownedNumbers: number[]
+  workTitle: string
+  publisher: string | null
+  specialEdition: string | null
+}
+
+export type ScanFeedStatus = 'pending' | 'added' | 'owned' | 'notFound' | 'invalid' | 'error' | 'undone'
+
+/** One barcode read while scanning a shelf, with what it did to the collection. */
+export interface ScanFeedItem {
+  id: number
+  code: string
+  status: ScanFeedStatus
+  workTitle: string | null
+  publisher: string | null
+  specialEdition: string | null
+  volumeNumber: number | null
+  coverUrl: string | null
+  seriesCreated: boolean
+  totalVolumes: number | null
+  collectionEntryId: string | null
+  volumeEntryId: string | null
+}
+

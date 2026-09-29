@@ -11,6 +11,7 @@ use DateTimeInterface;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'collection_entries')]
@@ -54,6 +55,72 @@ class CollectionEntry
     ) {
         $this->volumeEntries = new ArrayCollection();
         $this->addedAt       = new DateTimeImmutable();
+    }
+
+    /**
+     * Starts tracking every volume of the series that has no entry yet (volumes added
+     * to the series after the user started collecting it).
+     *
+     * @return int number of volume entries created
+     */
+    public function trackMissingVolumes(): int
+    {
+        $trackedVolumeIds = [];
+        foreach ($this->volumeEntries as $volumeEntry) {
+            $trackedVolumeIds[$volumeEntry->volume->id] = true;
+        }
+
+        $createdCount = 0;
+        foreach ($this->manga->volumes as $volume) {
+            if (isset($trackedVolumeIds[$volume->id])) {
+                continue;
+            }
+
+            $this->volumeEntries->add(new VolumeEntry(
+                id: Uuid::v4()->toRfc4122(),
+                collectionEntry: $this,
+                volume: $volume,
+            ));
+            $createdCount++;
+        }
+
+        return $createdCount;
+    }
+
+    public function volumeEntryForNumber(int $number): ?VolumeEntry
+    {
+        foreach ($this->volumeEntries as $volumeEntry) {
+            if ($volumeEntry->volume->number === $number) {
+                return $volumeEntry;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Derives the reading status from the volumes, except when the user parked or
+     * dropped the series on purpose.
+     */
+    public function refreshReadingStatus(): void
+    {
+        if (in_array($this->readingStatus, [ReadingStatusEnum::Dropped, ReadingStatusEnum::OnHold], true)) {
+            return;
+        }
+
+        $total = $this->volumeEntries->count();
+        if ($total === 0) {
+            return;
+        }
+
+        $ownedCount = $this->volumeEntries->filter(fn (VolumeEntry $volumeEntry) => $volumeEntry->isOwned)->count();
+        $readCount  = $this->volumeEntries->filter(fn (VolumeEntry $volumeEntry) => $volumeEntry->isRead)->count();
+
+        $this->readingStatus = match (true) {
+            $readCount === $total              => ReadingStatusEnum::Completed,
+            $readCount > 0 || $ownedCount > 0 => ReadingStatusEnum::InProgress,
+            default                            => ReadingStatusEnum::NotStarted,
+        };
     }
 
     /** @return array<string, mixed> */

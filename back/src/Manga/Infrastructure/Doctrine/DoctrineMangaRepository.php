@@ -34,6 +34,24 @@ final readonly class DoctrineMangaRepository implements MangaRepositoryInterface
             ->getResult();
     }
 
+    public function findByTitles(array $titles): array
+    {
+        if ($titles === []) {
+            return [];
+        }
+
+        /** @var list<Manga> $mangas */
+        $mangas = $this->em->createQueryBuilder()
+            ->select('m')
+            ->from(Manga::class, 'm')
+            ->where('LOWER(m.title) IN (:titles)')
+            ->setParameter('titles', array_values(array_unique(array_map('mb_strtolower', $titles))))
+            ->getQuery()
+            ->getResult();
+
+        return $mangas;
+    }
+
     public function findAllPaginated(int $offset, int $limit): array
     {
         return $this->em->createQueryBuilder()

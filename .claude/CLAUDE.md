@@ -43,7 +43,7 @@ Every time a feature is planned, developed, or removed — this rule is non-nego
 ## Bounded Contexts (back/src/)
 - `Shared/` — CommandBus, QueryBus, EventBus interfaces + Messenger implementations + ExceptionListener
 - `Auth/` — GateUser, GateUserProvider, GateCommand/Handler, GateController
-- `Manga/` — Manga + Volume entities (price lives on Volume), ExternalApiClientInterface (prepared, NullMangaApiClient stub)
+- `Manga/` — Manga + Volume entities (price lives on Volume). A Manga is one *series* = work × publisher (`edition`) × special edition (`specialEdition`, free text, null = standard run). French catalogue (`Domain/Catalogue`, BnF + Google Books fallback)
 - `Collection/` — CollectionEntry + VolumeEntry, toggle owned/read per volume
 - `Wishlist/` — WishlistItem, purchase moves to collection
 - `Stats/` — GetStats query (totalOwned, totalRead, totalWishlist, collectionValue, genreBreakdown)
@@ -135,7 +135,12 @@ Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrin
 ## API Endpoints
 - POST   /api/auth/gate
 - GET    /api/manga?q=, GET /api/manga/:id, POST /api/manga, POST /api/manga/:id/volumes
-- GET/POST /api/collection, GET/DELETE /api/collection/:id
+- GET    /api/catalogue/search?q=&mode=title|author|isbn → series (work × publisher × special edition) + the user's owned tomes
+- GET    /api/catalogue/edition?workTitle=&publisher=&specialEdition= → one series with every known tome
+- POST   /api/catalogue/add { workTitle, publisher, specialEdition, author, coverUrl, volumeCount, volumes, ownedNumbers } → creates the series (all tomes) if needed, marks the picked tomes owned (201 new entry / 200 existing)
+- POST   /api/catalogue/scan { isbn } → one scanned tome in the collection, its series created if needed (404 = no French edition)
+- POST   /api/scan/sessions {} (free, 30 min — phone scans a shelf) or { mangaId, volumeId } (one tome, 10 min)
+- GET/POST /api/collection, GET/DELETE /api/collection/:id — list default sort = by work (A → Z), `sort=added_desc|rating_desc|rating_asc`
 - PATCH  /api/collection/:id/status
 - PATCH  /api/collection/:id/volumes/:veId/toggle { field: isOwned|isRead }
 - GET/POST /api/wishlist, DELETE /api/wishlist/:id, POST /api/wishlist/:id/purchase
@@ -143,15 +148,13 @@ Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrin
 - GET    /api/notifications, PATCH /api/notifications/:id/read
 - GET    /messenger (Basic auth)
 
-## External API (Google Books)
-- Interface: App\Manga\Domain\ExternalApiClientInterface
-- DTOs: ExternalMangaDto (externalId, title, edition, author, summary, coverUrl, genre, language, totalVolumes), ExternalVolumeDto
-- Implementation: App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient
-- Requires: GOOGLE_BOOKS_API_KEY env var in back/.env
-- Searches French editions only (langRestrict=fr), appends "+manga" to query
-- Endpoint: GET /api/manga/external?q=... → ExternalMangaResult[] (JWT required)
-- Frontend search: composable useExternalSearch hits /api/manga/external via authenticated axios client
-- Swap implementation by changing alias in services.yaml (NullMangaApiClient available as stub)
+## Add flow — manga first, French editions only
+- The user finds a *tome* (scan, title or author); the whole series follows (created with every tome, the others stay untracked).
+- Catalogue: `App\Manga\Domain\Catalogue\CatalogueInterface` → `CachedCatalogue` (1 h) → `FallbackCatalogue` (BnF SRU first, Google Books only when BnF has nothing). Test env: `App\Tests\Doubles\Manga\InMemoryCatalogue`.
+- **Special editions are discovered, never predicted**: `CatalogueTitleParser` reads the title structure (BnF ISBD "Berserk : prestige. 3", Google "One Piece - Édition originale - Tome 3"); whatever sits in the edition slot is kept verbatim. A qualifier written *after* the tome number only counts as an edition when it repeats on several tomes (`CatalogueEditionAssembler`). Never add a list of edition names.
+- Series identity (`EditionIdentity`): folded title + publisher imprint (`PublisherNormalizer`) + folded special edition.
+- A series created from the catalogue is enriched in the background (genre / summary / author) from Jikan (`ExternalApiClientInterface`, exact-title match only) via `EnrichMangaMessage` (async).
+- Front: `pages/AddMangaPage.vue` (tabs Rechercher / Scanner / À la main), `CatalogueEditionSheet` (tome picker), `ScanFeed` (batch scan); phone scanning via `/scan/:token?batch=1`.
 
 ## Docker (local dev)
 - back: http://localhost:8000 — FrankenPHP

@@ -5,6 +5,7 @@ import { Book } from 'lucide-vue-next'
 import type { CollectionEntry } from '@/types'
 import BaseHeartRating from '@/components/atoms/BaseHeartRating.vue'
 import BaseLazyImage from '@/components/atoms/BaseLazyImage.vue'
+import EditionBadge from '@/components/molecules/EditionBadge.vue'
 import { coverUrl } from '@/utils/coverUrl'
 
 const props = defineProps<{ entry: CollectionEntry }>()
@@ -132,9 +133,13 @@ function open() {
           <p v-if="entry.manga.author" class="text-white/60 text-[10px] truncate mt-0.5 leading-none">
             {{ entry.manga.author }}
           </p>
-          <p class="text-white/45 text-[10px] truncate mt-0.5 leading-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            {{ entry.manga.edition }}
-          </p>
+          <EditionBadge
+            :publisher="entry.manga.edition"
+            :special-edition="entry.manga.specialEdition"
+            tone="overlay"
+            size="xs"
+            class="mt-1"
+          />
         </div>
 
         <!-- Stats row -->

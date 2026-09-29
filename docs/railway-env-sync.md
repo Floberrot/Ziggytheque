@@ -52,7 +52,7 @@ Définies en tête du script via `IGNORE_KEYS` (liste exacte) et `IGNORE_PATTERN
 | `JWT_TTL`, `MESSENGER_TRANSPORT_DSN` | la valeur par défaut commitée dans `back/.env` **est** la valeur de prod |
 | `DATABASE_URL` | fournie par Railway en référence du service Postgres |
 | `*_BASE_URL` (motif) | URLs de base d'API publiques (`MANGADEX_BASE_URL`, `OPEN_LIBRARY_COVERS_BASE_URL`, `BNF_BASE_URL`, …) dont le défaut commité **est** la valeur de prod |
-| `VITE_API_BASE_URL`, `VITE_EXTERNAL_API_URL` | build arg volontairement vide / override optionnel du front |
+| `VITE_API_BASE_URL` | build arg volontairement vide |
 
 > Le motif `*_BASE_URL` ne matche **pas** `MERCURE_PUBLIC_URL`/`MERCURE_URL`
 > (spécifiques à l'env → gérés), `DATABASE_URL` (déjà explicite) ni

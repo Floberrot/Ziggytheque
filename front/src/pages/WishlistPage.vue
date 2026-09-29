@@ -8,6 +8,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import type { WishlistEntry, VolumeEntry } from '@/types'
 import { coverUrl } from '@/utils/coverUrl'
+import { editionLabel } from '@/utils/edition'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
 
 const qc = useQueryClient()
@@ -283,7 +284,7 @@ onUnmounted(() => {
                   {{ entry.manga.title }}
                 </button>
                 <p class="text-sm text-base-content/50 mt-0.5 truncate">
-                  {{ entry.manga.edition }}<span v-if="entry.manga.author"> · {{ entry.manga.author }}</span>
+                  {{ editionLabel(entry.manga.edition, entry.manga.specialEdition) }}<span v-if="entry.manga.author"> · {{ entry.manga.author }}</span>
                 </p>
               </div>
               <!-- Actions -->

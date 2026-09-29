@@ -44,14 +44,15 @@
   },
   "collection": {
     "title": "My Collection",
-    "add": "Add a Series",
+    "add": "Add a manga",
     "addToCollection": "Manage Collection",
     "added": "Series added to collection",
     "removed": "Removed from collection",
     "empty": "Your collection is empty",
     "volumes": "Volumes",
     "owned": "owned",
-    "batchSetPrice": "Apply to all"
+    "batchSetPrice": "Apply to all",
+    "worksEditions": "{count} editions"
   },
   "wishlist": {
     "title": "Wishlist",
@@ -63,24 +64,89 @@
     "empty": "Your wishlist is empty"
   },
   "add": {
-    "title": "Add a Series",
-    "search": "Search",
-    "info": "Info",
-    "destination": "Destination",
-    "destinationHint": "What would you like to do with this series?",
-    "searchPlaceholder": "Search for a manga...",
-    "searchHint": "Type at least 2 characters to search",
-    "searchUnavailable": "External search not configured — fill in the form manually",
-    "searchSource": "Search source",
-    "searchVia": "Search via {name}",
-    "noResults": "No results. You can fill in the form manually.",
-    "fillManually": "Fill manually",
-    "selectResult": "Select",
-    "selectedResult": "Selected"
+    "title": "Add a manga",
+    "subtitle": "Scan a volume or search for it: its series is added automatically if you don't have it yet.",
+    "step1": "Find a volume (scan, title or author)",
+    "step2": "Pick the exact series and your volumes",
+    "step3": "The whole series is created, your volumes marked owned",
+    "tab": {
+      "search": "Search",
+      "scan": "Scan",
+      "manual": "Manual"
+    },
+    "mode": {
+      "title": "Title",
+      "author": "Author"
+    },
+    "searchPlaceholderTitle": "Manga title, e.g. Berserk prestige 5",
+    "searchPlaceholderAuthor": "Author name, e.g. Miura",
+    "searchHint": "French editions only (BnF, Google Books). You can also paste an ISBN.",
+    "resultsCount": "No series | 1 series found | {count} series found",
+    "noResults": "No French edition found.",
+    "fillManually": "Enter manually",
+    "isbnNotFound": "No French edition found for this ISBN.",
+    "invalidQuery": "Invalid search — check the ISBN or type at least 2 characters.",
+    "tooManyRequests": "Too many searches in a row — try again in a moment.",
+    "searchUnavailable": "Search unavailable right now — try again or enter it manually.",
+    "addError": "Adding failed — try again.",
+    "seriesCreated": "New series created ({count} volumes).",
+    "tomesAdded": "Owned volumes added: {list}.",
+    "seriesFollowed": "Series followed, no volume marked owned.",
+    "openSeries": "Open the series",
+    "missingToWishlist": "Missing volumes → wishlist",
+    "manualIntro": "Not in the catalogues? Create the series yourself: it joins your collection, then tick your volumes.",
+    "createManually": "Create the series"
+  },
+  "catalogue": {
+    "volumeCount": "no volume | 1 volume | {count} volumes",
+    "inCollection": "In your collection · {owned}/{total} owned",
+    "tome": "Volume {number}",
+    "pickTomes": "Which volumes do you have?",
+    "pickTomesHint": "Green: already owned. Unticked volumes stay \"untracked\".",
+    "sheetHintNew": "The series will be added with its {count} volumes; the ones you tick become \"owned\".",
+    "sheetHintExisting": "This series is already in your collection: tick the volumes to add.",
+    "selectAll": "All",
+    "selectNone": "None",
+    "correct": "Fix the work or the edition",
+    "workTitle": "Work",
+    "publisher": "Publisher",
+    "specialEdition": "Special edition",
+    "standardEdition": "Standard edition",
+    "followWithoutTomes": "Follow the series without volumes",
+    "addTomes": "Pick your volumes | Add 1 volume | Add {count} volumes",
+    "otherEditionsTitle": "Every edition of {title}",
+    "otherEditionsHint": "French editions found in the catalogues. Tap one to add it.",
+    "otherEditionsEmpty": "No other French edition found.",
+    "thisSeries": "This series",
+    "searchError": "Catalogues unavailable right now."
+  },
+  "scanBatch": {
+    "intro": "Scan your volumes one after another: every barcode read adds the volume to your collection (and its series if needed).",
+    "startCamera": "Turn the camera on",
+    "stopCamera": "Stop the camera",
+    "usePhone": "Scan with my phone",
+    "stopPhone": "Stop the phone",
+    "cameraHint": "Show the barcodes to the camera one at a time.",
+    "phoneHint": "Open this QR code on your phone, then scan your volumes: they show up here as you go.",
+    "phoneError": "Could not open the phone session — try again.",
+    "summary": "No volume added | 1 volume added | {count} volumes added",
+    "clear": "Clear the list",
+    "pending": "Looking up…",
+    "added": "Added to your collection",
+    "addedNewSeries": "Added · new series ({count} volumes)",
+    "alreadyOwned": "Already in your collection",
+    "undone": "Undone",
+    "notFound": "No French edition found",
+    "invalid": "This code is not an ISBN",
+    "error": "Error — try again",
+    "undo": "Undo",
+    "undoError": "Could not undo — try again.",
+    "openSeries": "Open",
+    "searchManually": "Search"
   },
   "manga": {
     "title": "Title",
-    "edition": "Edition",
+    "edition": "Publisher",
     "language": "Language",
     "author": "Author",
     "genre": "Genre",
@@ -100,7 +166,9 @@
     "coverUrlTitle": "Cover URL",
     "readingStatusTitle": "Reading status",
     "moreOptionsTitle": "More options",
-    "detailsAction": "Volume details"
+    "detailsAction": "Volume details",
+    "specialEdition": "Special edition",
+    "addSpecialEdition": "+ special edition"
   },
   "volume": {
     "price": "Price (€)",
@@ -206,8 +274,8 @@
     "searchPlaceholder": "Search by title...",
     "allGenres": "All genres",
     "allStatus": "All statuses",
-    "allSorts": "Default sort",
-    "editionPlaceholder": "Edition...",
+    "allSorts": "By work (A → Z)",
+    "editionPlaceholder": "Publisher or edition…",
     "sortRatingDesc": "Best rating",
     "sortRatingAsc": "Lowest rating",
     "followedOnly": "Followed",
@@ -220,7 +288,8 @@
     "resultsSingular": "result",
     "resultsPlural": "results",
     "reset": "Reset",
-    "loadingMore": "Loading..."
+    "loadingMore": "Loading...",
+    "sortAddedDesc": "Recently added"
   },
   "common": {
     "search": "Search...",
@@ -313,7 +382,8 @@
     "scanAnother": "Scan another",
     "expired": "This link has expired. Regenerate the QR code from your computer.",
     "invalidCode": "Barcode not recognized (invalid ISBN).",
-    "cameraError": "Cannot access camera. Check permissions and ensure the page uses HTTPS."
+    "cameraError": "Cannot access camera. Check permissions and ensure the page uses HTTPS.",
+    "batchSent": "No volume sent | 1 volume sent to the computer | {count} volumes sent to the computer"
   },
   "guide": {
     "title": "Guide & help",
@@ -441,16 +511,6 @@
       "hardcover": "Hardcover"
     },
     "coverSourcesNote": "Title search: MangaDex and Google Books. ISBN search: all sources above, grouped by provider."
-  },
-  "editions": {
-    "searchPlaceholder": "Work title…",
-    "searchHint": "Searches BnF, DNB, NDL, Open Library and Google Books",
-    "discover": "Discover",
-    "discovering": "Searching…",
-    "empty": "No editions found.",
-    "modeByEdition": "By edition",
-    "modeBySeries": "By series",
-    "country": "Country"
   },
   "prices": {
     "tabLabel": "Prices",
