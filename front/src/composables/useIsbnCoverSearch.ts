@@ -5,7 +5,6 @@ import { normalizeIsbn13 } from '@/utils/isbn'
 
 export interface IsbnCoverResult {
   coverUrl: string
-  spineUrl: string | null
   isbn: string | null
   source: string
 }

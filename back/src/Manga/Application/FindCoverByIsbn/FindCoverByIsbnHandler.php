@@ -25,7 +25,6 @@ final readonly class FindCoverByIsbnHandler
         foreach ($this->coverProvider->findAllByIsbn($isbn) as $coverDto) {
             $covers[] = [
                 'coverUrl' => $coverDto->coverUrl,
-                'spineUrl' => $coverDto->spineUrl,
                 'isbn' => $coverDto->isbn?->value,
                 'source' => $coverDto->source,
             ];

@@ -95,12 +95,6 @@ const router = createRouter({
           meta: { title: 'Journal', requiresAdminUnlocked: true },
         },
         {
-          path: 'shelf',
-          name: 'shelf',
-          component: () => import('@/pages/ShelfPage.vue'),
-          meta: { title: 'Bibliothèque 3D' },
-        },
-        {
           path: 'admin/users',
           name: 'admin-users',
           component: () => import('@/pages/AdminUsersPage.vue'),

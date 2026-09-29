@@ -150,7 +150,6 @@ final readonly class GoogleBooksMangaApiClient implements
 
             return new MangaVolumeCoverDto(
                 coverUrl: $coverUrl,
-                spineUrl: null,
                 isbn: $isbn,
                 source: 'google_books',
             );
@@ -189,7 +188,6 @@ final readonly class GoogleBooksMangaApiClient implements
                 if ($dto->coverUrl !== null) {
                     $covers[] = new MangaVolumeCoverDto(
                         coverUrl: $dto->coverUrl,
-                        spineUrl: null,
                         isbn: null,
                         source: 'google_books',
                     );

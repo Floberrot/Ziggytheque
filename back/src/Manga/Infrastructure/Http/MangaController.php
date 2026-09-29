@@ -180,7 +180,6 @@ final readonly class MangaController
             coverUrl: $request->coverUrl,
             releaseDate: $request->releaseDate,
             price: $request->price,
-            spineUrl: $request->spineUrl,
             isbn: $request->isbn,
         ));
 

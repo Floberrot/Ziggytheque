@@ -13,7 +13,6 @@ final readonly class ExternalVolumeDto
         public ?string $coverUrl,
         public ?DateTimeImmutable $releaseDate,
         public ?Isbn $isbn = null,
-        public ?string $spineUrl = null,
     ) {
     }
 }

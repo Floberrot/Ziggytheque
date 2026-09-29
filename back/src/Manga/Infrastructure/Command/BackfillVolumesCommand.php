@@ -19,7 +19,7 @@ use Throwable;
 
 #[AsCommand(
     name: 'app:manga:backfill-volumes',
-    description: 'Backfill ISBN, coverUrl and spineUrl for all volumes via MangaDex / Open Library / Google Books.',
+    description: 'Backfill ISBN and coverUrl for all volumes via MangaDex / Open Library / Google Books.',
 )]
 final class BackfillVolumesCommand extends Command
 {
@@ -37,7 +37,7 @@ final class BackfillVolumesCommand extends Command
     {
         $this
             ->addOption('manga-id', null, InputOption::VALUE_REQUIRED, 'Restrict to a single manga UUID')
-            ->addOption('force', null, InputOption::VALUE_NONE, 'Overwrite existing coverUrl/spineUrl/isbn')
+            ->addOption('force', null, InputOption::VALUE_NONE, 'Overwrite existing coverUrl/isbn')
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Show what would be updated without persisting')
             ->addOption('sleep-ms', null, InputOption::VALUE_REQUIRED, 'Pause between mangas in milliseconds', '200')
             ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Process at most N mangas');

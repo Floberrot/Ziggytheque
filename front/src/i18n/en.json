@@ -9,13 +9,16 @@
     "journal": "Journal",
     "logout": "Logout",
     "settings": "Settings",
-    "shelf": "3D Library",
     "adminUsers": "Users",
     "admin": "Admin"
   },
   "settings": {
     "language": "Language",
-    "theme": "Theme"
+    "theme": "Theme",
+    "themeDark": "Dark",
+    "themeLight": "Light",
+    "switchToDark": "Switch to dark theme",
+    "switchToLight": "Switch to light theme"
   },
   "dashboard": {
     "title": "Dashboard",

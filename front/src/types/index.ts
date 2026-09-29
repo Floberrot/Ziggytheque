@@ -5,7 +5,6 @@ export interface Volume {
   price: number | null
   releaseDate: string | null
   isbn: string | null
-  spineUrl: string | null
 }
 
 export interface Manga {
@@ -42,7 +41,6 @@ export interface VolumeEntry {
   review: string | null
   rating: number | null
   isbn: string | null
-  spineUrl: string | null
 }
 
 export interface CollectionEntry {

@@ -50,10 +50,6 @@ final readonly class UpdateVolumeHandler
             $volume->price = $command->price;
         }
 
-        if ($command->spineUrl !== null) {
-            $volume->spineUrl = $command->spineUrl;
-        }
-
         if ($command->isbn !== null) {
             $volume->isbn = Isbn::fromString($command->isbn);
         }

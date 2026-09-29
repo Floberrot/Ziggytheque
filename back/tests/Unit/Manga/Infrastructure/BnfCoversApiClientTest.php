@@ -54,7 +54,6 @@ final class BnfCoversApiClientTest extends TestCase
         $this->assertSame('bnf', $result->source);
         $this->assertStringContainsString('couverture', $result->coverUrl);
         $this->assertStringContainsString('ark:/12148/cb453653801', $result->coverUrl);
-        $this->assertNull($result->spineUrl);
     }
 
     public function testFindByIsbnReturnsNullWhenNoRecord(): void

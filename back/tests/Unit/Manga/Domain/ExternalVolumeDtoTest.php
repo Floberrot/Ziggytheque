@@ -28,10 +28,9 @@ final class ExternalVolumeDtoTest extends TestCase
         $this->assertNull($dto->coverUrl);
         $this->assertNull($dto->releaseDate);
         $this->assertNull($dto->isbn);
-        $this->assertNull($dto->spineUrl);
     }
 
-    public function testWithIsbnAndSpineUrl(): void
+    public function testWithIsbn(): void
     {
         $isbn = Isbn::fromString('9782123456780');
         $dto = new ExternalVolumeDto(
@@ -39,10 +38,8 @@ final class ExternalVolumeDtoTest extends TestCase
             coverUrl: 'https://example.com/cover.jpg',
             releaseDate: null,
             isbn: $isbn,
-            spineUrl: 'https://example.com/spine.jpg',
         );
 
         $this->assertSame($isbn, $dto->isbn);
-        $this->assertSame('https://example.com/spine.jpg', $dto->spineUrl);
     }
 }

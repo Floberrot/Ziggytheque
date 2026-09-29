@@ -67,7 +67,6 @@ final readonly class GoogleBooksDynamicLinksApiClient implements MangaCoverProvi
 
             return new MangaVolumeCoverDto(
                 coverUrl: $this->upgradeThumbnail($thumbnailUrl),
-                spineUrl: null,
                 isbn: $isbn,
                 source: 'google_books',
             );

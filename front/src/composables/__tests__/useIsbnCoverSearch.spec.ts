@@ -11,8 +11,8 @@ import { coverByIsbn } from '@/api/manga'
 const mockCoverByIsbn = vi.mocked(coverByIsbn)
 
 const mockCovers = [
-  { coverUrl: 'https://img.example.com/bnf.jpg', spineUrl: null, isbn: '9782811645632', source: 'bnf' },
-  { coverUrl: 'https://img.example.com/google.jpg', spineUrl: null, isbn: '9782811645632', source: 'google_books' },
+  { coverUrl: 'https://img.example.com/bnf.jpg', isbn: '9782811645632', source: 'bnf' },
+  { coverUrl: 'https://img.example.com/google.jpg', isbn: '9782811645632', source: 'google_books' },
 ]
 
 describe('useIsbnCoverSearch', () => {

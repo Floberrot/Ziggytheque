@@ -41,13 +41,11 @@ final class VolumeSearchControllerTest extends AbstractApiTestCase
     {
         $this->coverProvider->registerContext(new MangaVolumeCoverDto(
             coverUrl: 'https://mangadex.example/cover.jpg',
-            spineUrl: null,
             isbn: null,
             source: 'mangadex',
         ));
         $this->coverProvider->registerContext(new MangaVolumeCoverDto(
             coverUrl: 'https://google.example/cover.jpg',
-            spineUrl: null,
             isbn: null,
             source: 'google_books',
         ));

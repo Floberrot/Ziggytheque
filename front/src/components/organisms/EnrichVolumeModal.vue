@@ -57,7 +57,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 // ── Search state ──
 const searchQuery = ref('')
 const manualCoverUrl = ref('')
-const searchResults = ref<{ externalId: string | null; title: string; edition: string | null; coverUrl: string | null; spineUrl: string | null; isbn: string | null; source: string | null }[]>([])
+const searchResults = ref<{ externalId: string | null; title: string; edition: string | null; coverUrl: string | null; isbn: string | null; source: string | null }[]>([])
 const isSearching = ref(false)
 const isLoadingMore = ref(false)
 const hasMore = ref(false)
@@ -225,12 +225,11 @@ async function runIsbnSearch(): Promise<void> {
   isbnSearched.value = true
 }
 
-function applyIsbnCover(cover: { coverUrl: string; spineUrl: string | null; isbn: string | null }): void {
+function applyIsbnCover(cover: { coverUrl: string; isbn: string | null }): void {
   // The ISBN the user typed/scanned wins over the one echoed back by the cover API.
   const typedIsbn = normalizeIsbn13(isbnInput.value)
   enrichMutation.mutate({
     coverUrl: cover.coverUrl,
-    spineUrl: cover.spineUrl ?? undefined,
     isbn: typedIsbn ?? cover.isbn ?? undefined,
   })
 }
@@ -347,8 +346,8 @@ async function startPhoneScan(): Promise<void> {
 
 // ── Enrich mutation ──
 const enrichMutation = useMutation({
-  mutationFn: ({ coverUrl, spineUrl, isbn }: { coverUrl: string; spineUrl?: string; isbn?: string }) =>
-    updateVolume(props.mangaId, props.volume!.volumeId, { coverUrl, spineUrl, isbn }),
+  mutationFn: ({ coverUrl, isbn }: { coverUrl: string; isbn?: string }) =>
+    updateVolume(props.mangaId, props.volume!.volumeId, { coverUrl, isbn }),
   onSuccess: () => {
     qc.invalidateQueries({ queryKey: ['collection', props.collectionEntryId] })
     ui.addToast('Couverture mise à jour', 'success')
@@ -767,7 +766,7 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                       class="group flex flex-col gap-1.5 text-left"
                       :style="{ transitionDelay: Math.min(idx, 8) * 35 + 'ms' }"
                       :disabled="!result.coverUrl"
-                      @click="result.coverUrl && enrichMutation.mutate({ coverUrl: result.coverUrl, spineUrl: result.spineUrl ?? undefined, isbn: result.isbn ?? undefined })"
+                      @click="result.coverUrl && enrichMutation.mutate({ coverUrl: result.coverUrl, isbn: result.isbn ?? undefined })"
                     >
                       <div
                         class="w-full aspect-[2/3] rounded-lg overflow-hidden bg-base-200 ring-2 ring-transparent transition-all duration-150"

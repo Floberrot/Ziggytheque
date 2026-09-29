@@ -109,7 +109,6 @@ final class GoogleBooksMangaApiClientTest extends TestCase
 
         $this->assertInstanceOf(MangaVolumeCoverDto::class, $result);
         $this->assertSame('google_books', $result->source);
-        $this->assertNull($result->spineUrl);
     }
 
     public function testFindByContextReturnsNullWhenNoResults(): void

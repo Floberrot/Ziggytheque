@@ -50,13 +50,11 @@ final class FindCoverByIsbnHandlerTest extends TestCase
         $provider = $this->makeProvider([
             new MangaVolumeCoverDto(
                 coverUrl: 'https://bnf.example/c.jpg',
-                spineUrl: null,
                 isbn: $isbn,
                 source: 'bnf',
             ),
             new MangaVolumeCoverDto(
                 coverUrl: 'https://google.example/c.jpg',
-                spineUrl: 'https://google.example/s.jpg',
                 isbn: $isbn,
                 source: 'google_books',
             ),
@@ -67,13 +65,11 @@ final class FindCoverByIsbnHandlerTest extends TestCase
         $this->assertSame([
             [
                 'coverUrl' => 'https://bnf.example/c.jpg',
-                'spineUrl' => null,
                 'isbn' => '9782811645632',
                 'source' => 'bnf',
             ],
             [
                 'coverUrl' => 'https://google.example/c.jpg',
-                'spineUrl' => 'https://google.example/s.jpg',
                 'isbn' => '9782811645632',
                 'source' => 'google_books',
             ],
