@@ -9,13 +9,16 @@
     "journal": "Journal",
     "logout": "Déconnexion",
     "settings": "Réglages",
-    "shelf": "Bibliothèque 3D",
     "adminUsers": "Utilisateurs",
     "admin": "Admin"
   },
   "settings": {
     "language": "Langue",
-    "theme": "Thème"
+    "theme": "Thème",
+    "themeDark": "Sombre",
+    "themeLight": "Clair",
+    "switchToDark": "Passer au thème sombre",
+    "switchToLight": "Passer au thème clair"
   },
   "dashboard": {
     "title": "Tableau de bord",

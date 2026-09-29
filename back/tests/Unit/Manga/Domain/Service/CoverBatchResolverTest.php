@@ -54,7 +54,6 @@ final class CoverBatchResolverTest extends TestCase
     {
         return new MangaVolumeCoverDto(
             coverUrl: $coverUrl,
-            spineUrl: null,
             isbn: null,
             source: 'test',
         );
@@ -125,7 +124,7 @@ final class CoverBatchResolverTest extends TestCase
         $volume = $this->makeVolume($manga, 1, null, $isbn);
         $manga->addVolume($volume);
 
-        $dtoFromIsbn = new MangaVolumeCoverDto('https://ol.org/cover.jpg', null, $isbn, 'open_library');
+        $dtoFromIsbn = new MangaVolumeCoverDto('https://ol.org/cover.jpg', $isbn, 'open_library');
         $callLog = [];
 
         $provider = new class ($dtoFromIsbn, $callLog) implements MangaCoverProviderInterface {
@@ -163,7 +162,7 @@ final class CoverBatchResolverTest extends TestCase
         $manga->addVolume($volume);
 
         $callLog = [];
-        $dtoFromContext = new MangaVolumeCoverDto('https://mangadex.org/cover.jpg', null, null, 'mangadex');
+        $dtoFromContext = new MangaVolumeCoverDto('https://mangadex.org/cover.jpg', null, 'mangadex');
 
         $provider = new class ($dtoFromContext, $callLog) implements MangaCoverProviderInterface {
             public function __construct(
@@ -202,7 +201,7 @@ final class CoverBatchResolverTest extends TestCase
         $manga->addVolume($vol1);
         $manga->addVolume($vol2);
 
-        $dtoFromContext = new MangaVolumeCoverDto('https://example.com/cover.jpg', null, null, 'test');
+        $dtoFromContext = new MangaVolumeCoverDto('https://example.com/cover.jpg', null, 'test');
 
         $callCount = 0;
         $provider = new class ($dtoFromContext, $callCount) implements MangaCoverProviderInterface {

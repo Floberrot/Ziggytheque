@@ -75,7 +75,6 @@ final readonly class HardcoverCoversApiClient implements MangaCoverProviderInter
 
                     return new MangaVolumeCoverDto(
                         coverUrl: $coverUrl,
-                        spineUrl: null,
                         isbn: $isbn,
                         source: 'hardcover',
                     );

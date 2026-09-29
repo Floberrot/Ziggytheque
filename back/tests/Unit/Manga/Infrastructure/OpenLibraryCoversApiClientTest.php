@@ -42,7 +42,6 @@ final class OpenLibraryCoversApiClientTest extends TestCase
         $this->assertSame('open_library', $result->source);
         $this->assertStringContainsString($isbn->value, $result->coverUrl);
         $this->assertSame($isbn, $result->isbn);
-        $this->assertNull($result->spineUrl);
     }
 
     public function testFindByIsbnReturnsNullWhen404(): void

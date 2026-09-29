@@ -3,9 +3,9 @@ import { computed, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { useUiStore } from '@/stores/useUiStore'
-import { useThemeStore, THEMES } from '@/stores/useThemeStore'
+import { useThemeStore } from '@/stores/useThemeStore'
 import { useI18n } from 'vue-i18n'
-import { Menu, Settings, LogOut, Globe, Palette, LayoutDashboard, Library, ShoppingCart, PlusCircle, Bell, ClipboardList, BookOpen, Users } from 'lucide-vue-next'
+import { Menu, Settings, LogOut, Globe, Sun, Moon, LayoutDashboard, Library, ShoppingCart, PlusCircle, Bell, ClipboardList, Users } from 'lucide-vue-next'
 import BaseToast from '@/components/atoms/BaseToast.vue'
 import AppLogo from '@/components/atoms/AppLogo.vue'
 
@@ -49,7 +49,6 @@ const allNavItems: NavItem[] = [
   { name: 'wishlist',      labelKey: 'nav.wishlist',      icon: ShoppingCart },
   { name: 'add',           labelKey: 'nav.add',           icon: PlusCircle },
   { name: 'notifications', labelKey: 'nav.notifications', icon: Bell },
-  { name: 'shelf',         labelKey: 'nav.shelf',         icon: BookOpen },
   { name: 'journal',       labelKey: 'nav.journal',       icon: ClipboardList, adminOnly: true },
   { name: 'admin-users',   labelKey: 'nav.adminUsers',    icon: Users,         adminOnly: true },
 ]
@@ -143,31 +142,19 @@ const adminNavItems = computed(() =>
 
         <!-- Footer: desktop only -->
         <div class="hidden lg:flex flex-col p-3 border-t border-base-200 gap-0.5">
-          <!-- Theme picker -->
-          <div class="dropdown dropdown-top">
-            <button
-              tabindex="0"
-              class="flex items-center gap-3 px-3 py-2 rounded-lg w-full text-sm font-medium text-base-content/60 hover:bg-base-200 hover:text-base-content transition-colors"
-            >
-              <Palette class="w-5 h-5 shrink-0" stroke-width="1.5" />
-              <span class="flex-1 text-left">{{ t('settings.theme') }}</span>
-              <span class="text-xs capitalize text-base-content/40">{{ themeStore.theme }}</span>
-            </button>
-            <ul
-              tabindex="0"
-              class="dropdown-content bg-base-200 rounded-box shadow-lg z-50 w-48 max-h-72 overflow-y-auto p-1 space-y-0.5 mb-1"
-            >
-              <li v-for="th in THEMES" :key="th">
-                <button
-                  class="btn btn-ghost btn-xs w-full justify-start font-normal capitalize"
-                  :class="{ 'btn-active text-primary': themeStore.theme === th }"
-                  @click="themeStore.setTheme(th)"
-                >
-                  {{ th }}
-                </button>
-              </li>
-            </ul>
-          </div>
+          <!-- Theme toggle : Ziggy Dark ⇄ Ziggy Light -->
+          <button
+            class="flex items-center gap-3 px-3 py-2 rounded-lg w-full text-sm font-medium text-base-content/60 hover:bg-base-200 hover:text-base-content transition-colors"
+            :aria-label="themeStore.isDark ? t('settings.switchToLight') : t('settings.switchToDark')"
+            @click="themeStore.toggle()"
+          >
+            <Moon v-if="themeStore.isDark" class="w-5 h-5 shrink-0" stroke-width="1.5" />
+            <Sun v-else class="w-5 h-5 shrink-0" stroke-width="1.5" />
+            <span class="flex-1 text-left">{{ t('settings.theme') }}</span>
+            <span class="text-xs text-base-content/40">
+              {{ themeStore.isDark ? t('settings.themeDark') : t('settings.themeLight') }}
+            </span>
+          </button>
 
           <!-- Language toggle (disabled — coming soon) -->
           <div class="flex items-center gap-3 px-3 py-2 rounded-lg w-full text-sm font-medium text-base-content/30 cursor-not-allowed select-none">
@@ -297,17 +284,19 @@ const adminNavItems = computed(() =>
               <span class="badge badge-sm badge-ghost text-[10px]">bientôt</span>
             </div>
 
-            <!-- Theme row -->
-            <div class="flex items-center justify-between w-full px-4 py-3.5">
+            <!-- Theme row : Ziggy Dark ⇄ Ziggy Light -->
+            <button
+              class="flex items-center justify-between w-full px-4 py-3.5 hover:bg-base-200 transition-colors"
+              :aria-label="themeStore.isDark ? t('settings.switchToLight') : t('settings.switchToDark')"
+              @click="themeStore.toggle()"
+            >
               <span class="text-sm font-medium">{{ t('settings.theme') }}</span>
-              <select
-                class="select select-sm select-bordered capitalize"
-                :value="themeStore.theme"
-                @change="themeStore.setTheme(($event.target as HTMLSelectElement).value as any)"
-              >
-                <option v-for="th in THEMES" :key="th" :value="th" class="capitalize">{{ th }}</option>
-              </select>
-            </div>
+              <span class="flex items-center gap-2 text-sm text-base-content/60">
+                <Moon v-if="themeStore.isDark" class="w-4 h-4" stroke-width="1.5" />
+                <Sun v-else class="w-4 h-4" stroke-width="1.5" />
+                {{ themeStore.isDark ? t('settings.themeDark') : t('settings.themeLight') }}
+              </span>
+            </button>
 
             <div class="mx-4 my-1 border-t border-base-200" />
 

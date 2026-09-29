@@ -65,7 +65,6 @@ final readonly class SearchVolumeExternalHandler
             'title' => $title,
             'edition' => null,
             'coverUrl' => $dto->coverUrl,
-            'spineUrl' => $dto->spineUrl,
             'isbn' => $dto->isbn?->value,
             'language' => 'fr',
             'totalVolumes' => null,

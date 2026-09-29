@@ -49,13 +49,11 @@ final class CoverByIsbnControllerTest extends AbstractApiTestCase
         $isbn = '9782811645632';
         $this->coverProvider->registerIsbn($isbn, new MangaVolumeCoverDto(
             coverUrl: 'https://bnf.example/cover.jpg',
-            spineUrl: null,
             isbn: Isbn::fromString($isbn),
             source: 'bnf',
         ));
         $this->coverProvider->registerIsbn($isbn, new MangaVolumeCoverDto(
             coverUrl: 'https://google.example/cover.jpg',
-            spineUrl: null,
             isbn: Isbn::fromString($isbn),
             source: 'google_books',
         ));

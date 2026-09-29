@@ -57,7 +57,6 @@ final class HardcoverCoversApiClientTest extends TestCase
         $this->assertInstanceOf(MangaVolumeCoverDto::class, $result);
         $this->assertSame('hardcover', $result->source);
         $this->assertSame('https://assets.hardcover.app/edition/1/content.jpeg', $result->coverUrl);
-        $this->assertNull($result->spineUrl);
     }
 
     public function testSkipsEditionsWithoutImageAndReturnsFirstWithCover(): void

@@ -130,14 +130,12 @@ final class UpdateVolumeHandlerTest extends TestCase
             coverUrl:    'https://covers.example/berserk-1.jpg',
             releaseDate: '2026-04-01',
             price:       7.99,
-            spineUrl:    'https://covers.example/berserk-1-spine.jpg',
         ));
 
         $volume = $this->firstVolume($manga);
         $this->assertSame('https://covers.example/berserk-1.jpg', $volume->coverUrl);
         $this->assertSame('2026-04-01', $volume->releaseDate?->format('Y-m-d'));
         $this->assertSame(7.99, $volume->price);
-        $this->assertSame('https://covers.example/berserk-1-spine.jpg', $volume->spineUrl);
         $this->assertNull($volume->isbn);
     }
 

@@ -38,7 +38,6 @@ final class CompositeMangaCoverApiClientTest extends TestCase
     {
         return new MangaVolumeCoverDto(
             coverUrl: 'https://example.com/cover.jpg',
-            spineUrl: null,
             isbn: null,
             source: $source,
         );

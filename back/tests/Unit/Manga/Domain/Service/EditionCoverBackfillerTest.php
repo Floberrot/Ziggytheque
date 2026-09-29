@@ -34,7 +34,7 @@ final class EditionCoverBackfillerTest extends TestCase
     private function providerWithCover(string $coverUrl): StubMangaCoverProvider
     {
         $provider = new StubMangaCoverProvider();
-        $provider->registerIsbn(self::ISBN, new MangaVolumeCoverDto($coverUrl, null, null, 'bnf'));
+        $provider->registerIsbn(self::ISBN, new MangaVolumeCoverDto($coverUrl, null, 'bnf'));
 
         return $provider;
     }
@@ -60,7 +60,7 @@ final class EditionCoverBackfillerTest extends TestCase
     public function testFillsCoverFromContextWhenNoIsbn(): void
     {
         $provider = new StubMangaCoverProvider();
-        $provider->registerContext(new MangaVolumeCoverDto('https://cdn/context.jpg', null, null, 'mangadex'));
+        $provider->registerContext(new MangaVolumeCoverDto('https://cdn/context.jpg', null, 'mangadex'));
         $backfiller = new EditionCoverBackfiller($provider);
 
         $result = $backfiller->backfill([$this->edition(null, null)]);

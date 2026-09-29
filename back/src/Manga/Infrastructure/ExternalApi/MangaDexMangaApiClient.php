@@ -273,7 +273,6 @@ final readonly class MangaDexMangaApiClient implements
         return array_map(
             static fn (array $match): MangaVolumeCoverDto => new MangaVolumeCoverDto(
                 coverUrl: $match['url'],
-                spineUrl: null,
                 isbn: null,
                 source: 'mangadex',
             ),

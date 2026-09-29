@@ -57,7 +57,6 @@ final readonly class BnfCoversApiClient implements MangaCoverProviderInterface
 
             return new MangaVolumeCoverDto(
                 coverUrl: $coverUrl,
-                spineUrl: null,
                 isbn: $isbn,
                 source: 'bnf',
             );

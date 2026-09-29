@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @plugin "daisyui" {
-  themes: all;
+  themes: false;
 }
 
 /* ── Ziggytheque brand themes ──────────────────────────────────────────── */
@@ -44,6 +44,8 @@
   --noise: 0;
 }
 
+/* Ziggy Dark is also the fallback before the app sets data-theme on <html>. */
+:root:not([data-theme]),
 [data-theme=ziggy-dark] {
   color-scheme: dark;
 

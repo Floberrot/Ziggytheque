@@ -54,7 +54,6 @@ final readonly class OpenLibraryCoversApiClient implements MangaCoverProviderInt
 
             return new MangaVolumeCoverDto(
                 coverUrl: $coverUrl,
-                spineUrl: null,
                 isbn: $isbn,
                 source: 'open_library',
             );

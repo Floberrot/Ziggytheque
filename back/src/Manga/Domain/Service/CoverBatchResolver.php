@@ -77,7 +77,7 @@ final readonly class CoverBatchResolver
                 continue;
             }
 
-            $this->applyCovers($volume, $coverDto->coverUrl, $coverDto->spineUrl, $coverDto->isbn);
+            $this->applyCovers($volume, $coverDto->coverUrl, $coverDto->isbn);
             $updated++;
 
             if ($publisher !== null && $batchId !== null) {
@@ -137,13 +137,9 @@ final readonly class CoverBatchResolver
             );
     }
 
-    private function applyCovers(Volume $volume, string $coverUrl, ?string $spineUrl, ?Isbn $isbn): void
+    private function applyCovers(Volume $volume, string $coverUrl, ?Isbn $isbn): void
     {
         $volume->coverUrl = $coverUrl;
-
-        if ($spineUrl !== null) {
-            $volume->spineUrl = $spineUrl;
-        }
 
         if ($isbn !== null && $volume->isbn === null) {
             $volume->isbn = $isbn;

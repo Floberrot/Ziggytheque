@@ -45,7 +45,6 @@ export async function searchVolumeExternal(
   title: string
   edition: string | null
   coverUrl: string | null
-  spineUrl: string | null
   isbn: string | null
   language: string
   totalVolumes: number | null
@@ -68,7 +67,7 @@ export async function updateManga(
 export async function updateVolume(
   mangaId: string,
   volumeId: string,
-  payload: { coverUrl?: string; releaseDate?: string; price?: number | null; spineUrl?: string; isbn?: string },
+  payload: { coverUrl?: string; releaseDate?: string; price?: number | null; isbn?: string },
 ): Promise<void> {
   await client.patch(`/manga/${mangaId}/volumes/${volumeId}`, payload)
 }
@@ -87,7 +86,6 @@ export async function addVolume(
 
 export async function coverByIsbn(isbn: string): Promise<{
   coverUrl: string
-  spineUrl: string | null
   isbn: string | null
   source: string
 }[]> {

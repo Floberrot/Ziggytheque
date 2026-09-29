@@ -17,7 +17,7 @@ final class SearchVolumeExternalHandlerTest extends TestCase
 {
     private function cover(string $source, string $url = 'https://example.test/cover.jpg'): MangaVolumeCoverDto
     {
-        return new MangaVolumeCoverDto(coverUrl: $url, spineUrl: null, isbn: null, source: $source);
+        return new MangaVolumeCoverDto(coverUrl: $url, isbn: null, source: $source);
     }
 
     /** @param list<MangaVolumeCoverDto> $covers */
@@ -132,7 +132,6 @@ final class SearchVolumeExternalHandlerTest extends TestCase
             'title' => 'Berserk',
             'edition' => null,
             'coverUrl' => 'https://cdn.test/c.jpg',
-            'spineUrl' => null,
             'isbn' => null,
             'language' => 'fr',
             'totalVolumes' => null,
