@@ -44,14 +44,15 @@
   },
   "collection": {
     "title": "Ma collection",
-    "add": "Ajouter une série",
+    "add": "Ajouter un manga",
     "addToCollection": "Gérer ma collection",
     "added": "Série ajoutée à la collection",
     "removed": "Retiré de la collection",
     "empty": "Votre collection est vide",
     "volumes": "Tomes",
     "owned": "possédés",
-    "batchSetPrice": "Appliquer à tous"
+    "batchSetPrice": "Appliquer à tous",
+    "worksEditions": "{count} éditions"
   },
   "wishlist": {
     "title": "Liste de souhaits",
@@ -63,24 +64,89 @@
     "empty": "Votre liste de souhaits est vide"
   },
   "add": {
-    "title": "Ajouter une série",
-    "search": "Recherche",
-    "info": "Informations",
-    "destination": "Destination",
-    "destinationHint": "Que souhaitez-vous faire avec cette série ?",
-    "searchPlaceholder": "Rechercher un manga...",
-    "searchHint": "Tapez au moins 2 caractères pour lancer la recherche",
-    "searchUnavailable": "Recherche externe non configurée — saisissez les informations manuellement",
-    "searchSource": "Source de recherche",
-    "searchVia": "Recherche via {name}",
-    "noResults": "Aucun résultat. Vous pouvez saisir les informations manuellement.",
-    "fillManually": "Saisir manuellement",
-    "selectResult": "Sélectionner",
-    "selectedResult": "Sélectionné"
+    "title": "Ajouter un manga",
+    "subtitle": "Scanne un tome ou cherche-le : sa série est ajoutée automatiquement si tu ne l'as pas encore.",
+    "step1": "Trouve un tome (scan, titre ou auteur)",
+    "step2": "Choisis la série exacte et tes tomes",
+    "step3": "La série complète est créée, tes tomes marqués possédés",
+    "tab": {
+      "search": "Rechercher",
+      "scan": "Scanner",
+      "manual": "À la main"
+    },
+    "mode": {
+      "title": "Titre",
+      "author": "Auteur"
+    },
+    "searchPlaceholderTitle": "Titre du manga, ex : Berserk prestige 5",
+    "searchPlaceholderAuthor": "Nom de l'auteur, ex : Miura",
+    "searchHint": "Éditions françaises uniquement (BnF, Google Books). Tu peux aussi coller un ISBN.",
+    "resultsCount": "Aucune série | 1 série trouvée | {count} séries trouvées",
+    "noResults": "Aucune édition française trouvée.",
+    "fillManually": "Saisir à la main",
+    "isbnNotFound": "Aucune édition française trouvée pour cet ISBN.",
+    "invalidQuery": "Recherche invalide — vérifie l'ISBN ou tape au moins 2 caractères.",
+    "tooManyRequests": "Trop de recherches d'affilée — réessaie dans un instant.",
+    "searchUnavailable": "Recherche indisponible pour le moment — réessaie ou saisis à la main.",
+    "addError": "L'ajout a échoué — réessaie.",
+    "seriesCreated": "Nouvelle série créée ({count} tomes).",
+    "tomesAdded": "Tomes possédés ajoutés : {list}.",
+    "seriesFollowed": "Série suivie, aucun tome marqué possédé.",
+    "openSeries": "Voir la série",
+    "missingToWishlist": "Tomes manquants → liste de souhaits",
+    "manualIntro": "Introuvable dans les catalogues ? Crée la série toi-même : elle rejoint ta collection, tu coches ensuite tes tomes.",
+    "createManually": "Créer la série"
+  },
+  "catalogue": {
+    "volumeCount": "aucun tome | 1 tome | {count} tomes",
+    "inCollection": "Dans ta collection · {owned}/{total} possédés",
+    "tome": "Tome {number}",
+    "pickTomes": "Quels tomes as-tu ?",
+    "pickTomesHint": "En vert : déjà possédés. Les tomes non cochés restent « non suivis ».",
+    "sheetHintNew": "La série sera ajoutée avec ses {count} tomes ; ceux que tu coches passent en « possédé ».",
+    "sheetHintExisting": "Cette série est déjà dans ta collection : coche les tomes à ajouter.",
+    "selectAll": "Tout",
+    "selectNone": "Aucun",
+    "correct": "Corriger l'œuvre ou l'édition",
+    "workTitle": "Œuvre",
+    "publisher": "Éditeur",
+    "specialEdition": "Édition spéciale",
+    "standardEdition": "Édition standard",
+    "followWithoutTomes": "Suivre la série sans tome",
+    "addTomes": "Choisis tes tomes | Ajouter 1 tome | Ajouter {count} tomes",
+    "otherEditionsTitle": "Toutes les éditions de {title}",
+    "otherEditionsHint": "Éditions françaises trouvées dans les catalogues. Touche une édition pour l'ajouter.",
+    "otherEditionsEmpty": "Aucune autre édition française trouvée.",
+    "thisSeries": "Cette série",
+    "searchError": "Catalogues indisponibles pour le moment."
+  },
+  "scanBatch": {
+    "intro": "Scanne tes tomes à la chaîne : chaque code-barres lu ajoute le tome à ta collection (et sa série si besoin).",
+    "startCamera": "Activer la caméra",
+    "stopCamera": "Arrêter la caméra",
+    "usePhone": "Scanner avec mon téléphone",
+    "stopPhone": "Arrêter le téléphone",
+    "cameraHint": "Présente les codes-barres un par un devant la caméra.",
+    "phoneHint": "Ouvre ce QR code avec ton téléphone, puis scanne tes tomes : ils arrivent ici au fur et à mesure.",
+    "phoneError": "Impossible d'ouvrir la session téléphone — réessaie.",
+    "summary": "Aucun tome ajouté | 1 tome ajouté | {count} tomes ajoutés",
+    "clear": "Vider la liste",
+    "pending": "Recherche…",
+    "added": "Ajouté à ta collection",
+    "addedNewSeries": "Ajouté · nouvelle série ({count} tomes)",
+    "alreadyOwned": "Déjà dans ta collection",
+    "undone": "Annulé",
+    "notFound": "Aucune édition française trouvée",
+    "invalid": "Ce code n'est pas un ISBN",
+    "error": "Erreur — réessaie",
+    "undo": "Annuler",
+    "undoError": "Impossible d'annuler — réessaie.",
+    "openSeries": "Voir",
+    "searchManually": "Chercher"
   },
   "manga": {
     "title": "Titre",
-    "edition": "Édition",
+    "edition": "Éditeur",
     "language": "Langue",
     "author": "Auteur",
     "genre": "Genre",
@@ -100,7 +166,9 @@
     "coverUrlTitle": "URL de la couverture",
     "readingStatusTitle": "Statut de lecture",
     "moreOptionsTitle": "Plus d'options",
-    "detailsAction": "Détails du tome"
+    "detailsAction": "Détails du tome",
+    "specialEdition": "Édition spéciale",
+    "addSpecialEdition": "+ édition spéciale"
   },
   "volume": {
     "price": "Prix (€)",
@@ -206,8 +274,8 @@
     "searchPlaceholder": "Rechercher par titre...",
     "allGenres": "Tous les genres",
     "allStatus": "Tous les statuts",
-    "allSorts": "Tri par défaut",
-    "editionPlaceholder": "Édition...",
+    "allSorts": "Par œuvre (A → Z)",
+    "editionPlaceholder": "Éditeur ou édition…",
     "sortRatingDesc": "Meilleure note",
     "sortRatingAsc": "Moins bonne note",
     "followedOnly": "Suivis",
@@ -220,7 +288,8 @@
     "resultsSingular": "résultat",
     "resultsPlural": "résultats",
     "reset": "Réinitialiser",
-    "loadingMore": "Chargement..."
+    "loadingMore": "Chargement...",
+    "sortAddedDesc": "Récemment ajoutés"
   },
   "common": {
     "search": "Rechercher...",
@@ -313,7 +382,8 @@
     "scanAnother": "Scanner un autre",
     "expired": "Ce lien a expiré. Régénérez le QR code depuis l'ordinateur.",
     "invalidCode": "Code-barres non reconnu (ISBN invalide).",
-    "cameraError": "Impossible d'accéder à la caméra. Vérifiez les autorisations et que la page est en HTTPS."
+    "cameraError": "Impossible d'accéder à la caméra. Vérifiez les autorisations et que la page est en HTTPS.",
+    "batchSent": "Aucun tome envoyé | 1 tome envoyé à l’ordinateur | {count} tomes envoyés à l’ordinateur"
   },
   "guide": {
     "title": "Guide & aide",
@@ -441,16 +511,6 @@
       "hardcover": "Hardcover"
     },
     "coverSourcesNote": "Recherche par titre : MangaDex et Google Books. Recherche par ISBN : toutes les sources ci-dessus, regroupées par fournisseur."
-  },
-  "editions": {
-    "searchPlaceholder": "Titre de l'œuvre…",
-    "searchHint": "Recherche dans BnF, DNB, NDL, Open Library et Google Books",
-    "discover": "Découvrir",
-    "discovering": "Recherche en cours…",
-    "empty": "Aucune édition trouvée.",
-    "modeByEdition": "Par édition",
-    "modeBySeries": "Par série",
-    "country": "Pays"
   },
   "prices": {
     "tabLabel": "Prix",

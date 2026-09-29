@@ -17,14 +17,13 @@ import {
   toggleFollow,
 } from '@/api/collection'
 import { updateManga, autoFillCovers, translateSummary } from '@/api/manga'
+import { searchCatalogue, type CatalogueEdition } from '@/api/catalogue'
 import { useCoverBatchProgress } from '@/composables/useCoverBatchProgress'
-import { useEditions } from '@/composables/useEditions'
 import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
 import EnrichVolumeModal from '@/components/organisms/EnrichVolumeModal.vue'
-import EditionCard from '@/components/organisms/EditionCard.vue'
+import CatalogueEditionCard from '@/components/organisms/CatalogueEditionCard.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
-import BaseCountryFlag from '@/components/atoms/BaseCountryFlag.vue'
 import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
 import BaseHeartRating from '@/components/atoms/BaseHeartRating.vue'
 import { FRENCH_EDITIONS } from '@/data/editions'
@@ -57,9 +56,6 @@ function setTab(tab: 'volumes' | 'editions' | 'prix'): void {
   router.replace({ query: { ...route.query, tab: tab === 'volumes' ? undefined : tab } })
 }
 
-// ── Editions tab ──
-const editionsLoaded = ref(false)
-const { groupedByCountry, isLoading: editionsLoading, error: editionsError, loadForManga } = useEditions()
 
 // ── Guide / help modal ──
 const showGuide = ref(false)
@@ -73,16 +69,31 @@ watch(entry, (mangaEntry) => {
   if (mangaEntry) document.title = `${mangaEntry.manga.title} — Ziggy`
 }, { immediate: true })
 
-watch(
-  () => [tabParam.value, entry.value?.manga.id] as const,
-  ([tab, mangaId]) => {
-    if (tab === 'editions' && !editionsLoaded.value && mangaId) {
-      editionsLoaded.value = true
-      loadForManga(mangaId)
+// ── Editions tab: every French edition of the work, straight from the catalogues ──
+const {
+  data: workEditions,
+  isFetching: editionsLoading,
+  isError: editionsFailed,
+} = useQuery({
+  queryKey: computed(() => ['catalogue', 'search', 'title', entry.value?.manga.title ?? '']),
+  queryFn: () => searchCatalogue(entry.value!.manga.title, 'title'),
+  enabled: computed(() => tabParam.value === 'editions' && (entry.value?.manga.title.length ?? 0) >= 2),
+  staleTime: 5 * 60 * 1000,
+  retry: false,
+})
+
+function openCatalogueEdition(edition: CatalogueEdition): void {
+  if (edition.collection) {
+    if (edition.collection.entryId !== id) {
+      router.push({ name: 'collection-detail', params: { id: edition.collection.entryId } })
     }
-  },
-  { immediate: true },
-)
+    return
+  }
+  router.push({
+    name: 'add',
+    query: { q: [edition.workTitle, edition.specialEdition].filter(Boolean).join(' ') },
+  })
+}
 
 const sortedVolumes = computed<VolumeEntry[]>(() =>
   [...(entry.value?.volumes ?? [])].sort((a, b) => a.number - b.number),
@@ -146,9 +157,11 @@ function closeModal() {
 // ── Inline title/edition/cover edit ──
 const editingTitle = ref(false)
 const editingEdition = ref(false)
+const editingSpecialEdition = ref(false)
 const editingCover = ref(false)
 const editTitleValue = ref('')
 const editEditionValue = ref<string | null>(null)
+const editSpecialEditionValue = ref('')
 const editCoverValue = ref('')
 
 function startEditTitle() {
@@ -161,6 +174,14 @@ function startEditEdition() {
 }
 function cancelEditTitle() { editingTitle.value = false }
 function cancelEditEdition() { editingEdition.value = false }
+function startEditSpecialEdition() {
+  editSpecialEditionValue.value = entry.value?.manga.specialEdition ?? ''
+  editingSpecialEdition.value = true
+}
+function cancelEditSpecialEdition() { editingSpecialEdition.value = false }
+function saveSpecialEdition() {
+  updateMangaMutation.mutate({ specialEdition: editSpecialEditionValue.value.trim() })
+}
 
 const editionLogo = computed(() =>
   FRENCH_EDITIONS.find((e) => e.name === entry.value?.manga.edition)?.logo ?? null,
@@ -470,12 +491,14 @@ const syncMutation = useMutation({
 })
 
 const updateMangaMutation = useMutation({
-  mutationFn: (payload: { title?: string; edition?: string; coverUrl?: string }) => updateManga(entry.value!.manga.id, payload),
+  mutationFn: (payload: { title?: string; edition?: string; specialEdition?: string; coverUrl?: string }) =>
+    updateManga(entry.value!.manga.id, payload),
   onSuccess: () => {
     qc.invalidateQueries({ queryKey: ['collection', id] })
     qc.invalidateQueries({ queryKey: ['collection'] })
     editingTitle.value = false
     editingEdition.value = false
+    editingSpecialEdition.value = false
     ui.addToast('Informations mises à jour', 'success')
   },
   onError: () => ui.addToast('Erreur lors de la mise à jour', 'error'),
@@ -727,7 +750,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                     <button class="btn btn-ghost btn-xs" @click="cancelEditEdition">✕</button>
                   </div>
                   <div v-else class="group/edition flex items-center gap-1">
-                    <div class="tooltip tooltip-bottom" data-tip="Cliquer pour changer l'édition (Kurokawa, Glénat, Pika, …)">
+                    <div class="tooltip tooltip-bottom" data-tip="Cliquer pour changer l'éditeur (Kurokawa, Glénat, Pika, …)">
                       <span
                         class="badge cursor-pointer gap-1.5"
                         :class="entry.manga.edition ? 'badge-primary' : 'badge-ghost'"
@@ -739,7 +762,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                           :alt="entry.manga.edition!"
                           class="w-3.5 h-3.5 rounded-sm object-contain"
                         />
-                        {{ entry.manga.edition ?? 'Édition inconnue' }}
+                        {{ entry.manga.edition ?? 'Éditeur inconnu' }}
                       </span>
                     </div>
                     <button
@@ -749,6 +772,37 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                       <Pencil class="h-3 w-3" />
                     </button>
                   </div>
+
+                  <!-- Special edition: free text, as the catalogue (or the user) names it -->
+                  <div v-if="editingSpecialEdition" class="flex items-center gap-1.5">
+                    <input
+                      v-model="editSpecialEditionValue"
+                      class="input input-bordered input-xs font-medium w-44"
+                      maxlength="150"
+                      :placeholder="t('catalogue.standardEdition')"
+                      autofocus
+                      @keydown.enter="saveSpecialEdition"
+                      @keydown.escape="cancelEditSpecialEdition"
+                    />
+                    <button class="btn btn-primary btn-xs" @click="saveSpecialEdition">✓</button>
+                    <button class="btn btn-ghost btn-xs" @click="cancelEditSpecialEdition">✕</button>
+                  </div>
+                  <button
+                    v-else-if="entry.manga.specialEdition"
+                    class="badge badge-warning gap-1 cursor-pointer"
+                    :title="t('manga.specialEdition')"
+                    @click="startEditSpecialEdition"
+                  >
+                    <Sparkles class="h-3 w-3" />
+                    {{ entry.manga.specialEdition }}
+                  </button>
+                  <button
+                    v-else
+                    class="badge badge-ghost cursor-pointer text-base-content/50"
+                    @click="startEditSpecialEdition"
+                  >
+                    {{ t('manga.addSpecialEdition') }}
+                  </button>
                   <span class="badge badge-outline">{{ entry.manga.language.toUpperCase() }}</span>
                   <span v-if="entry.manga.genre" class="badge badge-outline capitalize">{{ entry.manga.genre }}</span>
 
@@ -1355,31 +1409,31 @@ function volumeOpacityClass(ve: VolumeEntry): string {
       </div>
 
       <!-- Editions tab -->
-      <div v-if="tabParam === 'editions'" class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+      <div v-if="tabParam === 'editions'" class="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-3">
+        <div>
+          <h2 class="text-sm font-bold">{{ t('catalogue.otherEditionsTitle', { title: entry.manga.title }) }}</h2>
+          <p class="text-xs text-base-content/50">{{ t('catalogue.otherEditionsHint') }}</p>
+        </div>
         <div v-if="editionsLoading" class="flex justify-center py-12">
           <BaseLoader size="lg" class="text-primary" />
         </div>
-        <p v-else-if="editionsError" class="text-sm text-error py-4">{{ editionsError }}</p>
-        <template v-else-if="groupedByCountry.length">
-          <div v-for="group in groupedByCountry" :key="group.country ?? group.language" class="mb-6">
-            <div class="flex items-center gap-2 mb-3">
-              <BaseCountryFlag :country="group.country" />
-              <h3 class="text-sm font-bold uppercase tracking-widest text-base-content/50">
-                {{ group.country ?? group.language.toUpperCase() }}
-              </h3>
-              <span class="badge badge-xs badge-ghost">{{ group.editions.length }}</span>
-            </div>
-            <div class="flex flex-col gap-2">
-              <EditionCard
-                v-for="edition in group.editions"
-                :key="`${edition.source}-${edition.editionLabel}`"
-                :edition="edition"
-                @import="(ed) => $router.push({ name: 'add', query: { prefillTitle: ed.workTitle, prefillEdition: ed.publisher ?? '', prefillLanguage: ed.language } })"
-              />
-            </div>
+        <p v-else-if="editionsFailed" class="text-sm text-error py-4">{{ t('catalogue.searchError') }}</p>
+        <div v-else-if="workEditions?.editions.length" class="flex flex-col gap-2">
+          <div
+            v-for="edition in workEditions.editions"
+            :key="`${edition.workTitle}|${edition.publisher}|${edition.specialEdition}`"
+            class="relative"
+          >
+            <span
+              v-if="edition.collection?.entryId === id"
+              class="absolute -top-2 left-3 z-10 badge badge-primary badge-xs"
+            >
+              {{ t('catalogue.thisSeries') }}
+            </span>
+            <CatalogueEditionCard :edition="edition" @select="openCatalogueEdition" />
           </div>
-        </template>
-        <p v-else class="text-sm text-base-content/40 italic py-4">{{ t('editions.empty') }}</p>
+        </div>
+        <p v-else class="text-sm text-base-content/40 italic py-4">{{ t('catalogue.otherEditionsEmpty') }}</p>
       </div>
 
       <!-- Prix tab -->

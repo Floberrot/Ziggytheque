@@ -35,6 +35,7 @@ framework:
             App\Notification\Application\Fetch\FetchJikanNewsMessage: async
             App\Notification\Application\Discord\SendSchedulerDiscordSummaryMessage: async
             App\Notification\Application\Test\SendTestNotificationMessage: async
+            App\Manga\Application\Enrich\EnrichMangaMessage: async
             # Transactional emails are sent by the worker so a slow/unreachable
             # SMTP server never blocks the HTTP request that triggered them.
             Symfony\Component\Mailer\Messenger\SendEmailMessage: async

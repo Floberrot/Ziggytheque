@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<srw:searchRetrieveResponse xmlns:srw="http://www.loc.gov/zing/srw/"
+    xmlns:dc="http://purl.org/dc/elements/1.1/"
+    xmlns:oai_dc="http://www.openarchives.org/OAI/2.0/oai_dc/">
+  <srw:version>1.2</srw:version>
+  <srw:numberOfRecords>6</srw:numberOfRecords>
+  <srw:records>
+    <srw:record>
+      <srw:recordData>
+        <oai_dc:dc>
+          <dc:title>Berserk. 1 / Kentarō Miura</dc:title>
+          <dc:creator>Miura, Kentarō (1966-2021). Auteur du texte</dc:creator>
+          <dc:publisher>Glénat (Grenoble)</dc:publisher>
+          <dc:identifier>https://catalogue.bnf.fr/ark:/12148/cb37148339x</dc:identifier>
+          <dc:identifier>ISBN 9782723425483</dc:identifier>
+          <dc:language>fre</dc:language>
+          <dc:type>texte imprimé</dc:type>
+        </oai_dc:dc>
+      </srw:recordData>
+    </srw:record>
+    <srw:record>
+      <srw:recordData>
+        <oai_dc:dc>
+          <dc:title>Berserk : prestige. 2, L'élu / Kentarō Miura</dc:title>
+          <dc:creator>Miura, Kentarō (1966-2021). Auteur du texte</dc:creator>
+          <dc:publisher>Glénat</dc:publisher>
+          <dc:identifier>https://catalogue.bnf.fr/ark:/12148/cb47001234z</dc:identifier>
+          <dc:identifier>ISBN 978-2-344-03608-2</dc:identifier>
+          <dc:language>fre</dc:language>
+          <dc:type>texte imprimé</dc:type>
+        </oai_dc:dc>
+      </srw:recordData>
+    </srw:record>
+    <srw:record>
+      <srw:recordData>
+        <oai_dc:dc>
+          <dc:title>Berserk : the golden age</dc:title>
+          <dc:publisher>AB vidéo (La Plaine Saint-Denis)</dc:publisher>
+          <dc:language>fre</dc:language>
+          <dc:type>image animée</dc:type>
+        </oai_dc:dc>
+      </srw:recordData>
+    </srw:record>
+    <srw:record>
+      <srw:recordData>
+        <oai_dc:dc>
+          <dc:title>Berserk. 5</dc:title>
+          <dc:publisher>Panini</dc:publisher>
+          <dc:language>ger</dc:language>
+          <dc:type>texte imprimé</dc:type>
+        </oai_dc:dc>
+      </srw:recordData>
+    </srw:record>
+    <srw:record>
+      <srw:recordData>
+        <oai_dc:dc>
+          <dc:title>Berserk : coloriages</dc:title>
+          <dc:publisher>Glénat</dc:publisher>
+          <dc:language>fre</dc:language>
+          <dc:type>texte imprimé</dc:type>
+        </oai_dc:dc>
+      </srw:recordData>
+    </srw:record>
+    <srw:record>
+      <srw:recordData>
+        <oai_dc:dc>
+          <dc:creator>Sans titre</dc:creator>
+        </oai_dc:dc>
+      </srw:recordData>
+    </srw:record>
+  </srw:records>
+</srw:searchRetrieveResponse>

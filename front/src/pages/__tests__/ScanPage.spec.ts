@@ -8,12 +8,19 @@ vi.mock('@/api/manga', () => ({
 }))
 
 type DecodeCallback = (isbn: string) => void
-const mockScannerInstances: { start: ReturnType<typeof vi.fn>; stop: ReturnType<typeof vi.fn>; isScanning: { value: boolean }; errorMessage: { value: string | null } }[] = []
+const mockScannerInstances: {
+  start: ReturnType<typeof vi.fn>
+  startContinuous: ReturnType<typeof vi.fn>
+  stop: ReturnType<typeof vi.fn>
+  isScanning: { value: boolean }
+  errorMessage: { value: string | null }
+}[] = []
 
 vi.mock('@/composables/useBarcodeScanner', () => ({
   useBarcodeScanner: vi.fn(() => {
     const instance = {
       start: vi.fn().mockResolvedValue(undefined),
+      startContinuous: vi.fn().mockResolvedValue(undefined),
       stop: vi.fn(),
       isScanning: { value: false },
       errorMessage: { value: null },
@@ -41,19 +48,20 @@ const i18n = createI18n({
         expired: 'Link expired.',
         invalidCode: 'Invalid barcode.',
         cameraError: 'Camera error.',
+        batchSent: 'No volume sent | 1 volume sent | {count} volumes sent',
       },
     },
   },
 })
 
-function makeRouter(token = 'test-token') {
+function makeRouter(token = 'test-token', query = '') {
   const router = createRouter({
     history: createWebHashHistory(),
     routes: [
       { path: '/scan/:token', name: 'scan', component: ScanPage },
     ],
   })
-  router.push(`/scan/${token}`)
+  router.push(`/scan/${token}${query}`)
   return router
 }
 
@@ -64,8 +72,8 @@ describe('ScanPage', () => {
     mockSubmitScan.mockResolvedValue(undefined)
   })
 
-  async function mountPage(token = 'test-token') {
-    const router = makeRouter(token)
+  async function mountPage(token = 'test-token', query = '') {
+    const router = makeRouter(token, query)
     await router.isReady()
     const wrapper = mount(ScanPage, {
       global: { plugins: [i18n, router] },
@@ -107,5 +115,23 @@ describe('ScanPage', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.text()).toContain('Link expired.')
+  })
+
+  it('keeps scanning in batch mode and counts the volumes sent', async () => {
+    const wrapper = await mountPage('batch-token', '?batch=1')
+
+    const scanner = mockScannerInstances[0]
+    expect(scanner.start).not.toHaveBeenCalled()
+    const continuousCall = scanner.startContinuous.mock.calls[0] as unknown[]
+    const onScanCallback = continuousCall[1] as DecodeCallback
+
+    await onScanCallback('9782811645632')
+    await onScanCallback('9782723425483')
+    await wrapper.vm.$nextTick()
+
+    expect(mockSubmitScan).toHaveBeenCalledTimes(2)
+    expect(wrapper.text()).toContain('2 volumes sent')
+    expect(wrapper.text()).toContain('9782723425483')
+    expect(wrapper.text()).not.toContain('Scan another')
   })
 })

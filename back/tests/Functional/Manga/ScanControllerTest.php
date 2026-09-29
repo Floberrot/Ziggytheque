@@ -52,6 +52,21 @@ final class ScanControllerTest extends AbstractApiTestCase
         $this->assertJsonStatus(404, $response);
     }
 
+    public function testCreateFreeSessionWithoutTargetReturnsTokens(): void
+    {
+        $data = $this->assertJsonStatus(201, $this->jsonRequest('POST', '/api/scan/sessions', ['mangaId' => null]));
+
+        $this->assertArrayHasKey('scanToken', $data);
+        $this->assertStringContainsString($data['sessionId'], $data['topic']);
+    }
+
+    public function testCreateSessionWithAMangaButNoVolumeIsNotFound(): void
+    {
+        $mangaId = $this->importManga();
+
+        $this->assertJsonStatus(404, $this->jsonRequest('POST', '/api/scan/sessions', ['mangaId' => $mangaId]));
+    }
+
     public function testCreateSessionReturnsTokens(): void
     {
         $mangaId = $this->importManga();

@@ -101,17 +101,9 @@ services:
     App\Manga\Domain\MangaRepositoryInterface:
         alias: App\Manga\Infrastructure\Doctrine\DoctrineMangaRepository
 
-    # Jikan (MyAnimeList) for series search (AddManga flow) — the default provider
+    # Jikan (MyAnimeList) — fills genre / summary of a series created from the catalogue
     App\Manga\Domain\ExternalApiClientInterface:
         alias: App\Manga\Infrastructure\ExternalApi\JikanMangaApiClient
-
-    # Service locator so SearchExternalMangaHandler can target a user-selected
-    # series-search provider (the front exposes the choice next to the search field).
-    App\Manga\Application\SearchExternal\SearchExternalMangaHandler:
-        arguments:
-            $providerLocator: !service_locator
-                jikan: '@App\Manga\Infrastructure\ExternalApi\JikanMangaApiClient'
-                googlebooks: '@App\Manga\Infrastructure\ExternalApi\GoogleBooksMangaApiClient'
 
     # Cover provider composite — used for per-volume cover resolution
     App\Manga\Domain\MangaCoverProviderInterface:
@@ -194,59 +186,27 @@ services:
         tags:
             - { name: app.manga_context_cover_provider, priority: 50 }
 
-    # Resolves the work's title in the target language (AniList) before searching
-    # foreign catalogues. Keyless GraphQL.
-    App\Manga\Domain\WorkTitleResolverInterface:
-        alias: App\Manga\Infrastructure\ExternalApi\AniListWorkTitleResolver
+    # French catalogue for the manga-first add flow: BnF (legal deposit) answers,
+    # Google Books only when the BnF has nothing; answers are cached for an hour.
+    App\Manga\Domain\Catalogue\CatalogueInterface:
+        alias: App\Manga\Infrastructure\Catalogue\CachedCatalogue
 
-    App\Manga\Infrastructure\ExternalApi\AniListWorkTitleResolver:
+    App\Manga\Infrastructure\Catalogue\CachedCatalogue:
         arguments:
-            $baseUrl: '%env(ANILIST_BASE_URL)%'
+            $inner: '@App\Manga\Infrastructure\Catalogue\FallbackCatalogue'
 
-    # Edition providers composite — discovers all editions of a work across sources.
-    App\Manga\Domain\EditionProviderInterface:
-        alias: App\Manga\Infrastructure\ExternalApi\CompositeEditionProvider
-
-    App\Manga\Infrastructure\ExternalApi\CompositeEditionProvider:
+    App\Manga\Infrastructure\Catalogue\FallbackCatalogue:
         arguments:
-            $providers: !tagged_iterator { tag: app.manga_edition_provider }
+            $primary: '@App\Manga\Infrastructure\Catalogue\BnfCatalogue'
+            $fallback: '@App\Manga\Infrastructure\Catalogue\GoogleBooksCatalogue'
 
-    # BnF SRU — keyless, authoritative for French editions (legal deposit). Priority 80.
-    App\Manga\Infrastructure\ExternalApi\BnfEditionProvider:
+    App\Manga\Infrastructure\Catalogue\BnfCatalogue:
         arguments:
             $baseUrl: '%env(BNF_BASE_URL)%'
-        tags:
-            - { name: app.manga_edition_provider, priority: 80 }
 
-    # DNB SRU — keyless, authoritative for German editions (Carlsen, Egmont…). Priority 75.
-    App\Manga\Infrastructure\ExternalApi\DnbEditionProvider:
-        arguments:
-            $baseUrl: '%env(DNB_BASE_URL)%'
-        tags:
-            - { name: app.manga_edition_provider, priority: 75 }
-
-    # NDL SRU — keyless, authoritative for Japanese editions (queried with the native
-    # title resolved by AniList). Priority 74.
-    App\Manga\Infrastructure\ExternalApi\NdlEditionProvider:
-        arguments:
-            $baseUrl: '%env(NDL_BASE_URL)%'
-        tags:
-            - { name: app.manga_edition_provider, priority: 74 }
-
-    # Open Library — Work → editions.json; best US/EN coverage (Deluxe, omnibus). Priority 70.
-    App\Manga\Infrastructure\ExternalApi\OpenLibraryEditionProvider:
-        arguments:
-            $baseUrl: '%env(OPEN_LIBRARY_BASE_URL)%'
-            $userAgent: '%env(OPENLIBRARY_USER_AGENT)%'
-        tags:
-            - { name: app.manga_edition_provider, priority: 70 }
-
-    # Google Books — enrichment (fills missing ISBN / covers). Priority 50.
-    App\Manga\Infrastructure\ExternalApi\GoogleBooksEditionProvider:
+    App\Manga\Infrastructure\Catalogue\GoogleBooksCatalogue:
         arguments:
             $apiKey: '%env(GOOGLE_BOOKS_API_KEY)%'
-        tags:
-            - { name: app.manga_edition_provider, priority: 50 }
 
     # Price providers composite — fetches live merchant offers per ISBN + marketplace.
     App\Manga\Domain\VolumePriceProviderInterface:
@@ -296,14 +256,6 @@ services:
         arguments:
             $pool: '@cache.app'
             $ttlSeconds: 86400
-
-    # Edition discovery cache — repeated searches skip the whole catalogue fan-out.
-    App\Manga\Domain\EditionDiscoveryCacheInterface:
-        alias: App\Manga\Infrastructure\Cache\PsrEditionDiscoveryCache
-
-    App\Manga\Infrastructure\Cache\PsrEditionDiscoveryCache:
-        arguments:
-            $pool: '@cache.app'
 
     # Generic cache-backed rate limiter (no symfony/rate-limiter dependency).
     App\Shared\Infrastructure\RateLimit\CacheRateLimiter:
@@ -421,21 +373,14 @@ when@test:
 
         App\Manga\Domain\ExternalApiClientInterface:
             alias: App\Manga\Infrastructure\ExternalApi\NullMangaApiClient
-        App\Manga\Domain\EditionProviderInterface:
-            alias: App\Manga\Infrastructure\ExternalApi\NullEditionProvider
-        App\Manga\Domain\WorkTitleResolverInterface:
-            alias: App\Manga\Infrastructure\ExternalApi\NullWorkTitleResolver
         App\Manga\Domain\VolumePriceProviderInterface:
             alias: App\Manga\Infrastructure\ExternalApi\NullPriceProvider
+        App\Manga\Domain\Catalogue\CatalogueInterface:
+            alias: App\Tests\Doubles\Manga\InMemoryCatalogue
+        App\Tests\Doubles\Manga\InMemoryCatalogue:
+            public: true
         App\Manga\Domain\SummaryTranslatorInterface:
             alias: App\Manga\Infrastructure\Translation\NullSummaryTranslator
-        App\Manga\Application\SearchExternal\SearchExternalMangaHandler:
-            autowire: true
-            autoconfigure: true
-            arguments:
-                $providerLocator: !service_locator
-                    jikan: '@App\Manga\Infrastructure\ExternalApi\NullMangaApiClient'
-                    googlebooks: '@App\Manga\Infrastructure\ExternalApi\NullMangaApiClient'
         App\Manga\Domain\MangaCoverProviderInterface:
             alias: App\Tests\Doubles\Manga\StubMangaCoverProvider
         App\Manga\Domain\MultiSourceCoverProviderInterface:

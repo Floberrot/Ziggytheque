@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Collection;
 
 use App\Tests\Functional\AbstractApiTestCase;
+use Doctrine\ORM\EntityManagerInterface;
 
 final class GetCollectionFilterTest extends AbstractApiTestCase
 {
@@ -24,10 +25,14 @@ final class GetCollectionFilterTest extends AbstractApiTestCase
         string $genre = 'shonen',
         ?string $edition = null,
         int $volumes = 0,
+        ?string $specialEdition = null,
     ): string {
         $body = ['title' => $title, 'language' => 'fr', 'genre' => $genre];
         if ($edition !== null) {
             $body['edition'] = $edition;
+        }
+        if ($specialEdition !== null) {
+            $body['specialEdition'] = $specialEdition;
         }
         if ($volumes > 0) {
             $body['totalVolumes'] = $volumes;
@@ -283,6 +288,71 @@ final class GetCollectionFilterTest extends AbstractApiTestCase
         $this->assertSame(2, $data['total']);
         $this->assertNotNull($data['items'][0]['rating']);
         $this->assertNull($data['items'][1]['rating']);
+    }
+
+    public function testDefaultSortGroupsEditionsOfTheSameWorkAlphabetically(): void
+    {
+        $this->addToCollection($this->createManga($this->pfx . 'Zeta', edition: 'Kana'));
+        $this->addToCollection($this->createManga($this->pfx . 'Alpha', edition: 'Glénat', specialEdition: 'Prestige'));
+        $this->addToCollection($this->createManga($this->pfx . 'Mid', edition: 'Pika'));
+        $this->addToCollection($this->createManga($this->pfx . 'Alpha', edition: 'Glénat'));
+
+        $data = $this->listCollection(['search' => $this->pfx]);
+
+        $this->assertSame(
+            [
+                [$this->pfx . 'Alpha', null],
+                [$this->pfx . 'Alpha', 'Prestige'],
+                [$this->pfx . 'Mid', null],
+                [$this->pfx . 'Zeta', null],
+            ],
+            array_map(
+                static fn (array $item): array => [$item['manga']['title'], $item['manga']['specialEdition']],
+                $data['items'],
+            ),
+        );
+    }
+
+    public function testSortAddedDescListsTheLatestAdditionFirst(): void
+    {
+        $olderEntryId = $this->addToCollection($this->createManga($this->pfx . 'Zeta'));
+        $this->addToCollection($this->createManga($this->pfx . 'Alpha'));
+
+        // addedAt has a one-second precision: age the first entry explicitly.
+        static::getContainer()->get(EntityManagerInterface::class)->getConnection()->executeStatement(
+            "UPDATE collection_entries SET added_at = added_at - INTERVAL '1 day' WHERE id = :id",
+            ['id' => $olderEntryId],
+        );
+
+        $data = $this->listCollection(['search' => $this->pfx, 'sort' => 'added_desc']);
+
+        $this->assertSame($this->pfx . 'Alpha', $data['items'][0]['manga']['title']);
+        $this->assertSame($this->pfx . 'Zeta', $data['items'][1]['manga']['title']);
+    }
+
+    public function testSearchMatchesTheSpecialEditionName(): void
+    {
+        $this->addToCollection($this->createManga($this->pfx . 'Berserk', edition: 'Glénat', specialEdition: 'Prestige'));
+        $this->addToCollection($this->createManga($this->pfx . 'Berserk', edition: 'Glénat'));
+
+        $data = $this->listCollection(['search' => $this->pfx . 'Berserk Prestige']);
+
+        $this->assertSame(1, $data['total']);
+        $this->assertSame('Prestige', $data['items'][0]['manga']['specialEdition']);
+    }
+
+    public function testEditionFilterMatchesPublisherOrSpecialEdition(): void
+    {
+        $this->addToCollection($this->createManga($this->pfx . 'Berserk', edition: 'Glénat', specialEdition: 'Prestige'));
+        $this->addToCollection($this->createManga($this->pfx . 'Naruto', edition: 'Kana'));
+
+        $bySpecialEdition = $this->listCollection(['search' => $this->pfx, 'edition' => 'prestige']);
+        $byPublisher      = $this->listCollection(['search' => $this->pfx, 'edition' => 'kana']);
+
+        $this->assertSame(1, $bySpecialEdition['total']);
+        $this->assertSame($this->pfx . 'Berserk', $bySpecialEdition['items'][0]['manga']['title']);
+        $this->assertSame(1, $byPublisher['total']);
+        $this->assertSame($this->pfx . 'Naruto', $byPublisher['items'][0]['manga']['title']);
     }
 
     // ── Combined filters ─────────────────────────────────────────────────────

@@ -1,217 +1,351 @@
 <script setup lang="ts">
-  import { ref, computed } from 'vue'
-  import { useRouter } from 'vue-router'
-  import { useMutation, useQueryClient } from '@tanstack/vue-query'
-  import { ArrowLeft, Search, RefreshCw, Book, ImageOff, Star, HelpCircle } from 'lucide-vue-next'
-  import { importManga } from '@/api/manga'
-  import { addToCollection, addRemainingToWishlist } from '@/api/collection'
-  import { useUiStore } from '@/stores/useUiStore'
-  import { useI18n } from 'vue-i18n'
-  import { useExternalSearch } from '@/composables/useExternalSearch'
-  import { useEditions } from '@/composables/useEditions'
-  import type { ExternalMangaResult, SearchProvider } from '@/composables/useExternalSearch'
-  import type { ExternalEdition } from '@/composables/useEditions'
-  import { coverUrl } from '@/utils/coverUrl'
-  import BaseEditionSelector from '@/components/atoms/BaseEditionSelector.vue'
-  import BaseProviderLogo from '@/components/atoms/BaseProviderLogo.vue'
-  import BaseCountryFlag from '@/components/atoms/BaseCountryFlag.vue'
-  import EditionCard from '@/components/organisms/EditionCard.vue'
-  import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
-  import BaseLoader from '@/components/atoms/BaseLoader.vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useI18n } from 'vue-i18n'
+import {
+  Camera, CheckCircle2, HelpCircle, PenLine, ScanBarcode, Search, Smartphone, Star, X,
+} from 'lucide-vue-next'
+import {
+  addFromCatalogue, getCatalogueEdition, scanIsbn, searchCatalogue,
+  type AddFromCataloguePayload, type CatalogueEdition, type CatalogueRegistration, type CatalogueSearchMode,
+} from '@/api/catalogue'
+import { addRemainingToWishlist, addToCollection, toggleVolume } from '@/api/collection'
+import { createScanSession, importManga } from '@/api/manga'
+import { useBarcodeScanner } from '@/composables/useBarcodeScanner'
+import { useScanSession } from '@/composables/useScanSession'
+import { useUiStore } from '@/stores/useUiStore'
+import type { CatalogueSelection, ScanFeedItem } from '@/types'
+import { normalizeIsbn13 } from '@/utils/isbn'
+import BaseEditionSelector from '@/components/atoms/BaseEditionSelector.vue'
+import BaseLoader from '@/components/atoms/BaseLoader.vue'
+import BaseQrCode from '@/components/atoms/BaseQrCode.vue'
+import EditionBadge from '@/components/molecules/EditionBadge.vue'
+import CatalogueEditionCard from '@/components/organisms/CatalogueEditionCard.vue'
+import CatalogueEditionSheet from '@/components/organisms/CatalogueEditionSheet.vue'
+import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
+import ScanFeed from '@/components/organisms/ScanFeed.vue'
 
-  const router = useRouter()
-  const qc = useQueryClient()
-  const ui = useUiStore()
-  const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
+const queryClient = useQueryClient()
+const ui = useUiStore()
+const { t } = useI18n()
 
-  const showGuide = ref(false)
-  const step = ref<1 | 2 | 3>(1)
-  const collectionEntryId = ref('')
-  const searchMode = ref<'series' | 'editions'>('series')
+const showGuide = ref(false)
+const tab = ref<'search' | 'scan' | 'manual'>(route.query.tab === 'scan' ? 'scan' : 'search')
 
-  // ── Editions discovery mode (country chosen BEFORE searching) ──
-  const editionsQuery = ref('')
-  const {
-    groupedByCountry,
-    isLoading: editionsLoading,
-    error: editionsError,
-    discover: runEditionsDiscover,
-  } = useEditions()
+function refreshCollection(): void {
+  queryClient.invalidateQueries({ queryKey: ['collection'] })
+  queryClient.invalidateQueries({ queryKey: ['stats'] })
+  queryClient.invalidateQueries({ queryKey: ['catalogue'] })
+}
 
-  // One country per search — we never fan out to every catalogue at once.
-  const EDITION_COUNTRIES = [
-    { code: 'FR', language: 'fr' },
-    { code: 'US', language: 'en' },
-    { code: 'JP', language: 'ja' },
-    { code: 'DE', language: 'de' },
-    { code: 'ES', language: 'es' },
-    { code: 'IT', language: 'it' },
-  ] as const
-  const editionCountry = ref<string>('FR')
+function httpStatus(error: unknown): number | undefined {
+  return (error as { response?: { status?: number } } | null)?.response?.status
+}
 
-  function discoverEditionsForQuery(): void {
-    if (editionsQuery.value.trim().length < 2) return
-    const country =
-      EDITION_COUNTRIES.find((option) => option.code === editionCountry.value) ?? EDITION_COUNTRIES[0]
-    runEditionsDiscover(editionsQuery.value.trim(), null, country.language)
-  }
+// ── Search (title / author — an ISBN typed in the field is detected) ─────────
 
-  function applyEdition(edition: ExternalEdition): void {
-    form.value = {
-      title: edition.workTitle,
-      edition: edition.publisher ?? '',
-      language: edition.language,
-      author: '',
-      summary: '',
-      coverUrl: edition.coverUrl ?? '',
-      genre: '',
-      totalVolumes: edition.volumeCount ?? '',
-      externalId: edition.externalId ?? '',
+const searchMode = ref<'title' | 'author'>('title')
+const searchInput = ref(typeof route.query.q === 'string' ? route.query.q : '')
+const debouncedQuery = ref(searchInput.value.trim())
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(searchInput, (value) => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    debouncedQuery.value = value.trim()
+  }, 450)
+})
+
+const hasQuery = computed(() => debouncedQuery.value.length >= 2)
+const effectiveMode = computed<CatalogueSearchMode>(() =>
+  normalizeIsbn13(debouncedQuery.value) !== null ? 'isbn' : searchMode.value,
+)
+
+const {
+  data: searchResult,
+  isFetching: isSearching,
+  error: searchError,
+} = useQuery({
+  queryKey: computed(() => ['catalogue', 'search', effectiveMode.value, debouncedQuery.value]),
+  queryFn: () => searchCatalogue(debouncedQuery.value, effectiveMode.value),
+  enabled: computed(() => hasQuery.value),
+  staleTime: 5 * 60 * 1000,
+  retry: false,
+})
+
+const searchErrorMessage = computed(() => {
+  if (!searchError.value) return null
+  const status = httpStatus(searchError.value)
+  if (status === 404) return t('add.isbnNotFound')
+  if (status === 422) return t('add.invalidQuery')
+  if (status === 429) return t('add.tooManyRequests')
+  return t('add.searchUnavailable')
+})
+
+// ── Series sheet: pick the tomes you own ─────────────────────────────────────
+
+const selectedEdition = ref<CatalogueEdition | null>(null)
+const requestedVolume = ref<number | null>(null)
+
+function openEdition(edition: CatalogueEdition, volume: number | null = null): void {
+  selectedEdition.value = edition
+  requestedVolume.value = volume ?? searchResult.value?.requestedVolume ?? null
+}
+
+// The search only saw some tomes of each series — load the complete list once opened.
+const { data: fullEdition, isFetching: isLoadingEdition } = useQuery({
+  queryKey: computed(() => [
+    'catalogue',
+    'edition',
+    selectedEdition.value?.workTitle,
+    selectedEdition.value?.publisher,
+    selectedEdition.value?.specialEdition,
+  ]),
+  queryFn: () => getCatalogueEdition(selectedEdition.value!),
+  enabled: computed(() => selectedEdition.value !== null),
+  staleTime: 5 * 60 * 1000,
+  retry: false,
+})
+
+const sheetEdition = computed<CatalogueEdition | null>(() => {
+  const selected = selectedEdition.value
+  if (!selected) return null
+  const complete = fullEdition.value
+  // Never show fewer tomes than the search already found.
+  return complete && complete.volumeCount >= selected.volumeCount ? complete : selected
+})
+
+interface AddedSummary {
+  registration: CatalogueRegistration
+  workTitle: string
+  publisher: string | null
+  specialEdition: string | null
+}
+
+const lastAdded = ref<AddedSummary | null>(null)
+
+const addMutation = useMutation({
+  mutationFn: (payload: AddFromCataloguePayload) => addFromCatalogue(payload),
+  onSuccess: (registration, payload) => {
+    refreshCollection()
+    lastAdded.value = {
+      registration,
+      workTitle: payload.workTitle,
+      publisher: payload.publisher,
+      specialEdition: payload.specialEdition,
     }
-    step.value = 2
-  }
+    selectedEdition.value = null
+  },
+  onError: () => ui.addToast(t('add.addError'), 'error'),
+})
 
-  const {
-    provider,
-    providers,
-    query,
-    results,
-    isLoading: searchLoading,
-    isLoadingMore,
-    hasMore,
-    loadMore,
-    error: searchError,
-    search: runSearch,
-    clear: clearSearch,
-  } = useExternalSearch()
-
-  const currentProvider = computed(
-    () => providers.find((option) => option.key === provider.value) ?? providers[0],
-  )
-
-  function selectProvider(key: SearchProvider): void {
-    provider.value = key
-    // Close the DaisyUI dropdown by removing focus from the trigger/menu.
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur()
-    }
-  }
-
-  function onResultsScroll(event: Event) {
-    const el = event.target as HTMLElement
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100) {
-      loadMore()
-    }
-  }
-
-  const form = ref({
-    title: '',
-    edition: '',
-    language: 'fr',
-    author: '',
-    summary: '',
-    coverUrl: '',
-    genre: '',
-    totalVolumes: '' as string | number,
-    externalId: '',
+function addSelection(selection: CatalogueSelection): void {
+  const edition = sheetEdition.value
+  if (!edition) return
+  addMutation.mutate({
+    workTitle: selection.workTitle,
+    publisher: selection.publisher,
+    specialEdition: selection.specialEdition,
+    author: edition.author,
+    coverUrl: edition.coverUrl,
+    volumeCount: edition.volumeCount,
+    volumes: edition.volumes,
+    ownedNumbers: selection.ownedNumbers,
   })
+}
 
-  const coverPreview = computed(() => coverUrl(form.value.coverUrl))
+const wishlistMutation = useMutation({
+  mutationFn: (collectionEntryId: string) => addRemainingToWishlist(collectionEntryId),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['wishlist'] })
+    refreshCollection()
+    ui.addToast(t('wishlist.allAdded'), 'success')
+    lastAdded.value = null
+  },
+})
 
-  function applyResult(result: ExternalMangaResult): void {
-    form.value = {
-      title: result.title,
-      edition: result.edition ?? '',
-      language: result.language,
-      author: result.author ?? '',
-      summary: result.summary ?? '',
-      coverUrl: result.coverUrl ?? '',
-      genre: result.genre ?? '',
-      totalVolumes: result.totalVolumes ?? '',
-      externalId: result.externalId ?? '',
-    }
-    clearSearch()
-    step.value = 2
-  }
+function openSeries(collectionEntryId: string): void {
+  router.push({ name: 'collection-detail', params: { id: collectionEntryId } })
+}
 
-  function goToForm(): void {
-    clearSearch()
-    step.value = 2
-  }
+function openLastAddedSeries(): void {
+  if (lastAdded.value) openSeries(lastAdded.value.registration.collectionEntryId)
+}
 
-  const importMutation = useMutation({
-    mutationFn: () =>
-      importManga({
-        title: form.value.title,
-        language: form.value.language,
-        edition: form.value.edition || undefined,
-        author: form.value.author || undefined,
-        summary: form.value.summary || undefined,
-        coverUrl: form.value.coverUrl || undefined,
-        genre: form.value.genre || undefined,
-        externalId: form.value.externalId || undefined,
-        totalVolumes: form.value.totalVolumes !== '' ? Number(form.value.totalVolumes) : undefined,
-      }),
-    onSuccess: async (data) => {
-      // Always add to collection first (creates the oeuvre tracker with all volumes)
-      const res = await addToCollection(data.id)
-      collectionEntryId.value = res.id
-      qc.invalidateQueries({ queryKey: ['collection'] })
-      step.value = 3
+function sendMissingToWishlist(): void {
+  if (lastAdded.value) wishlistMutation.mutate(lastAdded.value.registration.collectionEntryId)
+}
+
+function openScannedSeries(item: ScanFeedItem): void {
+  if (item.collectionEntryId) openSeries(item.collectionEntryId)
+}
+
+// ── Scan: every barcode read adds its tome — the series follows ──────────────
+
+const videoRef = ref<HTMLVideoElement | null>(null)
+const cameraOn = ref(false)
+const scanner = useBarcodeScanner()
+const phoneSession = useScanSession()
+const phoneQrValue = ref<string | null>(null)
+const isOpeningPhoneSession = ref(false)
+const scanFeed = ref<ScanFeedItem[]>([])
+let nextScanId = 1
+
+const scannedCount = computed(() => scanFeed.value.filter((item) => item.status === 'added').length)
+
+function updateScan(id: number, patch: Partial<ScanFeedItem>): void {
+  scanFeed.value = scanFeed.value.map((item) => (item.id === id ? { ...item, ...patch } : item))
+}
+
+async function onBarcode(code: string): Promise<void> {
+  const id = nextScanId++
+  const isbn = normalizeIsbn13(code)
+  scanFeed.value = [
+    {
+      id,
+      code,
+      status: isbn ? 'pending' : 'invalid',
+      workTitle: null,
+      publisher: null,
+      specialEdition: null,
+      volumeNumber: null,
+      coverUrl: null,
+      seriesCreated: false,
+      totalVolumes: null,
+      collectionEntryId: null,
+      volumeEntryId: null,
     },
-  })
-
-  const goCollectionMutation = useMutation({
-    mutationFn: () => Promise.resolve(),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['stats'] })
-      ui.addToast(t('collection.added'), 'success')
-      router.push({ name: 'collection-detail', params: { id: collectionEntryId.value } })
-    },
-  })
-
-  const goWishlistMutation = useMutation({
-    mutationFn: () => addRemainingToWishlist(collectionEntryId.value),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['wishlist'] })
-      qc.invalidateQueries({ queryKey: ['stats'] })
-      ui.addToast(t('wishlist.allAdded'), 'success')
-      router.push({ name: 'wishlist' })
-    },
-  })
-
-  const genres = [
-    'shonen',
-    'shojo',
-    'seinen',
-    'josei',
-    'isekai',
-    'fantasy',
-    'action',
-    'romance',
-    'horror',
-    'sci_fi',
-    'slice_of_life',
-    'sports',
-    'other',
+    ...scanFeed.value,
   ]
+  if (!isbn) return
+
+  try {
+    const result = await scanIsbn(isbn)
+    const volume = result.edition.volumes.find((candidate) => candidate.number === result.volumeNumber)
+    updateScan(id, {
+      status: result.alreadyOwned ? 'owned' : 'added',
+      workTitle: result.edition.workTitle,
+      publisher: result.edition.publisher,
+      specialEdition: result.edition.specialEdition,
+      volumeNumber: result.volumeNumber,
+      coverUrl: volume?.coverUrl ?? result.edition.coverUrl,
+      seriesCreated: result.registration.seriesCreated,
+      totalVolumes: result.registration.totalVolumes,
+      collectionEntryId: result.registration.collectionEntryId,
+      volumeEntryId: result.registration.volumeEntryIds[String(result.volumeNumber)] ?? null,
+    })
+    refreshCollection()
+  } catch (error) {
+    updateScan(id, { status: httpStatus(error) === 404 ? 'notFound' : 'error' })
+  }
+}
+
+async function startCamera(): Promise<void> {
+  cameraOn.value = true
+  // The <video> is rendered once cameraOn flips — wait for it.
+  await nextTick()
+  if (videoRef.value) {
+    await scanner.startContinuous(videoRef.value, onBarcode)
+  }
+}
+
+function stopCamera(): void {
+  scanner.stop()
+  cameraOn.value = false
+}
+
+async function startPhoneScan(): Promise<void> {
+  isOpeningPhoneSession.value = true
+  try {
+    const session = await createScanSession()
+    phoneQrValue.value = `${window.location.origin}/scan/${session.scanToken}?batch=1`
+    phoneSession.start(session, { onResult: onBarcode })
+  } catch {
+    ui.addToast(t('scanBatch.phoneError'), 'error')
+  } finally {
+    isOpeningPhoneSession.value = false
+  }
+}
+
+function stopPhoneScan(): void {
+  phoneSession.close()
+  phoneQrValue.value = null
+}
+
+async function undoScan(item: ScanFeedItem): Promise<void> {
+  if (!item.collectionEntryId || !item.volumeEntryId) return
+  try {
+    await toggleVolume(item.collectionEntryId, item.volumeEntryId, 'isOwned')
+    updateScan(item.id, { status: 'undone' })
+    refreshCollection()
+  } catch {
+    ui.addToast(t('scanBatch.undoError'), 'error')
+  }
+}
+
+function searchScannedCode(item: ScanFeedItem): void {
+  searchInput.value = item.code
+  tab.value = 'search'
+}
+
+watch(tab, (next) => {
+  if (next !== 'scan') {
+    stopCamera()
+    stopPhoneScan()
+  }
+})
+
+onUnmounted(() => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+})
+
+// ── Manual entry: last resort when no catalogue knows the book ───────────────
+
+const manual = ref({
+  title: '',
+  publisher: '',
+  specialEdition: '',
+  author: '',
+  totalVolumes: '' as string | number,
+  coverUrl: '',
+})
+
+const manualMutation = useMutation({
+  mutationFn: async () => {
+    const created = await importManga({
+      title: manual.value.title.trim(),
+      language: 'fr',
+      edition: manual.value.publisher.trim() || undefined,
+      specialEdition: manual.value.specialEdition.trim() || undefined,
+      author: manual.value.author.trim() || undefined,
+      coverUrl: manual.value.coverUrl.trim() || undefined,
+      totalVolumes: manual.value.totalVolumes !== '' ? Number(manual.value.totalVolumes) : undefined,
+    })
+    return addToCollection(created.id)
+  },
+  onSuccess: (entry) => {
+    refreshCollection()
+    ui.addToast(t('collection.added'), 'success')
+    openSeries(entry.id)
+  },
+  onError: () => ui.addToast(t('add.addError'), 'error'),
+})
 </script>
 
 <template>
-  <div class="p-4 md:p-6 max-w-3xl mx-auto space-y-6">
-    <div class="flex items-center gap-3">
-      <button
-        v-if="step > 1 && step < 3"
-        class="btn btn-ghost btn-sm btn-circle"
-        @click="step = step === 2 ? 1 : 2"
-      >
-        <ArrowLeft class="h-5 w-5" />
-      </button>
-      <h1 class="text-2xl font-bold">{{ t('add.title') }}</h1>
-
+  <div class="p-4 md:p-6 max-w-3xl mx-auto space-y-5">
+    <!-- Header -->
+    <div class="flex items-start gap-3">
+      <div class="flex-1">
+        <h1 class="text-2xl font-bold">{{ t('add.title') }}</h1>
+        <p class="text-sm text-base-content/60 mt-1">{{ t('add.subtitle') }}</p>
+      </div>
       <button
         type="button"
-        class="btn btn-ghost btn-sm gap-1.5 ml-auto text-base-content/60 hover:text-primary"
+        class="btn btn-ghost btn-sm gap-1.5 text-base-content/60 hover:text-primary"
         :title="t('guide.openTooltip')"
         :aria-label="t('guide.openTooltip')"
         @click="showGuide = true"
@@ -221,421 +355,237 @@
       </button>
     </div>
 
-    <!-- Step indicator -->
-    <ul class="steps w-full text-xs">
-      <li class="step" :class="step >= 1 ? 'step-primary' : ''">{{ t('add.search') }}</li>
-      <li class="step" :class="step >= 2 ? 'step-primary' : ''">{{ t('add.info') }}</li>
-      <li class="step" :class="step >= 3 ? 'step-primary' : ''">{{ t('add.destination') }}</li>
-    </ul>
+    <!-- How it works -->
+    <ol class="grid grid-cols-3 gap-2 text-[11px] sm:text-xs text-base-content/60">
+      <li v-for="step in 3" :key="step" class="flex items-start gap-2 bg-base-100 rounded-xl p-2.5 border border-base-200">
+        <span class="h-5 w-5 shrink-0 rounded-full bg-primary/15 text-primary font-bold flex items-center justify-center">
+          {{ step }}
+        </span>
+        <span>{{ t(`add.step${step}`) }}</span>
+      </li>
+    </ol>
 
-    <!-- ── Step 1 : Recherche ── -->
-    <div v-if="step === 1" class="space-y-3">
-      <!-- Mode switcher : Par série | Par édition -->
-      <div class="inline-flex p-1 bg-base-200 rounded-xl gap-1">
-        <button
-          class="btn btn-sm border-0"
-          :class="searchMode === 'series' ? 'btn-primary' : 'btn-ghost'"
-          @click="searchMode = 'series'"
-        >
-          {{ t('editions.modeBySeries') }}
-        </button>
-        <button
-          class="btn btn-sm border-0"
-          :class="searchMode === 'editions' ? 'btn-primary' : 'btn-ghost'"
-          @click="searchMode = 'editions'"
-        >
-          {{ t('editions.modeByEdition') }}
-        </button>
-      </div>
+    <!-- Tabs -->
+    <div role="tablist" class="grid grid-cols-3 p-1 bg-base-200 rounded-xl gap-1">
+      <button
+        v-for="option in (['search', 'scan', 'manual'] as const)"
+        :key="option"
+        role="tab"
+        :aria-selected="tab === option"
+        class="btn btn-sm border-0 gap-1.5"
+        :class="tab === option ? 'btn-primary' : 'btn-ghost'"
+        @click="tab = option"
+      >
+        <Search v-if="option === 'search'" class="h-4 w-4" />
+        <ScanBarcode v-else-if="option === 'scan'" class="h-4 w-4" />
+        <PenLine v-else class="h-4 w-4" />
+        {{ t(`add.tab.${option}`) }}
+      </button>
+    </div>
 
-      <template v-if="searchMode === 'series'">
-      <div class="flex gap-2 items-center">
-        <!-- API source picker: logo button + tooltip naming the active API -->
-        <div class="dropdown">
-          <div
-            tabindex="0"
-            role="button"
-            class="btn btn-square btn-outline btn-sm tooltip tooltip-right p-1.5"
-            :data-tip="t('add.searchVia', { name: currentProvider.label })"
-            :aria-label="t('add.searchVia', { name: currentProvider.label })"
+    <!-- Confirmation after an addition -->
+    <div v-if="lastAdded" class="alert alert-success items-start">
+      <CheckCircle2 class="h-6 w-6 shrink-0" />
+      <div class="flex-1 min-w-0 space-y-1">
+        <p class="font-semibold">{{ lastAdded.workTitle }}</p>
+        <EditionBadge :publisher="lastAdded.publisher" :special-edition="lastAdded.specialEdition" />
+        <p class="text-sm">
+          <template v-if="lastAdded.registration.seriesCreated">
+            {{ t('add.seriesCreated', { count: lastAdded.registration.totalVolumes }) }}
+          </template>
+          <template v-if="lastAdded.registration.addedNumbers.length">
+            {{ t('add.tomesAdded', { list: lastAdded.registration.addedNumbers.join(', ') }) }}
+          </template>
+          <template v-else>{{ t('add.seriesFollowed') }}</template>
+        </p>
+        <div class="flex flex-wrap gap-2 pt-1">
+          <button class="btn btn-sm" @click="openLastAddedSeries">
+            {{ t('add.openSeries') }}
+          </button>
+          <button
+            class="btn btn-sm btn-ghost gap-1"
+            :disabled="wishlistMutation.isPending.value"
+            @click="sendMissingToWishlist"
           >
-            <BaseProviderLogo :provider="provider" class="h-full w-full" />
-          </div>
-          <ul
-            tabindex="0"
-            class="dropdown-content menu z-30 mt-1 w-52 rounded-box bg-base-100 p-1 shadow"
-          >
-            <li class="menu-title text-xs">{{ t('add.searchSource') }}</li>
-            <li v-for="option in providers" :key="option.key">
-              <button
-                type="button"
-                :class="{ active: option.key === provider }"
-                @click="selectProvider(option.key)"
-              >
-                <BaseProviderLogo :provider="option.key" class="h-5 w-5 shrink-0" />
-                <span>{{ option.label }}</span>
-              </button>
-            </li>
-          </ul>
+            <BaseLoader v-if="wishlistMutation.isPending.value" size="xs" />
+            <Star v-else class="h-4 w-4" />
+            {{ t('add.missingToWishlist') }}
+          </button>
         </div>
+      </div>
+      <button class="btn btn-ghost btn-xs btn-circle" :aria-label="t('common.close')" @click="lastAdded = null">
+        <X class="h-4 w-4" />
+      </button>
+    </div>
+
+    <!-- ── Search ── -->
+    <section v-if="tab === 'search'" class="space-y-3">
+      <div class="flex flex-col sm:flex-row gap-2">
         <label class="input input-bordered flex items-center gap-2 flex-1">
           <Search class="h-4 w-4 opacity-50 shrink-0" />
           <input
-            v-model="query"
-            type="text"
+            v-model="searchInput"
+            type="search"
             class="grow"
-            :placeholder="t('add.searchPlaceholder')"
+            :placeholder="searchMode === 'title' ? t('add.searchPlaceholderTitle') : t('add.searchPlaceholderAuthor')"
             autocomplete="off"
+            autofocus
           />
-          <BaseLoader v-if="searchLoading" size="xs" class="opacity-50" />
+          <BaseLoader v-if="isSearching" size="xs" class="opacity-50" />
         </label>
-        <button
-          v-if="query.trim().length >= 2"
-          class="btn btn-square btn-outline btn-sm"
-          :disabled="searchLoading"
-          title="Relancer la recherche"
-          @click="runSearch(query)"
+        <div class="join shrink-0">
+          <button
+            v-for="option in (['title', 'author'] as const)"
+            :key="option"
+            class="btn join-item"
+            :class="searchMode === option ? 'btn-primary' : 'btn-outline'"
+            @click="searchMode = option"
+          >
+            {{ t(`add.mode.${option}`) }}
+          </button>
+        </div>
+      </div>
+      <p class="text-xs text-base-content/40">{{ t('add.searchHint') }}</p>
+
+      <template v-if="hasQuery">
+        <div v-if="searchErrorMessage" class="alert alert-warning text-sm py-2">{{ searchErrorMessage }}</div>
+
+        <div v-else-if="searchResult && searchResult.editions.length" class="space-y-2">
+          <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">
+            {{ t('add.resultsCount', { count: searchResult.editions.length }, searchResult.editions.length) }}
+          </p>
+          <CatalogueEditionCard
+            v-for="edition in searchResult.editions"
+            :key="`${edition.workTitle}|${edition.publisher}|${edition.specialEdition}`"
+            :edition="edition"
+            @select="openEdition"
+          />
+        </div>
+
+        <div
+          v-else-if="searchResult && !isSearching"
+          class="text-center py-8 space-y-3"
         >
-          <BaseLoader v-if="searchLoading" size="xs" />
-          <RefreshCw v-else class="h-4 w-4" />
+          <p class="text-sm text-base-content/50">{{ t('add.noResults') }}</p>
+          <button class="btn btn-outline btn-sm" @click="tab = 'manual'">{{ t('add.fillManually') }}</button>
+        </div>
+      </template>
+    </section>
+
+    <!-- ── Scan ── -->
+    <section v-else-if="tab === 'scan'" class="space-y-4">
+      <p class="text-sm text-base-content/60">{{ t('scanBatch.intro') }}</p>
+
+      <div class="grid gap-2 sm:grid-cols-2">
+        <button v-if="!cameraOn" class="btn btn-primary gap-2" @click="startCamera">
+          <Camera class="h-5 w-5" />
+          {{ t('scanBatch.startCamera') }}
+        </button>
+        <button v-else class="btn btn-outline gap-2" @click="stopCamera">
+          <X class="h-5 w-5" />
+          {{ t('scanBatch.stopCamera') }}
+        </button>
+
+        <button v-if="!phoneQrValue" class="btn btn-outline gap-2" :disabled="isOpeningPhoneSession" @click="startPhoneScan">
+          <BaseLoader v-if="isOpeningPhoneSession" size="xs" />
+          <Smartphone v-else class="h-5 w-5" />
+          {{ t('scanBatch.usePhone') }}
+        </button>
+        <button v-else class="btn btn-outline gap-2" @click="stopPhoneScan">
+          <X class="h-5 w-5" />
+          {{ t('scanBatch.stopPhone') }}
         </button>
       </div>
 
-      <div v-if="searchError" class="alert alert-warning text-sm py-2">{{ searchError }}</div>
-
-      <!-- Scrollable results container — fires loadMore when scrolled near bottom -->
-      <div
-        v-if="results.length"
-        class="overflow-y-auto max-h-[55vh] rounded-xl border border-base-200"
-        @scroll="onResultsScroll"
-      >
-        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 p-3">
-          <button
-            v-for="result in results"
-            :key="result.externalId"
-            class="group flex flex-col items-center gap-1.5 text-left"
-            @click="applyResult(result)"
-          >
-            <div
-              class="w-full aspect-[2/3] relative rounded-xl overflow-hidden bg-base-200 shadow group-hover:shadow-lg group-hover:scale-105 transition-all duration-150 ring-2 ring-transparent group-hover:ring-primary"
-            >
-              <img
-                v-if="result.coverUrl"
-                :src="coverUrl(result.coverUrl)!"
-                :alt="result.title"
-                class="w-full h-full object-cover"
-              />
-              <div
-                v-else
-                class="w-full h-full flex items-center justify-center opacity-30 text-base-content"
-              >
-                <Book class="h-10 w-10" stroke-width="1.5" />
-              </div>
-              <div
-                v-if="result.totalVolumes"
-                class="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none"
-              >
-                {{ result.totalVolumes }}T
-              </div>
-            </div>
-            <div class="w-full px-0.5">
-              <p class="text-xs font-medium leading-tight line-clamp-2">{{ result.title }}</p>
-              <p v-if="result.author" class="text-[10px] text-base-content/40 truncate">
-                {{ result.author }}
-              </p>
-            </div>
-          </button>
-        </div>
-        <!-- Load more indicator -->
-        <div
-          v-if="isLoadingMore || hasMore"
-          class="py-3 flex items-center justify-center gap-2 text-xs text-base-content/40 border-t border-base-200"
-        >
-          <BaseLoader v-if="isLoadingMore" size="xs" />
-          <span v-else>Faites défiler pour en voir plus</span>
-        </div>
+      <div v-if="cameraOn" class="space-y-2">
+        <video
+          ref="videoRef"
+          class="w-full rounded-2xl aspect-video object-cover bg-base-300"
+          autoplay
+          muted
+          playsinline
+        />
+        <p v-if="scanner.errorMessage.value" class="alert alert-error text-sm py-2">{{ scanner.errorMessage.value }}</p>
+        <p v-else class="text-xs text-center text-base-content/50">{{ t('scanBatch.cameraHint') }}</p>
       </div>
 
-      <p
-        v-else-if="!searchLoading && query.length >= 2"
-        class="text-sm text-center text-base-content/40 py-4"
-      >
-        {{ t('add.noResults') }}
-      </p>
+      <div v-if="phoneQrValue" class="flex flex-col items-center gap-2 p-4 bg-base-100 rounded-2xl border border-base-200">
+        <BaseQrCode :value="phoneQrValue" :size="200" />
+        <p class="text-xs text-center text-base-content/60 max-w-xs">{{ t('scanBatch.phoneHint') }}</p>
+      </div>
 
-      <div class="divider text-xs text-base-content/40">ou</div>
-      <button class="btn btn-outline btn-sm w-full" @click="goToForm">
-        {{ t('add.fillManually') }}
-      </button>
-      </template>
-
-      <!-- ── Mode : Par édition ── -->
-      <template v-else>
-        <!-- Country picked BEFORE searching — one catalogue, not all at once -->
-        <div class="space-y-1">
-          <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wide">
-            {{ t('editions.country') }}
-          </span>
-          <div class="flex flex-wrap gap-1.5">
-            <button
-              v-for="option in EDITION_COUNTRIES"
-              :key="option.code"
-              type="button"
-              class="btn btn-xs gap-1"
-              :class="editionCountry === option.code ? 'btn-primary' : 'btn-ghost'"
-              @click="editionCountry = option.code"
-            >
-              <BaseCountryFlag :country="option.code" size="sm" />
-              <span>{{ option.code }}</span>
-            </button>
-          </div>
+      <div v-if="scanFeed.length" class="space-y-2">
+        <div class="flex items-center justify-between">
+          <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">
+            {{ t('scanBatch.summary', { count: scannedCount }, scannedCount) }}
+          </p>
+          <button class="btn btn-ghost btn-xs" @click="scanFeed = []">{{ t('scanBatch.clear') }}</button>
         </div>
+        <ScanFeed
+          :items="scanFeed"
+          @undo="undoScan"
+          @open-series="openScannedSeries"
+          @search-manually="searchScannedCode"
+        />
+      </div>
+    </section>
 
-        <div class="flex gap-2 items-center">
-          <label class="input input-bordered flex items-center gap-2 flex-1">
-            <Search class="h-4 w-4 opacity-50 shrink-0" />
+    <!-- ── Manual entry ── -->
+    <section v-else class="space-y-4">
+      <p class="text-sm text-base-content/60">{{ t('add.manualIntro') }}</p>
+      <form class="space-y-3" @submit.prevent="manualMutation.mutate()">
+        <label class="flex flex-col gap-1">
+          <span class="text-xs font-semibold text-base-content/60">{{ t('manga.title') }} *</span>
+          <input v-model="manual.title" type="text" class="input input-bordered w-full" maxlength="255" required />
+        </label>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div class="flex flex-col gap-1">
+            <span class="text-xs font-semibold text-base-content/60">{{ t('catalogue.publisher') }}</span>
+            <BaseEditionSelector
+              :model-value="manual.publisher || null"
+              input-class="input input-bordered w-full"
+              @update:model-value="manual.publisher = $event ?? ''"
+            />
+          </div>
+          <label class="flex flex-col gap-1">
+            <span class="text-xs font-semibold text-base-content/60">{{ t('catalogue.specialEdition') }}</span>
             <input
-              v-model="editionsQuery"
+              v-model="manual.specialEdition"
               type="text"
-              class="grow"
-              :placeholder="t('editions.searchPlaceholder')"
-              autocomplete="off"
-              @keydown.enter="discoverEditionsForQuery"
+              class="input input-bordered w-full"
+              maxlength="150"
+              :placeholder="t('catalogue.standardEdition')"
             />
           </label>
-          <button
-            class="btn btn-primary btn-sm shrink-0"
-            :disabled="editionsQuery.trim().length < 2 || editionsLoading"
-            @click="discoverEditionsForQuery"
-          >
-            <BaseLoader v-if="editionsLoading" size="xs" />
-            <Search v-else class="h-4 w-4" />
-            {{ editionsLoading ? t('editions.discovering') : t('editions.discover') }}
-          </button>
+          <label class="flex flex-col gap-1">
+            <span class="text-xs font-semibold text-base-content/60">{{ t('manga.author') }}</span>
+            <input v-model="manual.author" type="text" class="input input-bordered w-full" />
+          </label>
+          <label class="flex flex-col gap-1">
+            <span class="text-xs font-semibold text-base-content/60">{{ t('manga.totalVolumes') }}</span>
+            <input v-model="manual.totalVolumes" type="number" min="0" max="500" class="input input-bordered w-full" />
+          </label>
         </div>
-        <p class="text-xs text-base-content/40">{{ t('editions.searchHint') }}</p>
-
-        <div v-if="editionsLoading" class="flex justify-center py-8">
-          <BaseLoader size="lg" class="text-primary" />
-        </div>
-        <p v-else-if="editionsError" class="text-sm text-error py-2">{{ editionsError }}</p>
-        <template v-else-if="groupedByCountry.length">
-          <div
-            v-for="group in groupedByCountry"
-            :key="group.country ?? group.language"
-            class="mt-2"
-          >
-            <div class="flex items-center gap-2 mb-2">
-              <BaseCountryFlag :country="group.country" />
-              <h3 class="text-xs font-bold uppercase tracking-widest text-base-content/50">
-                {{ group.country ?? group.language.toUpperCase() }}
-              </h3>
-              <span class="badge badge-xs badge-ghost">{{ group.editions.length }}</span>
-            </div>
-            <div class="flex flex-col gap-1.5">
-              <EditionCard
-                v-for="edition in group.editions"
-                :key="`${edition.source}-${edition.editionLabel}`"
-                :edition="edition"
-                @import="applyEdition"
-              />
-            </div>
-          </div>
-        </template>
-        <p
-          v-else-if="editionsQuery.trim().length >= 2 && !editionsLoading"
-          class="text-sm text-center text-base-content/40 py-4"
-        >
-          {{ t('editions.empty') }}
-        </p>
-      </template>
-    </div>
-
-    <!-- ── Step 2 : Formulaire ── -->
-    <div v-if="step === 2" class="flex gap-5">
-      <!-- Cover preview (always visible: horizontal on mobile, sidebar on desktop) -->
-      <div class="shrink-0 flex flex-col items-center gap-2">
-        <div
-          class="w-20 md:w-32 aspect-[2/3] rounded-xl overflow-hidden bg-base-200 shadow-md ring-1 ring-base-300 transition-all duration-300"
-        >
-          <img
-            v-if="coverPreview"
-            :src="coverPreview"
-            alt="Aperçu couverture"
-            class="w-full h-full object-cover"
-          />
-          <div
-            v-else
-            class="w-full h-full flex flex-col items-center justify-center gap-1 text-base-content/20"
-          >
-            <ImageOff class="w-6 h-6 md:w-8 md:h-8" stroke-width="1.5" />
-            <span class="text-[10px] md:text-xs">Cover</span>
-          </div>
-        </div>
-        <p
-          class="text-[10px] md:text-xs text-base-content/30 text-center leading-tight hidden md:block"
-        >
-          Aperçu<br />automatique
-        </p>
-      </div>
-
-      <form class="flex-1 min-w-0 space-y-4" @submit.prevent="importMutation.mutate()">
-        <!-- Titre -->
-        <div class="space-y-1">
-          <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide"
-            >{{ t('manga.title') }} *</label
-          >
-          <input v-model="form.title" type="text" class="input input-bordered w-full" required />
-        </div>
-
-        <!-- Edition -->
-        <div class="space-y-1">
-          <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{
-            t('manga.edition')
-          }}</label>
-          <BaseEditionSelector
-            :model-value="form.edition || null"
-            @update:model-value="form.edition = $event ?? ''"
-          />
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <!-- Auteur -->
-          <div class="space-y-1">
-            <label
-              class="text-xs font-semibold text-base-content/60 uppercase tracking-wide flex items-center justify-between"
-            >
-              <span>{{ t('manga.author') }}</span>
-              <span
-                v-if="form.externalId && !form.author"
-                class="text-warning/80 text-[10px] font-normal normal-case"
-                >à saisir</span
-              >
-            </label>
-            <input
-              v-model="form.author"
-              type="text"
-              class="input input-bordered input-sm w-full"
-              placeholder="ex: Miura"
-            />
-          </div>
-          <!-- Langue -->
-          <div class="space-y-1">
-            <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{
-              t('manga.language')
-            }}</label>
-            <select v-model="form.language" class="select select-bordered select-sm w-full">
-              <option value="fr">Français</option>
-              <option value="en">English</option>
-              <option value="jp">日本語</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <!-- Genre -->
-          <div class="space-y-1">
-            <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{
-              t('manga.genre')
-            }}</label>
-            <select v-model="form.genre" class="select select-bordered select-sm w-full">
-              <option value="">—</option>
-              <option v-for="g in genres" :key="g" :value="g" class="capitalize">{{ g }}</option>
-            </select>
-          </div>
-          <!-- Nb tomes -->
-          <div class="space-y-1">
-            <label
-              class="text-xs font-semibold text-base-content/60 uppercase tracking-wide flex items-center justify-between"
-            >
-              <span>{{ t('manga.totalVolumes') }}</span>
-              <span class="text-base-content/30 text-[10px] font-normal normal-case"
-                >optionnel</span
-              >
-            </label>
-            <input
-              v-model="form.totalVolumes"
-              type="number"
-              min="0"
-              max="9999"
-              class="input input-bordered input-sm w-full"
-              placeholder="ex: 25"
-            />
-          </div>
-        </div>
-
-        <!-- URL couverture -->
-        <div class="space-y-1">
-          <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{
-            t('manga.coverUrl')
-          }}</label>
-          <input
-            v-model="form.coverUrl"
-            type="url"
-            class="input input-bordered input-sm w-full"
-            placeholder="https://…"
-          />
-        </div>
-
-        <!-- Résumé -->
-        <div class="space-y-1">
-          <label class="text-xs font-semibold text-base-content/60 uppercase tracking-wide">{{
-            t('manga.summary')
-          }}</label>
-          <textarea
-            v-model="form.summary"
-            class="textarea textarea-bordered textarea-sm resize-none w-full"
-            rows="3"
-          />
-        </div>
-
-        <button
-          type="submit"
-          class="btn btn-primary w-full"
-          :disabled="importMutation.isPending.value"
-        >
-          <BaseLoader v-if="importMutation.isPending.value" size="xs" />
-          {{ t('common.next') }}
+        <label class="flex flex-col gap-1">
+          <span class="text-xs font-semibold text-base-content/60">{{ t('manga.coverUrl') }}</span>
+          <input v-model="manual.coverUrl" type="url" class="input input-bordered w-full" placeholder="https://…" />
+        </label>
+        <button type="submit" class="btn btn-primary w-full" :disabled="manualMutation.isPending.value || !manual.title.trim()">
+          <BaseLoader v-if="manualMutation.isPending.value" size="xs" />
+          {{ t('add.createManually') }}
         </button>
       </form>
-    </div>
+    </section>
 
-    <!-- ── Step 3 : Destination ── -->
-    <div v-if="step === 3" class="space-y-4">
-      <p class="text-sm text-base-content/60 text-center">
-        La série a été ajoutée à votre bibliothèque. Que voulez-vous faire ?
-      </p>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <!-- Go to collection detail -->
-        <button
-          class="card bg-primary text-primary-content shadow hover:shadow-xl hover:scale-[1.02] transition-all duration-150 cursor-pointer"
-          :disabled="goCollectionMutation.isPending.value"
-          @click="goCollectionMutation.mutate()"
-        >
-          <div class="card-body items-center text-center gap-3 py-8">
-            <BaseLoader v-if="goCollectionMutation.isPending.value" size="md" />
-            <Book v-else class="h-10 w-10" stroke-width="1.5" />
-            <h3 class="card-title">{{ t('collection.addToCollection') }}</h3>
-            <p class="text-sm opacity-80">Gérer les tomes possédés</p>
-          </div>
-        </button>
-
-        <!-- Mark all as wished + go to wishlist -->
-        <button
-          class="card bg-warning/20 text-warning-content shadow hover:shadow-xl hover:scale-[1.02] transition-all duration-150 cursor-pointer border border-warning/30"
-          :disabled="goWishlistMutation.isPending.value"
-          @click="goWishlistMutation.mutate()"
-        >
-          <div class="card-body items-center text-center gap-3 py-8">
-            <BaseLoader v-if="goWishlistMutation.isPending.value" size="md" class="text-warning" />
-            <Star v-else class="h-10 w-10 text-warning" stroke-width="1.5" />
-            <h3 class="card-title text-warning">{{ t('wishlist.addToWishlist') }}</h3>
-            <p class="text-sm text-base-content/60">Tous les tomes → liste de souhaits</p>
-          </div>
-        </button>
-      </div>
-    </div>
+    <CatalogueEditionSheet
+      :open="selectedEdition !== null"
+      :edition="sheetEdition"
+      :requested-volume="requestedVolume"
+      :loading-volumes="isLoadingEdition"
+      :adding="addMutation.isPending.value"
+      @close="selectedEdition = null"
+      @add="addSelection"
+    />
 
     <CollectionGuideModal :open="showGuide" @close="showGuide = false" />
   </div>

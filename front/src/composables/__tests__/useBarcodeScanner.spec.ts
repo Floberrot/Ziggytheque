@@ -112,4 +112,68 @@ describe('useBarcodeScanner', () => {
 
     scope.stop()
   })
+
+  describe('startContinuous', () => {
+    it('keeps the camera on and reports every new code', async () => {
+      const scope = effectScope()
+      const onDecode = vi.fn()
+      const video = document.createElement('video')
+
+      await scope.run(async () => {
+        const { startContinuous } = useBarcodeScanner()
+        await startContinuous(video, onDecode)
+      })
+
+      const cb = decodeCallback()
+      cb({ getText: () => '9782811645632' })
+      cb({ getText: () => '9782723425483' })
+
+      expect(onDecode).toHaveBeenNthCalledWith(1, '9782811645632')
+      expect(onDecode).toHaveBeenNthCalledWith(2, '9782723425483')
+      expect(mockStop).not.toHaveBeenCalled()
+
+      scope.stop()
+    })
+
+    it('ignores the same code while it stays in view, then accepts it after the cooldown', async () => {
+      vi.useFakeTimers()
+      const scope = effectScope()
+      const onDecode = vi.fn()
+      const video = document.createElement('video')
+
+      await scope.run(async () => {
+        const { startContinuous } = useBarcodeScanner()
+        await startContinuous(video, onDecode, 1000)
+      })
+
+      const cb = decodeCallback()
+      cb({ getText: () => '9782811645632' })
+      vi.advanceTimersByTime(500)
+      cb({ getText: () => '9782811645632' })
+      expect(onDecode).toHaveBeenCalledTimes(1)
+
+      vi.advanceTimersByTime(1500)
+      cb({ getText: () => '9782811645632' })
+      expect(onDecode).toHaveBeenCalledTimes(2)
+
+      scope.stop()
+      vi.useRealTimers()
+    })
+
+    it('reports a camera permission error', async () => {
+      mockDecode.mockRejectedValue(new DOMException('denied', 'NotAllowedError'))
+      const scope = effectScope()
+      let scanner: ReturnType<typeof useBarcodeScanner> | undefined
+
+      await scope.run(async () => {
+        scanner = useBarcodeScanner()
+        await scanner.startContinuous(document.createElement('video'), vi.fn())
+      })
+
+      expect(scanner?.isScanning.value).toBe(false)
+      expect(scanner?.errorMessage.value).toContain('Accès caméra refusé')
+
+      scope.stop()
+    })
+  })
 })

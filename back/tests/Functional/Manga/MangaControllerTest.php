@@ -132,6 +132,48 @@ final class MangaControllerTest extends AbstractApiTestCase
         $this->assertSame('New Title', $detail['title']);
     }
 
+    public function testImportMangaWithSpecialEdition(): void
+    {
+        $id = $this->importManga(['edition' => 'Glénat', 'specialEdition' => 'Prestige']);
+
+        $detail = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/manga/' . $id));
+        $this->assertSame('Glénat', $detail['edition']);
+        $this->assertSame('Prestige', $detail['specialEdition']);
+    }
+
+    public function testImportMangaRejectsTooLongSpecialEdition(): void
+    {
+        $response = $this->jsonRequest('POST', '/api/manga', [
+            'title'          => 'Berserk',
+            'language'       => 'fr',
+            'specialEdition' => str_repeat('x', 151),
+        ]);
+
+        $this->assertSame(422, $response->getStatusCode());
+    }
+
+    public function testUpdateMangaSetsAndClearsTheSpecialEdition(): void
+    {
+        $id = $this->importManga();
+
+        $this->assertSame(204, $this->jsonRequest('PATCH', '/api/manga/' . $id, ['specialEdition' => 'Perfect edition'])->getStatusCode());
+        $detail = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/manga/' . $id));
+        $this->assertSame('Perfect edition', $detail['specialEdition']);
+
+        $this->assertSame(204, $this->jsonRequest('PATCH', '/api/manga/' . $id, ['specialEdition' => ''])->getStatusCode());
+        $detail = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/manga/' . $id));
+        $this->assertNull($detail['specialEdition']);
+    }
+
+    public function testUpdateMangaRejectsTooLongSpecialEdition(): void
+    {
+        $id = $this->importManga();
+
+        $response = $this->jsonRequest('PATCH', '/api/manga/' . $id, ['specialEdition' => str_repeat('x', 151)]);
+
+        $this->assertSame(422, $response->getStatusCode());
+    }
+
     public function testUpdateMangaNotFound(): void
     {
         $response = $this->jsonRequest('PATCH', '/api/manga/bad-id', ['title' => 'T']);
@@ -256,43 +298,6 @@ final class MangaControllerTest extends AbstractApiTestCase
         $mangaId  = $this->importManga();
         $response = $this->jsonRequest('PATCH', '/api/manga/' . $mangaId . '/volumes/bad-vol', ['price' => 5.0]);
         $this->assertJsonStatus(404, $response);
-    }
-
-    // ── GET /api/manga/external ───────────────────────────────────────────────
-
-    public function testSearchExternalReturnsEmpty(): void
-    {
-        $response = $this->jsonRequest('GET', '/api/manga/external?q=test');
-        $data     = $this->assertJsonStatus(200, $response);
-        $this->assertSame([], $data);
-    }
-
-    public function testSearchExternalRequiresAuth(): void
-    {
-        $response = $this->jsonRequest('GET', '/api/manga/external?q=test', auth: false);
-        $this->assertSame(401, $response->getStatusCode());
-    }
-
-    public function testSearchExternalWithJikanProviderReturnsEmpty(): void
-    {
-        // The test locator maps every provider key to NullMangaApiClient → [].
-        $response = $this->jsonRequest('GET', '/api/manga/external?q=test&provider=jikan');
-        $data     = $this->assertJsonStatus(200, $response);
-        $this->assertSame([], $data);
-    }
-
-    public function testSearchExternalWithGoogleBooksProviderReturnsEmpty(): void
-    {
-        $response = $this->jsonRequest('GET', '/api/manga/external?q=test&provider=googlebooks');
-        $data     = $this->assertJsonStatus(200, $response);
-        $this->assertSame([], $data);
-    }
-
-    public function testSearchExternalWithUnknownProviderFallsBackToDefault(): void
-    {
-        $response = $this->jsonRequest('GET', '/api/manga/external?q=test&provider=does-not-exist');
-        $data     = $this->assertJsonStatus(200, $response);
-        $this->assertSame([], $data);
     }
 
     // ── GET /api/manga/volume-search ─────────────────────────────────────────

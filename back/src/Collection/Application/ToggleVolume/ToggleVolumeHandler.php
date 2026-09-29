@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Collection\Application\ToggleVolume;
 
-use App\Collection\Domain\CollectionEntry;
 use App\Collection\Domain\CollectionRepositoryInterface;
-use App\Collection\Domain\ReadingStatusEnum;
 use App\Collection\Domain\VolumeEntry;
 use App\Collection\Domain\VolumeToggleFieldEnum;
 use App\Collection\Shared\Event\ToggleVolumeFailedEvent;
@@ -51,10 +49,10 @@ final readonly class ToggleVolumeHandler
             }
 
             if ($command->field === VolumeToggleFieldEnum::IsOwned) {
-                $volumeEntry->isOwned = !$volumeEntry->isOwned;
                 if ($volumeEntry->isOwned) {
-                    $volumeEntry->isWished    = false;
-                    $volumeEntry->isAnnounced = false;
+                    $volumeEntry->isOwned = false;
+                } else {
+                    $volumeEntry->markOwned();
                 }
             } else {
                 match ($command->field) {
@@ -64,7 +62,7 @@ final readonly class ToggleVolumeHandler
                 };
             }
 
-            $this->autoUpdateReadingStatus($entry);
+            $entry->refreshReadingStatus();
 
             $this->repository->save($entry);
 
@@ -85,28 +83,5 @@ final readonly class ToggleVolumeHandler
             ));
             throw $e;
         }
-    }
-
-    private function autoUpdateReadingStatus(CollectionEntry $entry): void
-    {
-        // Never override intentional user choices
-        if (\in_array($entry->readingStatus, [ReadingStatusEnum::Dropped, ReadingStatusEnum::OnHold], true)) {
-            return;
-        }
-
-        $total = $entry->volumeEntries->count();
-
-        if ($total === 0) {
-            return;
-        }
-
-        $ownedCount = $entry->volumeEntries->filter(fn (VolumeEntry $ve) => $ve->isOwned)->count();
-        $readCount  = $entry->volumeEntries->filter(fn (VolumeEntry $ve) => $ve->isRead)->count();
-
-        $entry->readingStatus = match (true) {
-            $readCount === $total              => ReadingStatusEnum::Completed,
-            $readCount > 0 || $ownedCount > 0 => ReadingStatusEnum::InProgress,
-            default                            => ReadingStatusEnum::NotStarted,
-        };
     }
 }

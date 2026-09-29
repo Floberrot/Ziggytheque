@@ -5,11 +5,12 @@ import { useInfiniteQuery } from '@tanstack/vue-query'
 import {
   Search, Plus, Book, X, RotateCcw, SlidersHorizontal, ChevronDown,
   BookOpen, CheckCircle2, PauseCircle, BookmarkPlus, Ban, Heart, Bell,
-  Library, BookCheck, Gift, HelpCircle,
+  Library, BookCheck, Gift, HelpCircle, Layers,
 } from 'lucide-vue-next'
 import { getCollection, type CollectionFilters } from '@/api/collection'
 import { useCollectionFiltersStore } from '@/stores/useCollectionFiltersStore'
 import { useI18n } from 'vue-i18n'
+import { groupAdjacentByWork } from '@/utils/workGroups'
 import MangaCard from '@/components/organisms/MangaCard.vue'
 import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
@@ -213,6 +214,9 @@ const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useI
 const entries = computed(() => data.value?.pages.flatMap((p) => p.items) ?? [])
 const total   = computed(() => data.value?.pages[0]?.total ?? 0)
 
+// The default sort is by work, so the editions of one work arrive side by side.
+const workGroups = computed(() => groupAdjacentByWork(entries.value, !filters.sort))
+
 // ── Infinite scroll sentinel ──────────────────────────────────────────────────
 
 const sentinel = ref<HTMLElement | null>(null)
@@ -366,6 +370,7 @@ onUnmounted(() => {
             :class="{ 'select-primary text-primary font-medium': filters.sort }"
           >
             <option :value="undefined">{{ t('filter.allSorts') }}</option>
+            <option value="added_desc">{{ t('filter.sortAddedDesc') }}</option>
             <option value="rating_desc">{{ t('filter.sortRatingDesc') }}</option>
             <option value="rating_asc">{{ t('filter.sortRatingAsc') }}</option>
           </select>
@@ -421,13 +426,29 @@ onUnmounted(() => {
         v-else
         class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
       >
-        <MangaCard
-          v-for="(entry, i) in entries"
-          :key="entry.id"
-          :entry="entry"
-          :style="{ animationDelay: `${(i % 20) * 30}ms` }"
-          class="card-appear"
-        />
+        <template v-for="(group, groupIndex) in workGroups" :key="group.key">
+          <!-- Several editions of one work: shown together, under the work's name -->
+          <section
+            v-if="group.entries.length > 1"
+            class="col-span-full rounded-2xl border border-base-300/70 bg-base-100/60 p-3 card-appear"
+            :style="{ animationDelay: `${(groupIndex % 20) * 30}ms` }"
+          >
+            <h2 class="flex items-center gap-2 mb-3 text-sm font-bold">
+              <Layers class="h-4 w-4 text-primary" />
+              <span class="truncate">{{ group.title }}</span>
+              <span class="badge badge-sm badge-ghost">{{ t('collection.worksEditions', { count: group.entries.length }) }}</span>
+            </h2>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              <MangaCard v-for="entry in group.entries" :key="entry.id" :entry="entry" />
+            </div>
+          </section>
+          <MangaCard
+            v-else
+            :entry="group.entries[0]"
+            :style="{ animationDelay: `${(groupIndex % 20) * 30}ms` }"
+            class="card-appear"
+          />
+        </template>
       </div>
 
       <!-- Infinite scroll sentinel + loading indicator -->

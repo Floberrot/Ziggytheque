@@ -34,6 +34,11 @@ final class GetFollowedEntriesHandlerTest extends TestCase
                 return null;
             }
 
+            public function findByMangaIds(array $mangaIds): array
+            {
+                return [];
+            }
+
             public function findAll(): array
             {
                 return [];

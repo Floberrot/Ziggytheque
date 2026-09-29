@@ -37,6 +37,14 @@ class VolumeEntry
     ) {
     }
 
+    /** Owning a tome takes it off the wishlist and out of the announcements. */
+    public function markOwned(): void
+    {
+        $this->isOwned     = true;
+        $this->isWished    = false;
+        $this->isAnnounced = false;
+    }
+
     /** @return array<string, mixed> */
     public function toArray(): array
     {

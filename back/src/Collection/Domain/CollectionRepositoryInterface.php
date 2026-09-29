@@ -13,6 +13,14 @@ interface CollectionRepositoryInterface
 
     public function findByMangaId(string $mangaId): ?CollectionEntry;
 
+    /**
+     * The current user's entries for the given series.
+     *
+     * @param  list<string> $mangaIds
+     * @return list<CollectionEntry>
+     */
+    public function findByMangaIds(array $mangaIds): array;
+
     /** @return CollectionEntry[] */
     public function findAll(): array;
 

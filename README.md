@@ -19,7 +19,7 @@ The apex `ziggytheque.fr` redirects (301) to `www.ziggytheque.fr` via an OVH red
 - **Notifications** – Real-time notifications for collection updates and events
 - **Dark Mode** – Elegant dark theme by default with light mode support
 - **Multi-language** – French (default) and English support via i18n
-- **Google Books Integration** – Search and import manga from Google Books API
+- **Manga-first add** – Scan a volume's barcode (or search by title / author): the whole series is added, special editions (Prestige, Perfect edition…) included — French editions from the BnF catalogue, Google Books as fallback
 
 ---
 
@@ -161,10 +161,15 @@ JWT_PASSPHRASE=your_jwt_passphrase
 
 ### Manga
 - `GET /api/manga?q=<query>` – Search your library
-- `GET /api/manga/external?q=<query>` – Search Google Books
 - `GET /api/manga/:id` – Get manga details
 - `POST /api/manga` – Add new manga
 - `POST /api/manga/:id/volumes` – Add volumes
+
+### Catalogue (French editions)
+- `GET /api/catalogue/search?q=<query>&mode=title|author|isbn` – Find series (work × publisher × special edition)
+- `GET /api/catalogue/edition?workTitle=&publisher=&specialEdition=` – Every known volume of a series
+- `POST /api/catalogue/add` – Add a series and mark the picked volumes as owned
+- `POST /api/catalogue/scan` – Add one scanned volume (its series follows)
 
 ### Collection
 - `GET/POST /api/collection` – List/create collection entries

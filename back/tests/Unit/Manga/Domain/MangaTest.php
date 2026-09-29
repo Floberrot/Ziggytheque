@@ -86,4 +86,37 @@ final class MangaTest extends TestCase
         $this->assertCount(1, $detail['volumes']);
         $this->assertSame(1, $detail['volumes'][0]['number']);
     }
+
+    public function testSpecialEditionDefaultsToNullAndIsExposed(): void
+    {
+        $standard = $this->makeManga();
+        $special  = new Manga(id: 'm3', title: 'Berserk', edition: 'Glénat', language: 'fr', specialEdition: 'Prestige');
+
+        $this->assertNull($standard->toArray()['specialEdition']);
+        $this->assertSame('Prestige', $special->toArray()['specialEdition']);
+    }
+
+    public function testVolumeByNumberFindsTheVolumeOrNull(): void
+    {
+        $manga  = $this->makeManga();
+        $volume = new Volume(id: 'v2', manga: $manga, number: 2);
+        $manga->addVolume($volume);
+
+        $this->assertSame($volume, $manga->volumeByNumber(2));
+        $this->assertNull($manga->volumeByNumber(3));
+    }
+
+    public function testEnsureVolumesUpToCreatesOnlyTheMissingVolumes(): void
+    {
+        $manga    = $this->makeManga();
+        $existing = new Volume(id: 'v2', manga: $manga, number: 2);
+        $manga->addVolume($existing);
+
+        $created = $manga->ensureVolumesUpTo(4);
+
+        $this->assertSame([1, 3, 4], array_map(static fn (Volume $volume): int => $volume->number, $created));
+        $this->assertCount(4, $manga->volumes);
+        $this->assertSame($existing, $manga->volumeByNumber(2));
+        $this->assertSame([], $manga->ensureVolumesUpTo(3));
+    }
 }
