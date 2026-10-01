@@ -30,6 +30,11 @@ class MockIntersectionObserver {
 
 vi.stubGlobal('IntersectionObserver', MockIntersectionObserver)
 
+function withNaturalSize(image: HTMLImageElement, width: number, height: number): void {
+  Object.defineProperty(image, 'naturalWidth', { value: width, configurable: true })
+  Object.defineProperty(image, 'naturalHeight', { value: height, configurable: true })
+}
+
 describe('BaseLazyImage', () => {
   beforeEach(() => {
     observers.length = 0
@@ -62,8 +67,25 @@ describe('BaseLazyImage', () => {
     const img = wrapper.find('img')
     expect(img.attributes('style')).toContain('opacity: 0')
 
+    withNaturalSize(img.element as HTMLImageElement, 200, 300)
     await img.trigger('load')
     expect(wrapper.find('img').attributes('style')).toContain('opacity: 1')
+  })
+
+  it('treats a few-pixel placeholder as a missing cover', async () => {
+    const wrapper = mount(BaseLazyImage, {
+      props: { src: 'http://x/placeholder.gif' },
+      slots: { fallback: '<span class="fb">42</span>' },
+    })
+
+    observers[0].trigger(true)
+    await nextTick()
+    const img = wrapper.find('img')
+    withNaturalSize(img.element as HTMLImageElement, 1, 1)
+    await img.trigger('load')
+
+    expect(wrapper.find('.fb').exists()).toBe(true)
+    expect(wrapper.find('img').exists()).toBe(false)
   })
 
   it('shows the fallback slot when the image fails to load', async () => {

@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
-import { CheckSquare, X, Star, Plus, ArrowRight, Check, ShoppingCart, Book, Search } from 'lucide-vue-next'
+import { CheckSquare, X, Star, Plus, ArrowRight, Check, ShoppingCart, Search } from 'lucide-vue-next'
 import { getWishlist, clearWishlist, purchaseVolume } from '@/api/wishlist'
 import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import type { WishlistEntry, VolumeEntry } from '@/types'
-import { coverUrl } from '@/utils/coverUrl'
+import BaseCover from '@/components/atoms/BaseCover.vue'
 import { editionLabel } from '@/utils/edition'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
 
@@ -254,15 +254,12 @@ onUnmounted(() => {
             class="shrink-0 w-28 sm:w-36 relative cursor-pointer overflow-hidden rounded-l-2xl bg-base-200"
             @click="goToDetail(entry.id)"
           >
-            <img
-              v-if="entry.manga.coverUrl"
-              :src="coverUrl(entry.manga.coverUrl)!"
+            <BaseCover
+              :src="entry.manga.coverUrl"
               :alt="entry.manga.title"
-              class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+              class="absolute inset-0 w-full h-full transition-transform duration-500 hover:scale-105"
+              icon-class="h-10 w-10"
             />
-            <div v-else class="absolute inset-0 flex items-center justify-center text-base-content/20">
-              <Book class="h-10 w-10" stroke-width="1.5" />
-            </div>
             <!-- Wished count badge -->
             <div class="absolute top-2 left-2 z-10">
               <span class="badge badge-warning badge-sm font-bold shadow gap-1">
@@ -341,15 +338,11 @@ onUnmounted(() => {
                         ? 'ring-base-300/50 hover:ring-primary/50 hover:scale-105'
                         : 'ring-warning/60 hover:ring-success hover:scale-110 hover:shadow-md hover:z-10'"
                   >
-                    <img
-                      v-if="ve.coverUrl"
-                      :src="coverUrl(ve.coverUrl)!"
-                      :alt="`Tome ${ve.number}`"
-                      class="w-full h-full object-cover"
-                    />
-                    <div v-else class="w-full h-full flex items-center justify-center text-sm font-bold text-base-content/50">
-                      {{ ve.number }}
-                    </div>
+                    <BaseCover :src="ve.coverUrl" :alt="`Tome ${ve.number}`" class="w-full h-full">
+                      <template #fallback>
+                        <span class="text-sm font-bold text-base-content/50">{{ ve.number }}</span>
+                      </template>
+                    </BaseCover>
 
                     <!-- Selected overlay (batch mode) -->
                     <div

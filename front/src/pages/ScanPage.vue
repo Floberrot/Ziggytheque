@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, nextTick, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useBarcodeScanner } from '@/composables/useBarcodeScanner'
 import { submitScan } from '@/api/manga'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
+import ScanViewfinder from '@/components/molecules/ScanViewfinder.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -12,8 +13,11 @@ const token = route.params.token as string
 // Opened from the "add a manga" page: scan a whole shelf without tapping in between.
 const isBatch = route.query.batch === '1'
 
-const videoRef = ref<HTMLVideoElement | null>(null)
-const { isScanning, errorMessage: cameraError, start: startScanner, startContinuous } = useBarcodeScanner()
+const viewfinder = ref<InstanceType<typeof ScanViewfinder> | null>(null)
+const readCount = ref(0)
+const {
+  isScanning, errorMessage: cameraError, torchAvailable, torchOn, start: startScanner, startContinuous, toggleTorch,
+} = useBarcodeScanner()
 
 const successIsbn = ref<string | null>(null)
 const scanError = ref<string | null>(null)
@@ -25,6 +29,7 @@ async function onScan(isbn: string): Promise<void> {
   if (isSubmitting.value && !isBatch) return
   isSubmitting.value = true
   scanError.value = null
+  readCount.value++
 
   try {
     await submitScan({ scanToken: token, isbn })
@@ -42,26 +47,35 @@ async function onScan(isbn: string): Promise<void> {
     } else {
       scanError.value = t('scan.invalidCode')
     }
+    // One-shot mode stopped the camera on that read: give the user another try.
+    if (!isBatch && status !== 410) {
+      void openCamera()
+    }
   } finally {
     isSubmitting.value = false
+  }
+}
+
+async function openCamera(): Promise<void> {
+  // The preview is (re)rendered by the state change that led here — wait for it.
+  await nextTick()
+  const video = viewfinder.value?.video
+  if (!video) return
+  if (isBatch) {
+    await startContinuous(video, onScan)
+  } else {
+    await startScanner(video, onScan)
   }
 }
 
 function scanAnother(): void {
   successIsbn.value = null
   scanError.value = null
-  if (videoRef.value) {
-    startScanner(videoRef.value, onScan)
-  }
+  void openCamera()
 }
 
 onMounted(() => {
-  if (!videoRef.value) return
-  if (isBatch) {
-    startContinuous(videoRef.value, onScan)
-  } else {
-    startScanner(videoRef.value, onScan)
-  }
+  void openCamera()
 })
 </script>
 
@@ -86,12 +100,12 @@ onMounted(() => {
         <template v-else>
           <p class="text-sm text-base-content/60 text-center">{{ t('scan.instructions') }}</p>
 
-          <video
-            ref="videoRef"
-            class="w-full rounded-xl aspect-video object-cover bg-base-300"
-            autoplay
-            muted
-            playsinline
+          <ScanViewfinder
+            ref="viewfinder"
+            :read-count="readCount"
+            :torch-available="torchAvailable"
+            :torch-on="torchOn"
+            @toggle-torch="toggleTorch()"
           />
 
           <div v-if="cameraError" class="alert alert-error alert-sm text-sm">

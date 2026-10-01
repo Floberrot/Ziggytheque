@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createI18n } from 'vue-i18n'
 import { createRouter, createWebHashHistory } from 'vue-router'
 
@@ -12,8 +12,11 @@ const mockScannerInstances: {
   start: ReturnType<typeof vi.fn>
   startContinuous: ReturnType<typeof vi.fn>
   stop: ReturnType<typeof vi.fn>
+  toggleTorch: ReturnType<typeof vi.fn>
   isScanning: { value: boolean }
   errorMessage: { value: string | null }
+  torchAvailable: { value: boolean }
+  torchOn: { value: boolean }
 }[] = []
 
 vi.mock('@/composables/useBarcodeScanner', () => ({
@@ -22,8 +25,11 @@ vi.mock('@/composables/useBarcodeScanner', () => ({
       start: vi.fn().mockResolvedValue(undefined),
       startContinuous: vi.fn().mockResolvedValue(undefined),
       stop: vi.fn(),
+      toggleTorch: vi.fn(),
       isScanning: { value: false },
       errorMessage: { value: null },
+      torchAvailable: { value: false },
+      torchOn: { value: false },
     }
     mockScannerInstances.push(instance)
     return instance
@@ -78,7 +84,7 @@ describe('ScanPage', () => {
     const wrapper = mount(ScanPage, {
       global: { plugins: [i18n, router] },
     })
-    await wrapper.vm.$nextTick()
+    await flushPromises()
     return wrapper
   }
 
@@ -115,6 +121,35 @@ describe('ScanPage', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.text()).toContain('Link expired.')
+  })
+
+  it('reopens the camera after an unreadable code in one-shot mode', async () => {
+    mockSubmitScan.mockRejectedValueOnce({ response: { status: 422 } })
+
+    const wrapper = await mountPage()
+    const scanner = mockScannerInstances[0]
+    const onScanCallback = (scanner.start.mock.calls[0] as unknown[])[1] as DecodeCallback
+
+    await onScanCallback('1234567890128')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Invalid barcode.')
+    expect(scanner.start).toHaveBeenCalledTimes(2)
+  })
+
+  it('scans another book after a success', async () => {
+    const wrapper = await mountPage()
+    const scanner = mockScannerInstances[0]
+    const onScanCallback = (scanner.start.mock.calls[0] as unknown[])[1] as DecodeCallback
+
+    await onScanCallback('9782811645632')
+    await flushPromises()
+    await wrapper.find('button').trigger('click')
+    await flushPromises()
+
+    expect(scanner.start).toHaveBeenCalledTimes(2)
+    // The new preview element is the one handed to the scanner.
+    expect((scanner.start.mock.calls[1] as unknown[])[0]).toBeInstanceOf(HTMLVideoElement)
   })
 
   it('keeps scanning in batch mode and counts the volumes sent', async () => {

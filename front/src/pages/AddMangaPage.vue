@@ -21,6 +21,7 @@ import BaseEditionSelector from '@/components/atoms/BaseEditionSelector.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
 import BaseQrCode from '@/components/atoms/BaseQrCode.vue'
 import EditionBadge from '@/components/molecules/EditionBadge.vue'
+import ScanViewfinder from '@/components/molecules/ScanViewfinder.vue'
 import CatalogueEditionCard from '@/components/organisms/CatalogueEditionCard.vue'
 import CatalogueEditionSheet from '@/components/organisms/CatalogueEditionSheet.vue'
 import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
@@ -185,8 +186,9 @@ function openScannedSeries(item: ScanFeedItem): void {
 
 // ── Scan: every barcode read adds its tome — the series follows ──────────────
 
-const videoRef = ref<HTMLVideoElement | null>(null)
+const viewfinder = ref<InstanceType<typeof ScanViewfinder> | null>(null)
 const cameraOn = ref(false)
+const readCount = ref(0)
 const scanner = useBarcodeScanner()
 const phoneSession = useScanSession()
 const phoneQrValue = ref<string | null>(null)
@@ -201,8 +203,12 @@ function updateScan(id: number, patch: Partial<ScanFeedItem>): void {
 }
 
 async function onBarcode(code: string): Promise<void> {
-  const id = nextScanId++
   const isbn = normalizeIsbn13(code)
+  // A price sticker or a shop label read again and again is listed once.
+  if (!isbn && scanFeed.value.some((item) => item.code === code)) return
+
+  const id = nextScanId++
+  readCount.value++
   scanFeed.value = [
     {
       id,
@@ -247,8 +253,9 @@ async function startCamera(): Promise<void> {
   cameraOn.value = true
   // The <video> is rendered once cameraOn flips — wait for it.
   await nextTick()
-  if (videoRef.value) {
-    await scanner.startContinuous(videoRef.value, onBarcode)
+  const video = viewfinder.value?.video
+  if (video) {
+    await scanner.startContinuous(video, onBarcode)
   }
 }
 
@@ -498,12 +505,12 @@ const manualMutation = useMutation({
       </div>
 
       <div v-if="cameraOn" class="space-y-2">
-        <video
-          ref="videoRef"
-          class="w-full rounded-2xl aspect-video object-cover bg-base-300"
-          autoplay
-          muted
-          playsinline
+        <ScanViewfinder
+          ref="viewfinder"
+          :read-count="readCount"
+          :torch-available="scanner.torchAvailable.value"
+          :torch-on="scanner.torchOn.value"
+          @toggle-torch="scanner.toggleTorch()"
         />
         <p v-if="scanner.errorMessage.value" class="alert alert-error text-sm py-2">{{ scanner.errorMessage.value }}</p>
         <p v-else class="text-xs text-center text-base-content/50">{{ t('scanBatch.cameraHint') }}</p>

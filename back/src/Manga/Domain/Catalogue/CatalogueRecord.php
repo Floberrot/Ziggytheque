@@ -26,4 +26,19 @@ final readonly class CatalogueRecord
         public string $source,
     ) {
     }
+
+    public function withIsbn(Isbn $isbn): self
+    {
+        return new self(
+            workTitle: $this->workTitle,
+            headQualifier: $this->headQualifier,
+            volumeNumber: $this->volumeNumber,
+            trailingQualifier: $this->trailingQualifier,
+            publisher: $this->publisher,
+            author: $this->author,
+            isbn: $isbn,
+            coverUrl: $this->coverUrl,
+            source: $this->source,
+        );
+    }
 }

@@ -15,7 +15,7 @@ use Throwable;
 
 /**
  * Google Books, French editions only — the fallback for what the BnF does not have
- * yet (a release still going through legal deposit).
+ * yet (a release still going through legal deposit). Only books with an ISBN are kept.
  */
 final readonly class GoogleBooksCatalogue implements CatalogueInterface
 {
@@ -114,8 +114,17 @@ final readonly class GoogleBooksCatalogue implements CatalogueInterface
             ? $volumeInfo['publisher']
             : null;
 
+        $isbn = $this->extractIsbn($volumeInfo);
+        if ($isbn === null) {
+            return null;
+        }
+
+        $categories = array_values(array_filter(
+            is_array($volumeInfo['categories'] ?? null) ? $volumeInfo['categories'] : [],
+            is_string(...),
+        ));
         $fullTitle = $subtitle !== null ? $title . ' ' . $subtitle : $title;
-        if (!$this->relevanceFilter->isRelevant($searchedTitle ?? $fullTitle, $fullTitle, $publisher)) {
+        if (!$this->relevanceFilter->isRelevant($searchedTitle ?? $fullTitle, $fullTitle, $publisher, $categories)) {
             return null;
         }
 
@@ -130,23 +139,31 @@ final readonly class GoogleBooksCatalogue implements CatalogueInterface
             trailingQualifier: $parsedTitle->trailingQualifier,
             publisher: $publisher,
             author: $author,
-            isbn: $this->extractIsbn($volumeInfo),
+            isbn: $isbn,
             coverUrl: $this->coverUrl($volumeInfo),
             source: 'google_books',
         );
     }
 
-    /** @param array<string, mixed> $volumeInfo */
+    /**
+     * The ISBN-13, else the ISBN-10 converted.
+     *
+     * @param array<string, mixed> $volumeInfo
+     */
     private function extractIsbn(array $volumeInfo): ?Isbn
     {
         $identifiers = is_array($volumeInfo['industryIdentifiers'] ?? null) ? $volumeInfo['industryIdentifiers'] : [];
+
+        $byType = [];
         foreach ($identifiers as $identifier) {
-            if (is_array($identifier) && ($identifier['type'] ?? '') === 'ISBN_13') {
-                return Isbn::tryFrom(is_string($identifier['identifier'] ?? null) ? $identifier['identifier'] : null);
+            $type  = is_array($identifier) ? ($identifier['type'] ?? null) : null;
+            $value = is_array($identifier) ? ($identifier['identifier'] ?? null) : null;
+            if (is_string($type) && is_string($value)) {
+                $byType[$type] ??= $value;
             }
         }
 
-        return null;
+        return Isbn::tryFrom($byType['ISBN_13'] ?? null) ?? Isbn::tryFrom($byType['ISBN_10'] ?? null);
     }
 
     /** @param array<string, mixed> $volumeInfo */

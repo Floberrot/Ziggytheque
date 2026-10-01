@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { ChevronDown, Check, Search } from 'lucide-vue-next'
 import ArticleCard from '@/components/molecules/ArticleCard.vue'
+import BaseCover from '@/components/atoms/BaseCover.vue'
 import type { ArticleCollectionEntry } from '@/types'
 
 const { t } = useI18n()
@@ -79,11 +80,12 @@ function selectEntry(id: string | undefined): void {
         <div v-if="followedEntries.length" class="dropdown">
           <button tabindex="0" class="btn btn-sm gap-2 normal-case max-w-full">
             <template v-if="selectedEntry">
-              <img
+              <BaseCover
                 v-if="selectedEntry.manga.coverUrl"
                 :src="selectedEntry.manga.coverUrl"
                 :alt="selectedEntry.manga.title"
-                class="w-4 h-5 object-cover rounded-sm shrink-0"
+                class="w-4 h-5 rounded-sm shrink-0"
+                icon-class="h-3 w-3"
               />
               <span class="truncate max-w-40">{{ selectedEntry.manga.title }}</span>
             </template>
@@ -126,11 +128,12 @@ function selectEntry(id: string | undefined): void {
                   :class="{ 'btn-active text-primary': selectedCollectionId === entry.id }"
                   @click="selectEntry(entry.id)"
                 >
-                  <img
+                  <BaseCover
                     v-if="entry.manga.coverUrl"
                     :src="entry.manga.coverUrl"
                     :alt="entry.manga.title"
-                    class="w-4 h-5 object-cover rounded-sm shrink-0"
+                    class="w-4 h-5 rounded-sm shrink-0"
+                    icon-class="h-3 w-3"
                   />
                   <span class="truncate flex-1 text-left">{{ entry.manga.title }}</span>
                   <Check v-if="selectedCollectionId === entry.id" class="w-4 h-4 shrink-0" />

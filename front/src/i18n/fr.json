@@ -10,7 +10,10 @@
     "logout": "Déconnexion",
     "settings": "Réglages",
     "adminUsers": "Utilisateurs",
-    "admin": "Admin"
+    "admin": "Admin",
+    "dashboardShort": "Accueil",
+    "wishlistShort": "Souhaits",
+    "mobileNav": "Navigation principale"
   },
   "settings": {
     "language": "Langue",
@@ -126,7 +129,7 @@
     "stopCamera": "Arrêter la caméra",
     "usePhone": "Scanner avec mon téléphone",
     "stopPhone": "Arrêter le téléphone",
-    "cameraHint": "Présente les codes-barres un par un devant la caméra.",
+    "cameraHint": "Cadre le code-barres dans le rectangle, à 10–15 cm : le cadre clignote en vert à chaque lecture.",
     "phoneHint": "Ouvre ce QR code avec ton téléphone, puis scanne tes tomes : ils arrivent ici au fur et à mesure.",
     "phoneError": "Impossible d'ouvrir la session téléphone — réessaie.",
     "summary": "Aucun tome ajouté | 1 tome ajouté | {count} tomes ajoutés",
@@ -142,7 +145,9 @@
     "undo": "Annuler",
     "undoError": "Impossible d'annuler — réessaie.",
     "openSeries": "Voir",
-    "searchManually": "Chercher"
+    "searchManually": "Chercher",
+    "torchOn": "Allumer la lampe",
+    "torchOff": "Éteindre la lampe"
   },
   "manga": {
     "title": "Titre",
@@ -530,5 +535,19 @@
     "approve": "Approuver",
     "resetLink": "Lien de réinitialisation",
     "notConfigured": "non configuré"
+  },
+  "quickActions": {
+    "open": "Ouvrir la série",
+    "follow": "Suivre les sorties",
+    "unfollow": "Ne plus suivre",
+    "rate": "Noter",
+    "rateValue": "{count} cœur | {count} cœurs",
+    "remove": "Retirer de la collection",
+    "removeConfirm": "La série et le suivi de ses tomes seront retirés de ta collection.",
+    "removeYes": "Retirer",
+    "followed": "Tu suis cette série : ses sorties apparaîtront dans tes actualités.",
+    "unfollowed": "Tu ne suis plus cette série.",
+    "rated": "Note enregistrée",
+    "error": "Action impossible — réessaie."
   }
 }

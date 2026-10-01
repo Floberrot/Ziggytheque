@@ -6,6 +6,7 @@ namespace App\Manga\Domain\Service;
 
 use App\Manga\Domain\Catalogue\CatalogueEdition;
 use App\Manga\Domain\Catalogue\CatalogueInterface;
+use App\Manga\Domain\Catalogue\CatalogueRecord;
 use App\Manga\Domain\Catalogue\CatalogueSearchModeEnum;
 use App\Manga\Domain\Catalogue\CatalogueSearchResult;
 use App\Manga\Domain\Catalogue\IsbnIdentification;
@@ -92,10 +93,17 @@ final readonly class CatalogueSearch
      * Places a scanned ISBN in its series. The book's own record gives the work; its
      * siblings (same work) are fetched too, so the series' length and a special
      * edition written after the volume number can be recognised.
+     *
+     * The records found BY the scanned ISBN are that book, whatever ISBN they state
+     * first (a record may list its other binding's ISBN, or an ISBN-10 the catalogue
+     * did not convert): they carry the scanned one, so the tome is always found back.
      */
     public function identifyIsbn(Isbn $isbn): IsbnIdentification
     {
-        $records = $this->catalogue->findByIsbn($isbn);
+        $records = array_map(
+            static fn (CatalogueRecord $record): CatalogueRecord => $record->withIsbn($isbn),
+            $this->catalogue->findByIsbn($isbn),
+        );
         if ($records === []) {
             throw new IsbnNotInCatalogueException($isbn->value);
         }

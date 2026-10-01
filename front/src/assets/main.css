@@ -103,7 +103,9 @@
    - pt-mobile-header /
      top-mobile-header      : offset for content under the fixed mobile header
                               (h-14 = 3.5rem, grown by the notch inset)
-   - mb-safe                : margin clearance above the home indicator      */
+   - mb-safe                : margin clearance above the home indicator
+   - pb-mobile-nav /
+     mb-mobile-nav          : room for the phone bottom navigation (h-16)    */
 
 @utility safe-top {
   padding-top: var(--safe-top);
@@ -122,6 +124,12 @@
 }
 @utility mb-safe {
   margin-bottom: var(--safe-bottom);
+}
+@utility pb-mobile-nav {
+  padding-bottom: calc(4rem + var(--safe-bottom));
+}
+@utility mb-mobile-nav {
+  margin-bottom: calc(4.5rem + var(--safe-bottom));
 }
 
 /* ── Tooltips on mobile ─────────────────────────────────────────────────────

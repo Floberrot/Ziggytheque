@@ -19,8 +19,8 @@ final class EditionRelevanceFilterTest extends TestCase
 
     public function testKeepsLegitimateMangaEdition(): void
     {
-        $this->assertTrue($this->filter->isRelevant('Berserk', 'Berserk, Vol. 1', 'Glénat (Grenoble)', 'text'));
-        $this->assertTrue($this->filter->isRelevant('Berserk', 'Berserk : édition deluxe', 'Dark Horse Comics', 'text'));
+        $this->assertTrue($this->filter->isRelevant('Berserk', 'Berserk, Vol. 1', 'Glénat (Grenoble)', ['texte imprimé', 'text']));
+        $this->assertTrue($this->filter->isRelevant('Berserk', 'Berserk : édition deluxe', 'Dark Horse Comics', ['text']));
     }
 
     public function testKeepsArtbooksAndCompanionBooks(): void
@@ -73,8 +73,30 @@ final class EditionRelevanceFilterTest extends TestCase
 
     public function testRejectsVideoByType(): void
     {
-        $this->assertFalse($this->filter->isRelevant('Dragon Ball Z', 'Dragon Ball Z', 'Kana', 'image animée'));
-        $this->assertFalse($this->filter->isRelevant('Dragon Ball Z', 'Dragon Ball Z', 'Kana', 'vidéo'));
+        $this->assertFalse($this->filter->isRelevant('Dragon Ball Z', 'Dragon Ball Z', 'Kana', ['image animée']));
+        $this->assertFalse($this->filter->isRelevant('Dragon Ball Z', 'Dragon Ball Z', 'Kana', ['vidéo']));
+    }
+
+    public function testEveryStatedTypeIsChecked(): void
+    {
+        // A film whose first dc:type looks harmless is still a film.
+        $this->assertFalse($this->filter->isRelevant('Akira', 'Akira', null, ['ressource', 'image animée']));
+    }
+
+    public function testRejectsVideoGamesAndSoftware(): void
+    {
+        $this->assertFalse($this->filter->isRelevant('Zelda', 'The legend of Zelda', 'Nintendo', ['multimédia multisupport']));
+        $this->assertFalse($this->filter->isRelevant('Zelda', 'The legend of Zelda', 'Nintendo', ['logiciel']));
+        $this->assertFalse($this->filter->isRelevant('Zelda', 'The legend of Zelda', null, ['Games & Activities']));
+        $this->assertFalse($this->filter->isRelevant('Zelda', 'Zelda : le guide stratégique', null));
+        $this->assertFalse($this->filter->isRelevant('Dragon Ball', 'Dragon Ball, les jeux vidéo', null));
+    }
+
+    public function testKeepsComicsCategories(): void
+    {
+        $this->assertTrue($this->filter->isRelevant('Zelda', 'The legend of Zelda : twilight princess', 'Soleil', [
+            'Comics & Graphic Novels',
+        ]));
     }
 
     public function testRejectsDeniedPublishers(): void

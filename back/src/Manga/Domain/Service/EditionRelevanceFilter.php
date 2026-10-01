@@ -18,7 +18,7 @@ namespace App\Manga\Domain\Service;
  * work) and as a trust hint for ranking.
  *
  * What is still rejected as real noise for a manga médiathèque:
- * - video / sound carriers (dc:type),
+ * - video, sound, software and video-game carriers (any dc:type / category),
  * - partwork, video and unofficial-essay publishers ({@see self::PUBLISHER_DENYLIST}),
  * - derivative print that is not a collectible edition: coloriages, agendas,
  *   calendriers, stickers, figurines, unofficial reading guides, novels, argus…
@@ -74,12 +74,17 @@ final readonly class EditionRelevanceFilter
     private const string TITLE_DENY_REGEX =
         '/\b(coloriages?|colou?ring|stickers?|autocollants?|calendriers?|calendars?'
         . '|agendas?|figurines?|puzzles?|dvd|blu[\s-]?ray|making\s+of|decryptages?'
-        . '|cote\s+des|argus|novels?|romans?)\b'
+        . '|cote\s+des|argus|novels?|romans?|jeux?\s+video|video\s*games?|soluces?|walkthrough'
+        . '|strategy\s+guide|guide\s+strategique)\b'
         . '|guide\s+de\s+lecture|non\s+officiel|unofficial|encyclop/iu';
 
-    /** Record types (Dublin Core dc:type and friends) that are not printed books. */
+    /**
+     * Record types (Dublin Core dc:type, Google Books categories) that are not printed
+     * books: films, music, software, video games.
+     */
     private const string TYPE_DENY_REGEX =
-        '/\b(vid(?:é|e)o|son|sound|dvd|blu[\s-]?ray|movie|film)\b|image\s+anim/iu';
+        '/\b(vid(?:é|e)o|son|sound|dvd|blu[\s-]?ray|movie|film|jeux?|games?|logiciels?|software'
+        . '|multim(?:é|e)dia|musique|music|performing\s+arts)\b|image\s+anim|enregistrement/iu';
 
     /**
      * Words too generic to prove a title match on their own — dropped before requiring
@@ -97,14 +102,17 @@ final readonly class EditionRelevanceFilter
     {
     }
 
+    /** @param list<string> $types every type / category the source states for the record */
     public function isRelevant(
         string $workTitle,
         string $recordTitle,
         ?string $publisher,
-        ?string $type = null,
+        array $types = [],
     ): bool {
-        if ($type !== null && $type !== '' && preg_match(self::TYPE_DENY_REGEX, $type) === 1) {
-            return false;
+        foreach ($types as $type) {
+            if (preg_match(self::TYPE_DENY_REGEX, $type) === 1) {
+                return false;
+            }
         }
 
         $publisherKey = $this->publisherNormalizer->canonicalKey($publisher);

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { TriangleAlert, Book, CheckCircle2, CircleSlash, Info, RotateCcw, Search, Undo2 } from 'lucide-vue-next'
+import { TriangleAlert, CheckCircle2, CircleSlash, Info, RotateCcw, Search, Undo2 } from 'lucide-vue-next'
 import type { ScanFeedItem } from '@/types'
+import BaseCover from '@/components/atoms/BaseCover.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
 import EditionBadge from '@/components/molecules/EditionBadge.vue'
-import { coverUrl } from '@/utils/coverUrl'
 
 /** Every barcode read while scanning a shelf — newest first — and what it did. */
 defineProps<{ items: ScanFeedItem[] }>()
@@ -32,9 +32,8 @@ const { t } = useI18n()
         'border-base-300/70 opacity-60': item.status === 'undone' || item.status === 'pending',
       }"
     >
-      <div class="w-10 shrink-0 aspect-[2/3] rounded-md overflow-hidden bg-base-200 flex items-center justify-center">
-        <img v-if="coverUrl(item.coverUrl)" :src="coverUrl(item.coverUrl)!" alt="" class="w-full h-full object-cover" />
-        <Book v-else class="h-4 w-4 text-base-content/20" />
+      <div class="w-10 shrink-0 aspect-[2/3] rounded-md overflow-hidden bg-base-200">
+        <BaseCover :src="item.coverUrl" class="w-full h-full" icon-class="h-4 w-4" />
       </div>
 
       <div class="flex-1 min-w-0">

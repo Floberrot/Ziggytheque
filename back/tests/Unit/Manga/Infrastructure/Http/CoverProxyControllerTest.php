@@ -21,6 +21,7 @@ final class CoverProxyControllerTest extends TestCase
 {
     private const string ALLOWED = 'https://books.google.com/books/content?id=1';
     private const string MANGADEX = 'https://uploads.mangadex.org/covers/a/b.jpg';
+    private const string BNF = 'https://catalogue.bnf.fr/couverture?appName=NE&idArk=ark:/12148/cb37148339x&couverture=1';
 
     public function testReturnsUpstreamImage(): void
     {
@@ -136,6 +137,38 @@ final class CoverProxyControllerTest extends TestCase
             'http_code'        => 500,
             'response_headers' => ['content-type' => 'image/jpeg'],
         ]));
+
+        self::assertSame(Response::HTTP_NOT_FOUND, $this->handle($client, self::ALLOWED)->getStatusCode());
+    }
+
+    public function testServesABnfCoverWithTheBnfReferer(): void
+    {
+        $sentHeaders = [];
+        $client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$sentHeaders): MockResponse {
+            $sentHeaders = $options['headers'];
+
+            return new MockResponse(str_repeat('j', 4000), ['response_headers' => ['content-type' => 'image/jpeg']]);
+        });
+
+        $response = $this->handle($client, self::BNF);
+
+        self::assertSame(Response::HTTP_OK, $response->getStatusCode());
+        self::assertContains('Referer: https://catalogue.bnf.fr/', $sentHeaders);
+    }
+
+    /** The BnF answers "no cover" with a tiny placeholder: it must read as missing. */
+    public function testReportsTheBnfPlaceholderAsMissing(): void
+    {
+        $client = new MockHttpClient(new MockResponse(str_repeat('p', 800), [
+            'response_headers' => ['content-type' => 'image/gif'],
+        ]));
+
+        self::assertSame(Response::HTTP_NOT_FOUND, $this->handle($client, self::BNF)->getStatusCode());
+    }
+
+    public function testReportsAnEmptyImageAsMissing(): void
+    {
+        $client = new MockHttpClient(new MockResponse('', ['response_headers' => ['content-type' => 'image/jpeg']]));
 
         self::assertSame(Response::HTTP_NOT_FOUND, $this->handle($client, self::ALLOWED)->getStatusCode());
     }

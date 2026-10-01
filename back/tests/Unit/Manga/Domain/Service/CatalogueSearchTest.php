@@ -118,6 +118,18 @@ final class CatalogueSearchTest extends TestCase
         $this->assertSame(2, $identification->volume->number);
     }
 
+    public function testIdentifyIsbnFindsTheTomeWhenItsRecordStatesAnotherIsbn(): void
+    {
+        // The record found by 9782344050002 lists only the ISBN of another binding.
+        $this->catalogue->answerIsbn('9782344050002', $this->record('Berserk', 5, 'Prestige', '9782344061008'));
+
+        $identification = $this->search->identifyIsbn(Isbn::fromString('9782344050002'));
+
+        $this->assertSame('Prestige', $identification->edition->specialEdition);
+        $this->assertSame(5, $identification->volume->number);
+        $this->assertSame('9782344050002', $identification->volume->isbn?->value);
+    }
+
     public function testEditionReturnsTheMatchingSeriesWithAllItsTomes(): void
     {
         $edition = $this->search->edition(new EditionIdentity('Berserk', 'Glénat (Grenoble)', 'prestige'));

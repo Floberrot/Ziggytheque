@@ -1,7 +1,12 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import type { Article } from '@/types'
+import BaseCover from '@/components/atoms/BaseCover.vue'
 
 defineProps<{ article: Article }>()
+
+// A dead preview image leaves the neutral placeholder rather than a broken image.
+const previewFailed = ref(false)
 </script>
 
 <template>
@@ -14,11 +19,12 @@ defineProps<{ article: Article }>()
     <!-- Preview image -->
     <figure class="w-28 sm:w-36 shrink-0 bg-base-300">
       <img
-        v-if="article.imageUrl"
+        v-if="article.imageUrl && !previewFailed"
         :src="article.imageUrl"
         :alt="article.title"
         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         loading="lazy"
+        @error="previewFailed = true"
       />
       <div v-else class="w-full h-full flex items-center justify-center text-base-content/20">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -31,11 +37,12 @@ defineProps<{ article: Article }>()
       <!-- Manga badge + source -->
       <div class="flex items-center gap-2 flex-wrap">
         <div class="flex items-center gap-1.5">
-          <img
+          <BaseCover
             v-if="article.collectionEntry.manga.coverUrl"
             :src="article.collectionEntry.manga.coverUrl"
             :alt="article.collectionEntry.manga.title"
-            class="w-5 h-7 object-cover rounded-sm shrink-0"
+            class="w-5 h-7 rounded-sm shrink-0"
+            icon-class="h-3 w-3"
           />
           <span class="text-xs font-semibold text-primary truncate max-w-32">
             {{ article.collectionEntry.manga.title }}

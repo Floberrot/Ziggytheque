@@ -61,6 +61,13 @@ export interface CollectionEntry {
   notificationsEnabled: boolean
 }
 
+/** A right click (mouse) or a long press (touch) on a collection card. */
+export interface QuickActionRequest {
+  entry: CollectionEntry
+  point: { x: number; y: number }
+  source: 'mouse' | 'touch'
+}
+
 export interface ArticleCollectionEntry {
   id: string
   manga: {

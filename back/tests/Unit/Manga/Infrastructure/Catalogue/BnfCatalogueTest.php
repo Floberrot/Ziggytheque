@@ -47,11 +47,12 @@ final class BnfCatalogueTest extends TestCase
         return new MockResponse((string) file_get_contents(__DIR__ . '/../../../../Fixtures/Bnf/catalogue-berserk-dublincore.xml'));
     }
 
-    public function testSearchByTitleParsesFrenchPrintRecordsOnly(): void
+    public function testSearchByTitleKeepsFrenchPrintedBooksWithAnIsbnOnly(): void
     {
+        // Dropped: a video game, a book without ISBN, a film, a German tome, coloriages, a record without title.
         $records = $this->makeCatalogue($this->fixture())->searchByTitle('Berserk');
 
-        $this->assertCount(2, $records);
+        $this->assertCount(3, $records);
 
         $standard = $records[0];
         $this->assertSame('Berserk', $standard->workTitle);
@@ -72,6 +73,12 @@ final class BnfCatalogueTest extends TestCase
         $this->assertSame("L'élu", $prestige->trailingQualifier);
         $this->assertSame('9782344036082', $prestige->isbn?->value);
 
+        $statedEdition = $records[2];
+        $this->assertSame('Berserk', $statedEdition->workTitle);
+        $this->assertSame('Édition prestige', $statedEdition->headQualifier);
+        $this->assertSame(5, $statedEdition->volumeNumber);
+        $this->assertSame('9782344050002', $statedEdition->isbn?->value);
+
         $this->assertStringContainsString('query=bib.title all "Berserk"', $this->requestedUrls[0]);
         $this->assertStringContainsString('recordSchema=dublincore', $this->requestedUrls[0]);
     }
@@ -80,7 +87,7 @@ final class BnfCatalogueTest extends TestCase
     {
         $records = $this->makeCatalogue($this->fixture())->searchByAuthor('Miura');
 
-        $this->assertCount(2, $records);
+        $this->assertCount(3, $records);
         $this->assertStringContainsString('query=bib.author all "Miura"', $this->requestedUrls[0]);
     }
 

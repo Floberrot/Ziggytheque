@@ -7,6 +7,7 @@ namespace App\Tests\Unit\Manga\Domain;
 use App\Manga\Domain\EditionIdentity;
 use App\Manga\Domain\Manga;
 use App\Manga\Domain\Service\PublisherNormalizer;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class EditionIdentityTest extends TestCase
@@ -25,6 +26,31 @@ final class EditionIdentityTest extends TestCase
 
         $this->assertTrue($catalogue->matches($stored, $this->publisherNormalizer));
         $this->assertSame($catalogue->key($this->publisherNormalizer), $stored->key($this->publisherNormalizer));
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function editionSpellings(): iterable
+    {
+        yield 'bare name vs edition statement' => ['Prestige', 'Édition prestige'];
+        yield 'abbreviated statement' => ['Édition prestige', 'Éd. prestige'];
+        yield 'english word order' => ['Perfect', 'Perfect edition'];
+    }
+
+    #[DataProvider('editionSpellings')]
+    public function testTheWordEditionAroundTheNameDoesNotMakeAnotherSeries(string $left, string $right): void
+    {
+        $this->assertTrue(
+            (new EditionIdentity('Berserk', 'Glénat', $left))
+                ->matches(new EditionIdentity('Berserk', 'Glénat', $right), $this->publisherNormalizer),
+        );
+    }
+
+    public function testAnEditionNamedOnlyEditionStaysASpecialEdition(): void
+    {
+        $this->assertFalse(
+            (new EditionIdentity('Berserk', 'Glénat', 'Édition'))
+                ->matches(new EditionIdentity('Berserk', 'Glénat', null), $this->publisherNormalizer),
+        );
     }
 
     public function testASpecialEditionIsAnotherSeries(): void
