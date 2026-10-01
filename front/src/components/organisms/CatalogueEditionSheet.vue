@@ -5,9 +5,9 @@ import { Check, Info, Pencil, X } from 'lucide-vue-next'
 import type { CatalogueEdition } from '@/api/catalogue'
 import type { CatalogueSelection } from '@/types'
 import BaseModal from '@/components/atoms/BaseModal.vue'
+import BaseCover from '@/components/atoms/BaseCover.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
 import EditionBadge from '@/components/molecules/EditionBadge.vue'
-import { coverUrl } from '@/utils/coverUrl'
 
 /**
  * Pick the tomes you own in one series. The whole series is added either way; the
@@ -43,11 +43,15 @@ const tomeNumbers = computed(() =>
 const coverByNumber = computed(() => {
   const covers = new Map<number, string>()
   for (const volume of props.edition?.volumes ?? []) {
-    const url = coverUrl(volume.coverUrl)
-    if (url) covers.set(volume.number, url)
+    if (volume.coverUrl) covers.set(volume.number, volume.coverUrl)
   }
   return covers
 })
+// Covers that turned out broken or a placeholder: the tile goes back to its plain number.
+const missingCovers = ref(new Set<number>())
+function hasCover(number: number): boolean {
+  return coverByNumber.value.has(number) && !missingCovers.value.has(number)
+}
 const selectableNumbers = computed(() => tomeNumbers.value.filter((number) => !ownedNumbers.value.has(number)))
 const isInCollection = computed(() => props.edition?.collection != null)
 
@@ -66,6 +70,7 @@ watch(
       initial.add(requested)
     }
     selected.value = initial
+    missingCovers.value = new Set()
     touched.value = false
     showCorrection.value = false
     workTitle.value = props.edition?.workTitle ?? ''
@@ -175,16 +180,16 @@ function submit(numbers: number[]): void {
             :disabled="ownedNumbers.has(number)"
             @click="toggle(number)"
           >
-            <img
-              v-if="coverByNumber.get(number)"
+            <BaseCover
+              v-if="hasCover(number)"
               :src="coverByNumber.get(number)"
               :alt="t('catalogue.tome', { number })"
-              class="absolute inset-0 w-full h-full object-cover"
-              loading="lazy"
+              class="absolute inset-0 w-full h-full"
+              @missing="missingCovers.add(number)"
             />
             <span
               class="absolute inset-0 flex items-center justify-center"
-              :class="coverByNumber.get(number) ? 'bg-black/35 text-white' : 'bg-base-200 text-base-content/60'"
+              :class="hasCover(number) ? 'bg-black/35 text-white' : 'bg-base-200 text-base-content/60'"
             >
               {{ number }}
             </span>

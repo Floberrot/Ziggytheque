@@ -32,6 +32,15 @@ final readonly class CoverProxyController
         'books.google.co.jp'          => 'https://books.google.com/',
         'books.googleusercontent.com' => 'https://books.google.com/',
         'uploads.mangadex.org'        => 'https://mangadex.org/',
+        'catalogue.bnf.fr'            => 'https://catalogue.bnf.fr/',
+    ];
+
+    /**
+     * Hosts that answer "no cover" with a small placeholder image instead of a 404:
+     * below this many bytes the image is that placeholder, and is reported as missing.
+     */
+    private const array MIN_BYTES_BY_HOST = [
+        'catalogue.bnf.fr' => 2000,
     ];
 
     /** Upstream may redirect, but every hop is re-validated against the allowlist. */
@@ -118,6 +127,10 @@ final readonly class CoverProxyController
                 return new Response('', Response::HTTP_NOT_FOUND);
             }
 
+            if (strlen($body) < $this->minimumBytesFor($currentUrl)) {
+                return new Response('', Response::HTTP_NOT_FOUND);
+            }
+
             return new Response(
                 $body,
                 Response::HTTP_OK,
@@ -186,6 +199,13 @@ final readonly class CoverProxyController
         $basePath = substr($basePath, 0, (int) strrpos($basePath, '/') + 1);
 
         return $origin . $basePath . $location;
+    }
+
+    private function minimumBytesFor(string $url): int
+    {
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+
+        return self::MIN_BYTES_BY_HOST[$host] ?? 1;
     }
 
     /** The Referer to send for $url, or null when the URL is not allowlisted. */

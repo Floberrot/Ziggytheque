@@ -58,14 +58,30 @@ final class GoogleBooksCatalogueTest extends TestCase
             ['volumeInfo' => ['title' => 'Berserk', 'language' => 'en']],
             ['volumeInfo' => ['title' => '', 'language' => 'fr']],
             ['volumeInfo' => ['title' => 'Berserk calendrier 2026', 'language' => 'fr']],
+            ['volumeInfo' => ['title' => 'Berserk', 'subtitle' => 'Tome 4', 'language' => 'fr']],
+            ['volumeInfo' => [
+                'title'               => 'Berserk Musou',
+                'language'            => 'fr',
+                'categories'          => ['Games & Activities'],
+                'industryIdentifiers' => [['type' => 'ISBN_13', 'identifier' => '9782344061008']],
+            ]],
+            ['volumeInfo' => [
+                'title'               => 'Berserk',
+                'subtitle'            => 'Tome 1',
+                'language'            => 'fr',
+                'categories'          => ['Comics & Graphic Novels'],
+                'industryIdentifiers' => [['type' => 'ISBN_10', 'identifier' => '2723425487']],
+            ]],
         ]]));
     }
 
     public function testSearchByTitleParsesFrenchVolumes(): void
     {
+        // Dropped: English, untitled, calendar, no ISBN, a game.
         $records = $this->makeCatalogue($this->volumes())->searchByTitle('Berserk');
 
-        $this->assertCount(1, $records);
+        $this->assertCount(2, $records);
+        $this->assertSame('9782723425483', $records[1]->isbn?->value, 'An ISBN-10 is converted when no ISBN-13 is given.');
         $record = $records[0];
         $this->assertSame('Berserk', $record->workTitle);
         $this->assertSame(3, $record->volumeNumber);

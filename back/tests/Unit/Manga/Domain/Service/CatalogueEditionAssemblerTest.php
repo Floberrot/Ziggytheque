@@ -78,11 +78,21 @@ final class CatalogueEditionAssemblerTest extends TestCase
     public function testTrailingQualifierSharedAcrossTomesIsTheSpecialEdition(): void
     {
         $editions = $this->assembler->assemble([
-            $this->record('Berserk', 1, trailingQualifier: 'Édition prestige'),
-            $this->record('Berserk', 2, trailingQualifier: 'Édition prestige'),
+            $this->record('Berserk', 1, trailingQualifier: 'Black'),
+            $this->record('Berserk', 2, trailingQualifier: 'Black'),
         ]);
 
-        $this->assertSame(['Berserk|Glénat|Édition prestige|2'], $this->labels($editions));
+        $this->assertSame(['Berserk|Glénat|Black|2'], $this->labels($editions));
+    }
+
+    public function testTheSameEditionSpelledDifferentlyByTwoSourcesIsOneSeries(): void
+    {
+        $editions = $this->assembler->assemble([
+            $this->record('Berserk', 1, headQualifier: 'Prestige'),
+            $this->record('Berserk', 2, headQualifier: 'Édition prestige'),
+        ]);
+
+        $this->assertSame(['Berserk|Glénat|Prestige|2'], $this->labels($editions));
     }
 
     public function testTrailingQualifierSeenOnOneTomeIsAVolumeTitle(): void

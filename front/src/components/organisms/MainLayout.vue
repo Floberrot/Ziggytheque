@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed, shallowRef, watch } from 'vue'
+import { computed, shallowRef, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { useUiStore } from '@/stores/useUiStore'
 import { useThemeStore } from '@/stores/useThemeStore'
 import { useI18n } from 'vue-i18n'
-import { Menu, Settings, LogOut, Globe, Sun, Moon, LayoutDashboard, Library, ShoppingCart, PlusCircle, Bell, ClipboardList, Users } from 'lucide-vue-next'
+import {
+  Settings, LogOut, Globe, Sun, Moon, LayoutDashboard, Library, ShoppingCart, PlusCircle, Plus, Bell,
+  ClipboardList, Users, ChevronRight, BellRing,
+} from 'lucide-vue-next'
 import BaseToast from '@/components/atoms/BaseToast.vue'
 import AppLogo from '@/components/atoms/AppLogo.vue'
 
@@ -21,14 +24,12 @@ function logout() {
   router.push({ name: 'login' })
 }
 
-const mobileNavOpen = shallowRef(false)
 const settingsOpen = shallowRef(false)
 
-watch(() => route.path, () => { mobileNavOpen.value = false })
+watch(() => route.path, () => { settingsOpen.value = false })
 
 function openSettings() {
   settingsOpen.value = true
-  mobileNavOpen.value = false
 }
 
 function closeSettings() {
@@ -38,50 +39,59 @@ function closeSettings() {
 interface NavItem {
   name: string
   labelKey: string
-  icon: unknown
-  comingSoon?: true
+  /** Label of the phone bottom bar, where room is short. */
+  shortLabelKey?: string
+  icon: Component
+  /** Also active on the pages below it ("/collection/42" for the collection). */
+  pathPrefix: string
   adminOnly?: true
 }
 
 const allNavItems: NavItem[] = [
-  { name: 'dashboard',     labelKey: 'nav.dashboard',     icon: LayoutDashboard },
-  { name: 'collection',    labelKey: 'nav.collection',    icon: Library },
-  { name: 'wishlist',      labelKey: 'nav.wishlist',      icon: ShoppingCart },
-  { name: 'add',           labelKey: 'nav.add',           icon: PlusCircle },
-  { name: 'notifications', labelKey: 'nav.notifications', icon: Bell },
-  { name: 'journal',       labelKey: 'nav.journal',       icon: ClipboardList, adminOnly: true },
-  { name: 'admin-users',   labelKey: 'nav.adminUsers',    icon: Users,         adminOnly: true },
+  { name: 'dashboard',     labelKey: 'nav.dashboard',     shortLabelKey: 'nav.dashboardShort', icon: LayoutDashboard, pathPrefix: '/dashboard' },
+  { name: 'collection',    labelKey: 'nav.collection',    icon: Library,         pathPrefix: '/collection' },
+  { name: 'wishlist',      labelKey: 'nav.wishlist',      shortLabelKey: 'nav.wishlistShort', icon: ShoppingCart, pathPrefix: '/wishlist' },
+  { name: 'add',           labelKey: 'nav.add',           icon: PlusCircle,      pathPrefix: '/add' },
+  { name: 'notifications', labelKey: 'nav.notifications', icon: Bell,            pathPrefix: '/notifications' },
+  { name: 'journal',       labelKey: 'nav.journal',       icon: ClipboardList,   pathPrefix: '/journal', adminOnly: true },
+  { name: 'admin-users',   labelKey: 'nav.adminUsers',    icon: Users,           pathPrefix: '/admin', adminOnly: true },
 ]
 
 const mainNavItems = computed(() => allNavItems.filter((item) => !item.adminOnly))
 const adminNavItems = computed(() =>
   auth.isAdmin ? allNavItems.filter((item) => item.adminOnly) : [],
 )
+
+/** Phone bottom bar: the add button sits in the middle, between these pairs. */
+const BOTTOM_LEFT = ['dashboard', 'collection']
+const BOTTOM_RIGHT = ['wishlist']
+const bottomLeftItems = computed(() => allNavItems.filter((item) => BOTTOM_LEFT.includes(item.name)))
+const bottomRightItems = computed(() => allNavItems.filter((item) => BOTTOM_RIGHT.includes(item.name)))
+
+function isActive(item: NavItem): boolean {
+  return route.path.startsWith(item.pathPrefix)
+}
+
+const addActive = computed(() => route.path.startsWith('/add'))
+const notificationsActive = computed(() => route.path.startsWith('/notifications'))
 </script>
 
 <template>
   <!-- Mobile top header — safe-top grows it under the iOS notch -->
   <header class="lg:hidden fixed top-0 inset-x-0 z-30 safe-top bg-base-100/80 backdrop-blur-md border-b border-base-200">
     <div class="flex items-center h-14 px-4 gap-3">
-      <button
-        class="flex items-center justify-center w-10 h-10 rounded-lg text-base-content/60 hover:bg-base-200 hover:text-base-content transition-colors"
-        :class="{ 'text-primary bg-primary/10': mobileNavOpen }"
-        @click="mobileNavOpen = true"
-      >
-        <Menu class="w-5 h-5" stroke-width="1.5" />
-      </button>
-
-      <div class="flex-1 flex justify-center">
+      <RouterLink :to="{ name: 'dashboard' }" class="flex-1 flex items-center">
         <AppLogo />
-      </div>
+      </RouterLink>
 
-      <button
+      <RouterLink
+        :to="{ name: 'notifications' }"
         class="flex items-center justify-center w-10 h-10 rounded-lg text-base-content/60 hover:bg-base-200 hover:text-base-content transition-colors"
-        :class="{ 'text-primary bg-primary/10': settingsOpen }"
-        @click="openSettings"
+        :class="{ 'text-primary bg-primary/10': notificationsActive }"
+        :aria-label="t('nav.notifications')"
       >
-        <Settings class="w-5 h-5" stroke-width="1.5" />
-      </button>
+        <Bell class="w-5 h-5" stroke-width="1.5" />
+      </RouterLink>
     </div>
   </header>
 
@@ -89,7 +99,7 @@ const adminNavItems = computed(() =>
     <input id="drawer" type="checkbox" class="drawer-toggle" />
 
     <div class="drawer-content flex flex-col">
-      <main class="flex-1 bg-base-200 min-h-screen pt-mobile-header lg:pt-0">
+      <main class="flex-1 bg-base-200 min-h-screen pt-mobile-header pb-mobile-nav lg:pt-0 lg:pb-0">
         <RouterView />
       </main>
     </div>
@@ -103,25 +113,16 @@ const adminNavItems = computed(() =>
         </div>
 
         <nav class="flex-1 p-3 space-y-1">
-          <template v-for="item in mainNavItems" :key="item.name">
-            <div
-              v-if="item.comingSoon"
-              class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-base-content/30 cursor-not-allowed select-none"
-            >
-              <component :is="item.icon" class="w-5 h-5 shrink-0" stroke-width="1.5" />
-              <span class="flex-1">{{ t(item.labelKey) }}</span>
-              <span class="badge badge-sm badge-ghost text-base-content/30 border-base-content/15 text-[10px]">bientôt</span>
-            </div>
-            <RouterLink
-              v-else
-              :to="{ name: item.name }"
-              class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-base-200"
-              active-class="bg-primary/10 text-primary"
-            >
-              <component :is="item.icon" class="w-5 h-5 shrink-0" stroke-width="1.5" />
-              <span>{{ t(item.labelKey) }}</span>
-            </RouterLink>
-          </template>
+          <RouterLink
+            v-for="item in mainNavItems"
+            :key="item.name"
+            :to="{ name: item.name }"
+            class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-base-200"
+            :class="{ 'bg-primary/10 text-primary': isActive(item) }"
+          >
+            <component :is="item.icon" class="w-5 h-5 shrink-0" stroke-width="1.5" />
+            <span>{{ t(item.labelKey) }}</span>
+          </RouterLink>
 
           <template v-if="adminNavItems.length > 0">
             <p class="mt-2 pt-3 px-3 border-t border-base-200 text-[10px] font-semibold uppercase tracking-wider text-base-content/40">
@@ -177,83 +178,59 @@ const adminNavItems = computed(() =>
   </div>
 
   <Teleport to="body">
-    <!-- Mobile nav overlay -->
-    <Transition
-      enter-active-class="transition-opacity duration-200"
-      leave-active-class="transition-opacity duration-200"
-      enter-from-class="opacity-0"
-      leave-to-class="opacity-0"
+    <!-- Mobile bottom navigation — the add button stands out in the middle -->
+    <nav
+      class="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-base-100/90 backdrop-blur-md border-t border-base-200 safe-bottom"
+      :aria-label="t('nav.mobileNav')"
     >
-      <div v-if="mobileNavOpen" class="lg:hidden fixed inset-0 z-40 flex">
-        <div class="absolute inset-0 bg-black/40" @click="mobileNavOpen = false" />
-
-        <Transition
-          enter-active-class="transition-transform duration-300 ease-out"
-          leave-active-class="transition-transform duration-250 ease-in"
-          enter-from-class="-translate-x-full"
-          leave-to-class="-translate-x-full"
+      <div class="grid grid-cols-5 items-end h-16 max-w-lg mx-auto px-1">
+        <RouterLink
+          v-for="item in bottomLeftItems"
+          :key="item.name"
+          :to="{ name: item.name }"
+          class="bottom-nav-item"
+          :class="{ 'bottom-nav-item--active': isActive(item) }"
         >
-          <nav v-if="mobileNavOpen" class="relative flex flex-col w-20 min-h-screen bg-base-100 shadow-2xl safe-top">
-            <!-- Logo mark -->
-            <div class="flex items-center justify-center h-14 border-b border-base-200">
-              <AppLogo :full="false" />
-            </div>
-            <!-- Nav items -->
-            <div class="flex-1 flex flex-col items-center pt-4 gap-1">
-              <template v-for="item in mainNavItems" :key="item.name">
-                <div
-                  v-if="item.comingSoon"
-                  class="relative flex items-center justify-center w-14 h-14 rounded-xl text-base-content/20 cursor-not-allowed select-none"
-                >
-                  <component :is="item.icon" class="w-6 h-6" stroke-width="1.5" />
-                </div>
-                <RouterLink
-                  v-else
-                  :to="{ name: item.name }"
-                  class="flex items-center justify-center w-14 h-14 rounded-xl text-base-content/50 transition-colors hover:bg-base-200 hover:text-base-content"
-                  active-class="bg-primary/10 text-primary"
-                >
-                  <component :is="item.icon" class="w-6 h-6" stroke-width="1.5" />
-                </RouterLink>
-              </template>
+          <component :is="item.icon" class="w-6 h-6" stroke-width="1.6" />
+          <span>{{ t(item.shortLabelKey ?? item.labelKey) }}</span>
+        </RouterLink>
 
-              <template v-if="adminNavItems.length > 0">
-                <div class="w-10 mt-1 pt-2 border-t border-base-200 text-center">
-                  <span class="text-[9px] font-semibold uppercase tracking-wider text-base-content/40">
-                    {{ t('nav.admin') }}
-                  </span>
-                </div>
-                <RouterLink
-                  v-for="item in adminNavItems"
-                  :key="item.name"
-                  :to="{ name: item.name }"
-                  class="flex items-center justify-center w-14 h-14 rounded-xl text-base-content/50 transition-colors hover:bg-base-200 hover:text-base-content"
-                  active-class="bg-primary/10 text-primary"
-                >
-                  <component :is="item.icon" class="w-6 h-6" stroke-width="1.5" />
-                </RouterLink>
-              </template>
-            </div>
+        <RouterLink
+          :to="{ name: 'add' }"
+          class="flex flex-col items-center gap-1 pb-1.5 text-[10px] font-semibold"
+          :class="addActive ? 'text-primary' : 'text-base-content/70'"
+          :aria-label="t('collection.add')"
+        >
+          <span
+            class="-mt-7 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-content shadow-lg shadow-primary/40 ring-4 ring-base-100 transition-transform active:scale-95"
+          >
+            <Plus class="h-7 w-7" stroke-width="2.5" />
+          </span>
+          <span>{{ t('nav.add') }}</span>
+        </RouterLink>
 
-            <!-- Bottom actions — kept above the iOS home indicator -->
-            <div class="flex flex-col items-center pb-safe-sheet gap-1 border-t border-base-200 pt-2">
-              <button
-                class="flex items-center justify-center w-14 h-14 rounded-xl text-base-content/50 hover:bg-base-200 hover:text-base-content transition-colors"
-                @click="openSettings"
-              >
-                <Settings class="w-6 h-6" stroke-width="1.5" />
-              </button>
-              <button
-                class="flex items-center justify-center w-14 h-14 rounded-xl text-error/60 hover:bg-error/10 hover:text-error transition-colors"
-                @click="logout"
-              >
-                <LogOut class="w-6 h-6" stroke-width="1.5" />
-              </button>
-            </div>
-          </nav>
-        </Transition>
+        <RouterLink
+          v-for="item in bottomRightItems"
+          :key="item.name"
+          :to="{ name: item.name }"
+          class="bottom-nav-item"
+          :class="{ 'bottom-nav-item--active': isActive(item) }"
+        >
+          <component :is="item.icon" class="w-6 h-6" stroke-width="1.6" />
+          <span>{{ t(item.shortLabelKey ?? item.labelKey) }}</span>
+        </RouterLink>
+
+        <button
+          type="button"
+          class="bottom-nav-item"
+          :class="{ 'bottom-nav-item--active': settingsOpen }"
+          @click="openSettings"
+        >
+          <Settings class="w-6 h-6" stroke-width="1.6" />
+          <span>{{ t('nav.settings') }}</span>
+        </button>
       </div>
-    </Transition>
+    </nav>
 
     <!-- Mobile settings bottom sheet -->
     <Transition
@@ -277,6 +254,28 @@ const adminNavItems = computed(() =>
             <div class="px-4 py-3">
               <h2 class="text-base font-semibold">{{ t('nav.settings') }}</h2>
             </div>
+
+            <!-- Pages that have no room in the bottom bar -->
+            <RouterLink
+              :to="{ name: 'notification-preferences' }"
+              class="flex items-center gap-3 w-full px-4 py-3.5 hover:bg-base-200 transition-colors"
+            >
+              <BellRing class="w-5 h-5 shrink-0 text-base-content/60" stroke-width="1.5" />
+              <span class="flex-1 text-sm font-medium">{{ t('nav.notificationPreferences') }}</span>
+              <ChevronRight class="w-4 h-4 text-base-content/30" />
+            </RouterLink>
+            <RouterLink
+              v-for="item in adminNavItems"
+              :key="item.name"
+              :to="{ name: item.name }"
+              class="flex items-center gap-3 w-full px-4 py-3.5 hover:bg-base-200 transition-colors"
+            >
+              <component :is="item.icon" class="w-5 h-5 shrink-0 text-base-content/60" stroke-width="1.5" />
+              <span class="flex-1 text-sm font-medium">{{ t(item.labelKey) }}</span>
+              <ChevronRight class="w-4 h-4 text-base-content/30" />
+            </RouterLink>
+
+            <div class="mx-4 my-1 border-t border-base-200" />
 
             <!-- Language row (disabled — coming soon) -->
             <div class="flex items-center justify-between w-full px-4 py-3.5 opacity-40 cursor-not-allowed select-none">
@@ -312,8 +311,8 @@ const adminNavItems = computed(() =>
       </div>
     </Transition>
 
-    <!-- Toast container — margin keeps toasts above the iOS home indicator -->
-    <div class="toast toast-end toast-bottom z-[9999] fixed mb-safe">
+    <!-- Toast container — kept above the phone bottom bar and the iOS home indicator -->
+    <div class="toast toast-end toast-bottom z-[9999] fixed mb-mobile-nav lg:mb-safe">
       <BaseToast
         v-for="toast in ui.toasts"
         :key="toast.id"
@@ -322,3 +321,30 @@ const adminNavItems = computed(() =>
     </div>
   </Teleport>
 </template>
+
+<style scoped>
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.2rem;
+  height: 100%;
+  padding-bottom: 0.4rem;
+  font-size: 10px;
+  font-weight: 500;
+  color: color-mix(in oklab, var(--color-base-content) 55%, transparent);
+  transition: color 150ms;
+}
+
+.bottom-nav-item span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bottom-nav-item--active {
+  color: var(--color-primary);
+}
+</style>

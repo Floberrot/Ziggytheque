@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { isPlaceholderImage } from '@/utils/coverUrl'
 
 const props = withDefaults(
   defineProps<{
@@ -58,7 +59,18 @@ onBeforeUnmount(() => {
   observer = null
 })
 
-function onLoad(): void {
+// A new cover (e.g. just enriched) deserves a fresh try.
+watch(() => props.src, () => {
+  loaded.value = false
+  errored.value = false
+})
+
+function onLoad(event: Event): void {
+  // A few-pixel "no cover" placeholder is as good as no cover.
+  if (isPlaceholderImage(event.target as HTMLImageElement)) {
+    errored.value = true
+    return
+  }
   loaded.value = true
 }
 

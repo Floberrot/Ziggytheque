@@ -18,11 +18,20 @@ use Throwable;
  * BnF SRU catalogue (French legal deposit): every book printed in France lands here,
  * with an ISBD title that states the special edition structurally
  * ("Berserk : prestige. 3"). One request per search — no fan-out.
+ *
+ * The legal deposit also holds films, music and video games: only printed books with
+ * an ISBN are kept.
  */
 final readonly class BnfCatalogue implements CatalogueInterface
 {
     private const string LOG_PREFIX = 'BNF CATALOGUE : ';
     private const int PAGE_SIZE = 100;
+
+    /** dc:type of a printed book, in the French and English forms the BnF states. */
+    private const string PRINTED_TEXT_TYPE = '/^(?:texte imprimé|printed text|text|texte)$/iu';
+
+    /** The ISBN digits of an identifier such as "ISBN 978-2-344-03608-2 (br.)". */
+    private const string ISBN_IDENTIFIER = '/^(?:urn:isbn:|isbn\s*)(?<isbn>[0-9][0-9\-\s]{8,16}[0-9Xx])/i';
 
     public function __construct(
         private HttpClientInterface $httpClient,
@@ -123,14 +132,23 @@ final readonly class BnfCatalogue implements CatalogueInterface
             return null;
         }
 
+        $types = $this->allValues($recordNode, 'type');
+        if ($types !== [] && !$this->isPrintedText($types)) {
+            return null;
+        }
+
+        $identifiers = $this->allValues($recordNode, 'identifier');
+        $isbn = $this->extractIsbn($identifiers);
+        if ($isbn === null) {
+            return null;
+        }
+
         $publisher = $this->firstValue($recordNode, 'publisher');
-        $type = $this->firstValue($recordNode, 'type');
-        if (!$this->relevanceFilter->isRelevant($searchedTitle ?? $title, $title, $publisher, $type)) {
+        if (!$this->relevanceFilter->isRelevant($searchedTitle ?? $title, $title, $publisher, $types)) {
             return null;
         }
 
         $parsedTitle = $this->titleParser->parse($title);
-        $identifiers = $this->allValues($recordNode, 'identifier');
 
         return new CatalogueRecord(
             workTitle: $parsedTitle->workTitle,
@@ -139,18 +157,33 @@ final readonly class BnfCatalogue implements CatalogueInterface
             trailingQualifier: $parsedTitle->trailingQualifier,
             publisher: $publisher,
             author: $this->authorName($this->firstValue($recordNode, 'creator')),
-            isbn: $this->extractIsbn($identifiers),
+            isbn: $isbn,
             coverUrl: $this->coverUrl($identifiers),
             source: 'bnf',
         );
+    }
+
+    /** @param list<string> $types */
+    private function isPrintedText(array $types): bool
+    {
+        foreach ($types as $type) {
+            if (preg_match(self::PRINTED_TEXT_TYPE, $type) === 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param list<string> $identifiers */
     private function extractIsbn(array $identifiers): ?Isbn
     {
         foreach ($identifiers as $identifier) {
-            $candidate = (string) preg_replace('/^(?:urn:isbn:|isbn\s*)/i', '', trim($identifier));
-            $isbn = Isbn::tryFrom($candidate);
+            if (preg_match(self::ISBN_IDENTIFIER, trim($identifier), $matches) !== 1) {
+                continue;
+            }
+
+            $isbn = Isbn::tryFrom($matches['isbn']);
             if ($isbn !== null) {
                 return $isbn;
             }

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { effectScope } from 'vue'
 
 type DecodeCallback = (result: { getText: () => string } | null) => void
@@ -6,11 +6,16 @@ type DecodeCallback = (result: { getText: () => string } | null) => void
 const mockDecode = vi.fn()
 const mockStop = vi.fn()
 
+const readerOptions = vi.fn()
+
 vi.mock('@zxing/browser', () => {
-  class MockBrowserMultiFormatReader {
-    decodeFromVideoDevice = mockDecode
+  class MockBrowserMultiFormatOneDReader {
+    decodeFromConstraints = mockDecode
+    constructor(hints: unknown, options: unknown) {
+      readerOptions(hints, options)
+    }
   }
-  return { BrowserMultiFormatReader: MockBrowserMultiFormatReader }
+  return { BrowserMultiFormatOneDReader: MockBrowserMultiFormatOneDReader }
 })
 
 import { useBarcodeScanner } from '../useBarcodeScanner'
@@ -25,6 +30,22 @@ describe('useBarcodeScanner', () => {
     mockDecode.mockReset()
     mockDecode.mockResolvedValue({ stop: mockStop })
     mockStop.mockReset()
+  })
+
+  it('opens the rear camera in HD and decodes book barcodes only', async () => {
+    const scope = effectScope()
+    await scope.run(async () => {
+      const { start } = useBarcodeScanner()
+      await start(document.createElement('video'), vi.fn())
+    })
+
+    const constraints = (mockDecode.mock.calls[0] as unknown[])[0] as MediaStreamConstraints
+    expect(constraints.video).toMatchObject({ facingMode: { ideal: 'environment' }, width: { ideal: 1920 } })
+    const [hints, options] = readerOptions.mock.calls[0] as [Map<unknown, unknown>, { delayBetweenScanAttempts: number }]
+    expect(hints.size).toBe(2)
+    expect(options.delayBetweenScanAttempts).toBeLessThan(500)
+
+    scope.stop()
   })
 
   it('calls onDecode when barcode is scanned', async () => {
@@ -111,6 +132,90 @@ describe('useBarcodeScanner', () => {
     expect(errorMsg).toBeTruthy()
 
     scope.stop()
+  })
+
+  it('reports a missing camera', async () => {
+    mockDecode.mockRejectedValueOnce(new DOMException('none', 'NotFoundError'))
+    const scope = effectScope()
+    let scanner: ReturnType<typeof useBarcodeScanner> | undefined
+
+    await scope.run(async () => {
+      scanner = useBarcodeScanner()
+      await scanner.start(document.createElement('video'), vi.fn())
+    })
+
+    expect(scanner?.errorMessage.value).toContain('Aucune caméra')
+    scope.stop()
+  })
+
+  it('stops a camera that finishes opening after stop()', async () => {
+    let resolveOpen: (controls: { stop: () => void }) => void = () => {}
+    mockDecode.mockReturnValueOnce(new Promise((resolve) => { resolveOpen = resolve }))
+    const scope = effectScope()
+    let scanner: ReturnType<typeof useBarcodeScanner> | undefined
+
+    let opening: Promise<void> | undefined
+    scope.run(() => {
+      scanner = useBarcodeScanner()
+      opening = scanner.start(document.createElement('video'), vi.fn())
+    })
+    // The user closed the scanner while the camera permission prompt was open.
+    await Promise.resolve()
+    scanner?.stop()
+    resolveOpen({ stop: mockStop })
+    await opening
+
+    expect(mockStop).toHaveBeenCalledOnce()
+    expect(scanner?.isScanning.value).toBe(false)
+    scope.stop()
+  })
+
+  describe('native BarcodeDetector', () => {
+    const trackStop = vi.fn()
+    const detect = vi.fn()
+
+    beforeEach(() => {
+      trackStop.mockReset()
+      detect.mockReset()
+      class MockBarcodeDetector {
+        static getSupportedFormats = vi.fn().mockResolvedValue(['ean_13', 'qr_code'])
+        detect = detect
+      }
+      vi.stubGlobal('BarcodeDetector', MockBarcodeDetector)
+      Object.defineProperty(navigator, 'mediaDevices', {
+        configurable: true,
+        value: { getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [{ stop: trackStop }] }) },
+      })
+    })
+
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    function playableVideo(): HTMLVideoElement {
+      const video = document.createElement('video')
+      Object.defineProperty(video, 'readyState', { value: 4 })
+      video.play = vi.fn().mockResolvedValue(undefined)
+      return video
+    }
+
+    it('reads codes with the browser detector instead of zxing', async () => {
+      detect.mockResolvedValue([{ rawValue: '9782344050002' }])
+      const scope = effectScope()
+      const onDecode = vi.fn()
+
+      await scope.run(async () => {
+        const { start } = useBarcodeScanner()
+        await start(playableVideo(), onDecode)
+      })
+
+      await vi.waitFor(() => expect(onDecode).toHaveBeenCalledWith('9782344050002'))
+      expect(mockDecode).not.toHaveBeenCalled()
+      // One-shot: the camera tracks are released after the first read.
+      expect(trackStop).toHaveBeenCalled()
+
+      scope.stop()
+    })
   })
 
   describe('startContinuous', () => {

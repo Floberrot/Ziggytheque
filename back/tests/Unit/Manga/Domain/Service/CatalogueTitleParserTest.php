@@ -35,11 +35,25 @@ final class CatalogueTitleParserTest extends TestCase
             'One piece', 'Édition originale', 1, "À l'aube d'une grande aventure",
         ];
         yield 'bnf one-shot companion' => ["Berserk : le guide de l'âge d'or", null, 'Berserk', "Le guide de l'âge d'or", null, null];
-        // Google Books — separators and explicit markers
         yield 'google edition before the tome' => ['One Piece - Édition originale - Tome 12', null, 'One Piece', 'Édition originale', 12, null];
         yield 'google glued T marker' => ['Berserk T12', null, 'Berserk', null, 12, null];
         yield 'google marker wins over n°' => ['Kaiju n°8 - Tome 3', null, 'Kaiju n°8', null, 3, null];
-        yield 'google edition after the tome' => ['Berserk - Tome 1 - Édition prestige', null, 'Berserk', null, 1, 'Édition prestige'];
+        yield 'bnf parenthesised edition statement after the number' => [
+            'Berserk. 5 (Éd. prestige)', null, 'Berserk', 'Édition prestige', 5, null,
+        ];
+        yield 'bnf parenthesised edition statement in the title' => [
+            'Berserk (édition prestige). 5', null, 'Berserk', 'Édition prestige', 5, null,
+        ];
+        yield 'parentheses without an edition word stay in the title' => ['Akira (couleur). 2', null, 'Akira (couleur)', null, 2, null];
+        yield 'abbreviated edition closing the qualifier' => ['Nausicaä : nouvelle éd. 1', null, 'Nausicaä', 'Nouvelle édition', 1, null];
+        // Google Books — separators and explicit markers
+        yield 'google edition statement after the tome' => ['Berserk - Tome 1 - Édition prestige', null, 'Berserk', 'Édition prestige', 1, null];
+        yield 'google edition name ending with edition' => ['Berserk - Tome 1 - Perfect edition', null, 'Berserk', 'Perfect edition', 1, null];
+        yield 'google volume title after the tome' => ['Berserk - Tome 1 - Le guerrier noir', null, 'Berserk', null, 1, 'Le guerrier noir'];
+        yield 'google bare number after a separator' => ['Berserk - 5 (Éd. prestige)', null, 'Berserk', 'Édition prestige', 5, null];
+        yield 'google bare number after a colon' => ['Spy x Family : 3', null, 'Spy x Family', null, 3, null];
+        yield 'separator number wins over n°' => ['Kaiju n°8 - 3', null, 'Kaiju n°8', null, 3, null];
+        yield 'a number glued to words is not a tome' => ['Naruto - 20 ans', null, 'Naruto', '20 ans', null, null];
         yield 'google subtitle carries the tome' => ['Berserk', 'Tome 1', 'Berserk', null, 1, null];
         yield 'google comma Vol.' => ['Berserk, Vol. 1', null, 'Berserk', null, 1, null];
         yield 'no marker: the trailing number is part of the title' => ['Mob Psycho 100', null, 'Mob Psycho 100', null, null, null];

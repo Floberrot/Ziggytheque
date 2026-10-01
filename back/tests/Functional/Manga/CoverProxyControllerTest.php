@@ -52,6 +52,8 @@ final class CoverProxyControllerTest extends AbstractApiTestCase
         yield 'google prefix lookalike' => ['https://books.googleevil.example/cover.jpg'];
         yield 'google userinfo'         => ['https://books.google.com@evil.example/cover.jpg'];
         yield 'mangadex userinfo'       => ['https://uploads.mangadex.org@evil.example/x.jpg'];
+        yield 'bnf suffix lookalike'    => ['https://catalogue.bnf.fr.evil.example/couverture'];
+        yield 'plain http bnf'          => ['http://catalogue.bnf.fr/couverture?idArk=ark:/12148/cb1'];
         yield 'plain http google'       => ['http://books.google.com/cover.jpg'];
         yield 'cloud metadata'          => ['http://169.254.169.254/latest/meta-data/'];
         yield 'loopback'                => ['http://127.0.0.1:8000/api/stats'];

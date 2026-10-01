@@ -1,23 +1,33 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, type Component } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useInfiniteQuery } from '@tanstack/vue-query'
+import { useRouter } from 'vue-router'
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import {
   Search, Plus, Book, X, RotateCcw, SlidersHorizontal, ChevronDown,
   BookOpen, CheckCircle2, PauseCircle, BookmarkPlus, Ban, Heart, Bell,
-  Library, BookCheck, Gift, HelpCircle, Layers,
+  Library, BookCheck, Gift, HelpCircle,
 } from 'lucide-vue-next'
-import { getCollection, type CollectionFilters } from '@/api/collection'
+import {
+  getCollection, removeFromCollection, toggleFollow, updateCollectionRating, type CollectionFilters,
+} from '@/api/collection'
 import { useCollectionFiltersStore } from '@/stores/useCollectionFiltersStore'
+import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
-import { groupAdjacentByWork } from '@/utils/workGroups'
+import type { CollectionEntry, QuickActionRequest } from '@/types'
+import { groupByWork } from '@/utils/workGroups'
 import MangaCard from '@/components/organisms/MangaCard.vue'
 import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
+import CollectionQuickActions from '@/components/organisms/CollectionQuickActions.vue'
+import WorkEditionsSheet from '@/components/organisms/WorkEditionsSheet.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
 
 const showGuide = ref(false)
 
 const { t } = useI18n()
+const router = useRouter()
+const queryClient = useQueryClient()
+const ui = useUiStore()
 
 const GENRES = [
   'shonen', 'shojo', 'seinen', 'josei', 'kodomomuke',
@@ -214,8 +224,70 @@ const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useI
 const entries = computed(() => data.value?.pages.flatMap((p) => p.items) ?? [])
 const total   = computed(() => data.value?.pages[0]?.total ?? 0)
 
-// The default sort is by work, so the editions of one work arrive side by side.
-const workGroups = computed(() => groupAdjacentByWork(entries.value, !filters.sort))
+// Sorted by work (the default), the editions of one work share one stacked card.
+const workGroups = computed(() => groupByWork(entries.value, !filters.sort))
+
+// ── Editions of one work ──────────────────────────────────────────────────────
+
+const openWorkKey = ref<string | null>(null)
+const openWork = computed(() => workGroups.value.find((group) => group.key === openWorkKey.value) ?? null)
+
+// ── Quick actions (right click / long press) ─────────────────────────────────
+
+const quickActionRequest = ref<QuickActionRequest | null>(null)
+
+function refreshCollection(): void {
+  queryClient.invalidateQueries({ queryKey: ['collection'] })
+  queryClient.invalidateQueries({ queryKey: ['stats'] })
+}
+
+/** The open menu reflects the change at once, before the list is refetched. */
+function patchRequestedEntry(entryId: string, patch: Partial<CollectionEntry>): void {
+  const request = quickActionRequest.value
+  if (request?.entry.id === entryId) {
+    quickActionRequest.value = { ...request, entry: { ...request.entry, ...patch } }
+  }
+}
+
+const followMutation = useMutation({
+  mutationFn: (entry: CollectionEntry) => toggleFollow(entry.id),
+  onSuccess: (result, entry) => {
+    patchRequestedEntry(entry.id, { notificationsEnabled: result.notificationsEnabled })
+    ui.addToast(t(result.notificationsEnabled ? 'quickActions.followed' : 'quickActions.unfollowed'), 'success')
+    refreshCollection()
+  },
+  onError: () => ui.addToast(t('quickActions.error'), 'error'),
+})
+
+const rateMutation = useMutation({
+  mutationFn: ({ entry, rating }: { entry: CollectionEntry; rating: number }) => updateCollectionRating(entry.id, rating),
+  onSuccess: (_, { entry, rating }) => {
+    patchRequestedEntry(entry.id, { rating })
+    ui.addToast(t('quickActions.rated'), 'success')
+    refreshCollection()
+  },
+  onError: () => ui.addToast(t('quickActions.error'), 'error'),
+})
+
+const removeMutation = useMutation({
+  mutationFn: (entry: CollectionEntry) => removeFromCollection(entry.id),
+  onSuccess: () => {
+    quickActionRequest.value = null
+    ui.addToast(t('collection.removed'), 'success')
+    refreshCollection()
+  },
+  onError: () => ui.addToast(t('quickActions.error'), 'error'),
+})
+
+const quickActionBusy = computed(
+  () => followMutation.isPending.value || rateMutation.isPending.value || removeMutation.isPending.value,
+)
+
+function openEntry(entry: CollectionEntry): void {
+  quickActionRequest.value = null
+  openWorkKey.value = null
+  router.push({ name: 'collection-detail', params: { id: entry.id } })
+}
 
 // ── Infinite scroll sentinel ──────────────────────────────────────────────────
 
@@ -426,29 +498,17 @@ onUnmounted(() => {
         v-else
         class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
       >
-        <template v-for="(group, groupIndex) in workGroups" :key="group.key">
-          <!-- Several editions of one work: shown together, under the work's name -->
-          <section
-            v-if="group.entries.length > 1"
-            class="col-span-full rounded-2xl border border-base-300/70 bg-base-100/60 p-3 card-appear"
-            :style="{ animationDelay: `${(groupIndex % 20) * 30}ms` }"
-          >
-            <h2 class="flex items-center gap-2 mb-3 text-sm font-bold">
-              <Layers class="h-4 w-4 text-primary" />
-              <span class="truncate">{{ group.title }}</span>
-              <span class="badge badge-sm badge-ghost">{{ t('collection.worksEditions', { count: group.entries.length }) }}</span>
-            </h2>
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              <MangaCard v-for="entry in group.entries" :key="entry.id" :entry="entry" />
-            </div>
-          </section>
-          <MangaCard
-            v-else
-            :entry="group.entries[0]"
-            :style="{ animationDelay: `${(groupIndex % 20) * 30}ms` }"
-            class="card-appear"
-          />
-        </template>
+        <!-- One card per work: several editions show as a stack that opens on its editions -->
+        <MangaCard
+          v-for="(group, groupIndex) in workGroups"
+          :key="group.key"
+          :entry="group.entries[0]"
+          :editions="group.entries.length > 1 ? group.entries : undefined"
+          :style="{ animationDelay: `${(groupIndex % 20) * 30}ms` }"
+          class="card-appear"
+          @open-editions="openWorkKey = group.key"
+          @quick-actions="quickActionRequest = $event"
+        />
       </div>
 
       <!-- Infinite scroll sentinel + loading indicator -->
@@ -459,6 +519,23 @@ onUnmounted(() => {
     </div>
 
     <CollectionGuideModal :open="showGuide" @close="showGuide = false" />
+
+    <WorkEditionsSheet
+      :title="openWork?.title ?? null"
+      :entries="openWork?.entries ?? []"
+      @close="openWorkKey = null"
+      @quick-actions="quickActionRequest = $event"
+    />
+
+    <CollectionQuickActions
+      :request="quickActionRequest"
+      :busy="quickActionBusy"
+      @close="quickActionRequest = null"
+      @open="openEntry"
+      @toggle-follow="followMutation.mutate($event)"
+      @rate="(entry, rating) => rateMutation.mutate({ entry, rating })"
+      @remove="removeMutation.mutate($event)"
+    />
   </div>
 </template>
 

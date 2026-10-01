@@ -3,7 +3,7 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import {
-  ArrowLeft, Star, Book, BookOpen, Check, CheckSquare, Pencil, Trash2, Eye, Tag, Megaphone, Package, Info, Bell, BellOff, Plus, Sparkles, HelpCircle, Languages, MoreHorizontal, ChevronDown, X,
+  ArrowLeft, Star, BookOpen, Check, CheckSquare, Pencil, Trash2, Eye, Tag, Megaphone, Package, Info, Bell, BellOff, Plus, Sparkles, HelpCircle, Languages, MoreHorizontal, ChevronDown, X,
 } from 'lucide-vue-next'
 import {
   getCollectionEntry,
@@ -29,6 +29,7 @@ import BaseHeartRating from '@/components/atoms/BaseHeartRating.vue'
 import { FRENCH_EDITIONS } from '@/data/editions'
 import BaseEditionSelector from '@/components/atoms/BaseEditionSelector.vue'
 import BaseLazyImage from '@/components/atoms/BaseLazyImage.vue'
+import BaseCover from '@/components/atoms/BaseCover.vue'
 import BaseModal from '@/components/atoms/BaseModal.vue'
 import { useIsMobile } from '@/composables/useMediaQuery'
 import type { CollectionEntryDetail, ReadingStatus, VolumeEntry, VolumeToggleField } from '@/types'
@@ -651,10 +652,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                 data-tip="Modifier la couverture (URL)"
                 @click.stop="startEditCover"
               >
-                <img v-if="entry.manga.coverUrl" :src="coverUrl(entry.manga.coverUrl)!" :alt="entry.manga.title" class="w-full h-full object-cover" />
-                <div v-else class="w-full h-full flex items-center justify-center bg-base-200 text-base-content/20">
-                  <Book class="h-10 w-10" stroke-width="1.5" />
-                </div>
+                <BaseCover :src="entry.manga.coverUrl" :alt="entry.manga.title" class="w-full h-full" eager icon-class="h-10 w-10" />
                 <!-- Edit overlay -->
                 <div class="absolute inset-0 bg-black/50 opacity-0 group-hover/cover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl pointer-events-none">
                   <Pencil class="h-7 w-7 text-white" />

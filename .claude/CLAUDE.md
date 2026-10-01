@@ -125,6 +125,10 @@ Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrin
 - Auth: useAuthStore (sessionStorage), Bearer JWT via axios interceptor
 - Stores: useAuthStore, useThemeStore (dark default), useUiStore (toasts)
 - API layer: api/client.ts (axios), api/auth.ts, manga.ts, collection.ts, wishlist.ts, stats.ts, notification.ts
+- Covers: always `BaseCover` (or `BaseLazyImage` + `coverUrl()`), never a raw `<img :src>` — it proxies anti-hotlink hosts (Google Books, MangaDex, BnF) through `/proxy/cover`, upgrades `http://`, and falls back to an icon on a broken or placeholder image
+- Collection grid: one card per work (`groupByWork`: same folded title, or a title starting with it by the same author); several editions show as a stacked `MangaCard` that opens `WorkEditionsSheet`
+- Quick actions: right click / long press (`useLongPress`) on a collection or dashboard card → `CollectionQuickActions` (open, follow, rate, remove); the mutations live in the page
+- Mobile (< lg): top header (logo + Actualités) and a bottom bar (Accueil, Collection, **Ajouter** raised in the middle, Souhaits, Réglages sheet); `pb-mobile-nav` / `mb-mobile-nav` keep content and toasts above it
 - i18n: vue-i18n, fr.json + en.json, FR default
 
 ## Routes (frontend)
@@ -151,10 +155,12 @@ Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrin
 ## Add flow — manga first, French editions only
 - The user finds a *tome* (scan, title or author); the whole series follows (created with every tome, the others stay untracked).
 - Catalogue: `App\Manga\Domain\Catalogue\CatalogueInterface` → `CachedCatalogue` (1 h) → `FallbackCatalogue` (BnF SRU first, Google Books only when BnF has nothing). Test env: `App\Tests\Doubles\Manga\InMemoryCatalogue`.
-- **Special editions are discovered, never predicted**: `CatalogueTitleParser` reads the title structure (BnF ISBD "Berserk : prestige. 3", Google "One Piece - Édition originale - Tome 3"); whatever sits in the edition slot is kept verbatim. A qualifier written *after* the tome number only counts as an edition when it repeats on several tomes (`CatalogueEditionAssembler`). Never add a list of edition names.
-- Series identity (`EditionIdentity`): folded title + publisher imprint (`PublisherNormalizer`) + folded special edition.
+- **Special editions are discovered, never predicted**: `CatalogueTitleParser` reads the title structure (BnF ISBD "Berserk : prestige. 3", "Berserk. 5 (Éd. prestige)", Google "One Piece - Édition originale - Tome 3", "Berserk - 5"); whatever sits in the edition slot is kept verbatim ("Éd." is spelled out "Édition"). A qualifier written *after* the tome number is an edition when it is an edition statement (starts or ends with the word "édition") or when it repeats on several tomes (`CatalogueEditionAssembler`). Never add a list of edition names.
+- Series identity (`EditionIdentity`): folded title + publisher imprint (`PublisherNormalizer`) + folded special edition, the word "édition" around the name aside ("Prestige" = "Édition prestige").
+- Catalogue noise: only printed books with an ISBN are kept (BnF `dc:type` must be printed text; every type / Google category is checked against films, music, software, video games — `EditionRelevanceFilter`).
+- A scanned ISBN always finds its own tome: the records the catalogue returns *for* that ISBN carry it (`CatalogueSearch::identifyIsbn`).
 - A series created from the catalogue is enriched in the background (genre / summary / author) from Jikan (`ExternalApiClientInterface`, exact-title match only) via `EnrichMangaMessage` (async).
-- Front: `pages/AddMangaPage.vue` (tabs Rechercher / Scanner / À la main), `CatalogueEditionSheet` (tome picker), `ScanFeed` (batch scan); phone scanning via `/scan/:token?batch=1`.
+- Front: `pages/AddMangaPage.vue` (tabs Rechercher / Scanner / À la main), `CatalogueEditionSheet` (tome picker), `ScanFeed` (batch scan), `ScanViewfinder` (framing guide, flash + vibration on read, torch); phone scanning via `/scan/:token?batch=1`. `useBarcodeScanner` uses the browser `BarcodeDetector` when it reads EAN-13, else zxing (1D reader, EAN hints, rear camera in HD).
 
 ## Docker (local dev)
 - back: http://localhost:8000 — FrankenPHP

@@ -1,18 +1,24 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useMutation, useQuery } from '@tanstack/vue-query'
+import { useRouter } from 'vue-router'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useI18n } from 'vue-i18n'
-import { Book, Share2, Star, TrendingUp, CalendarRange, ListChecks, Wallet, Users } from 'lucide-vue-next'
+import { Share2, Star, TrendingUp, CalendarRange, ListChecks, Wallet, Users } from 'lucide-vue-next'
 import { getStats } from '@/api/stats'
 import { createShare } from '@/api/share'
+import { removeFromCollection, toggleFollow, updateCollectionRating } from '@/api/collection'
+import { useLongPress } from '@/composables/useLongPress'
+import { useUiStore } from '@/stores/useUiStore'
+import type { CollectionEntry, QuickActionRequest } from '@/types'
 import StatCard from '@/components/molecules/StatCard.vue'
 import GenrePieChart from '@/components/molecules/GenrePieChart.vue'
 import MonthlyAdditionsChart from '@/components/molecules/MonthlyAdditionsChart.vue'
 import ReadingStatusBar from '@/components/molecules/ReadingStatusBar.vue'
 import TopAuthorsList from '@/components/molecules/TopAuthorsList.vue'
 import ShareModal from '@/components/organisms/ShareModal.vue'
+import CollectionQuickActions from '@/components/organisms/CollectionQuickActions.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
-import { coverUrl } from '@/utils/coverUrl'
+import BaseCover from '@/components/atoms/BaseCover.vue'
 import { editionLabel } from '@/utils/edition'
 
 const { t, locale } = useI18n()
@@ -40,6 +46,89 @@ const readingProgress = computed(() => {
 })
 
 const hasGenres = computed(() => stats.value && Object.keys(stats.value.genreBreakdown).length > 0)
+
+// ── Quick actions on the recent additions (right click / long press) ─────────
+
+const router = useRouter()
+const queryClient = useQueryClient()
+const ui = useUiStore()
+const quickActionRequest = ref<QuickActionRequest | null>(null)
+let pressedEntry: CollectionEntry | null = null
+
+const longPress = useLongPress((point) => {
+  if (pressedEntry) quickActionRequest.value = { entry: pressedEntry, point, source: 'touch' }
+})
+
+function onTileTouchStart(event: TouchEvent, entry: CollectionEntry): void {
+  pressedEntry = entry
+  longPress.onTouchStart(event)
+}
+
+function onTileContextMenu(event: MouseEvent, entry: CollectionEntry): void {
+  event.preventDefault()
+  const point = { x: event.clientX, y: event.clientY }
+  if (longPress.isTouching()) {
+    if (longPress.markHandled()) quickActionRequest.value = { entry, point, source: 'touch' }
+    return
+  }
+  quickActionRequest.value = { entry, point, source: 'mouse' }
+}
+
+/** The click that ends a long press must not follow the link. */
+function onTileClick(event: MouseEvent): void {
+  if (longPress.swallowClick()) event.preventDefault()
+}
+
+function refreshCollection(): void {
+  queryClient.invalidateQueries({ queryKey: ['collection'] })
+  queryClient.invalidateQueries({ queryKey: ['stats'] })
+}
+
+function patchRequestedEntry(entryId: string, patch: Partial<CollectionEntry>): void {
+  const request = quickActionRequest.value
+  if (request?.entry.id === entryId) {
+    quickActionRequest.value = { ...request, entry: { ...request.entry, ...patch } }
+  }
+}
+
+const followMutation = useMutation({
+  mutationFn: (entry: CollectionEntry) => toggleFollow(entry.id),
+  onSuccess: (result, entry) => {
+    patchRequestedEntry(entry.id, { notificationsEnabled: result.notificationsEnabled })
+    ui.addToast(t(result.notificationsEnabled ? 'quickActions.followed' : 'quickActions.unfollowed'), 'success')
+    refreshCollection()
+  },
+  onError: () => ui.addToast(t('quickActions.error'), 'error'),
+})
+
+const rateMutation = useMutation({
+  mutationFn: ({ entry, rating }: { entry: CollectionEntry; rating: number }) => updateCollectionRating(entry.id, rating),
+  onSuccess: (_, { entry, rating }) => {
+    patchRequestedEntry(entry.id, { rating })
+    ui.addToast(t('quickActions.rated'), 'success')
+    refreshCollection()
+  },
+  onError: () => ui.addToast(t('quickActions.error'), 'error'),
+})
+
+const removeMutation = useMutation({
+  mutationFn: (entry: CollectionEntry) => removeFromCollection(entry.id),
+  onSuccess: () => {
+    quickActionRequest.value = null
+    ui.addToast(t('collection.removed'), 'success')
+    refreshCollection()
+  },
+  onError: () => ui.addToast(t('quickActions.error'), 'error'),
+})
+
+const quickActionBusy = computed(
+  () => followMutation.isPending.value || rateMutation.isPending.value || removeMutation.isPending.value,
+)
+
+function openEntry(entry: CollectionEntry): void {
+  quickActionRequest.value = null
+  router.push({ name: 'collection-detail', params: { id: entry.id } })
+}
 
 const today = computed(() =>
   new Date().toLocaleDateString(locale.value === 'fr' ? 'fr-FR' : 'en-US', {
@@ -193,22 +282,22 @@ const today = computed(() =>
               v-for="(entry, i) in stats.recentAdditions"
               :key="entry.id"
               :to="`/collection/${entry.id}`"
-              class="group flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-base-200 transition-colors duration-200 recent-card"
+              class="group flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-base-200 transition-colors duration-200 recent-card select-none"
               :style="`animation-delay: ${i * 60}ms`"
+              @click.capture="onTileClick"
+              @contextmenu="onTileContextMenu($event, entry)"
+              @touchstart.passive="onTileTouchStart($event, entry)"
+              @touchmove.passive="longPress.onTouchMove"
+              @touchend="longPress.onTouchEnd"
+              @touchcancel="longPress.onTouchCancel"
             >
               <div class="relative">
-                <img
-                  v-if="entry.manga.coverUrl"
-                  :src="coverUrl(entry.manga.coverUrl)!"
+                <BaseCover
+                  :src="entry.manga.coverUrl"
                   :alt="entry.manga.title"
-                  class="w-16 h-24 object-cover rounded-lg shadow-md group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-200"
+                  class="w-16 h-24 rounded-lg shadow-md group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-200"
+                  icon-class="h-8 w-8"
                 />
-                <div
-                  v-else
-                  class="w-16 h-24 bg-base-300 rounded-lg flex items-center justify-center text-base-content/30 group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-200"
-                >
-                  <Book class="h-8 w-8" />
-                </div>
                 <div class="absolute -bottom-1.5 -right-1.5 badge badge-xs badge-primary font-semibold">
                   {{ entry.ownedCount }}/{{ entry.totalVolumes }}
                 </div>
@@ -224,12 +313,24 @@ const today = computed(() =>
     </template>
 
     <ShareModal :open="shareOpen" :url="shareUrl" :loading="shareMutation.isPending.value" :stats="stats" @close="shareOpen = false" />
+
+    <CollectionQuickActions
+      :request="quickActionRequest"
+      :busy="quickActionBusy"
+      @close="quickActionRequest = null"
+      @open="openEntry"
+      @toggle-follow="followMutation.mutate($event)"
+      @rate="(entry, rating) => rateMutation.mutate({ entry, rating })"
+      @remove="removeMutation.mutate($event)"
+    />
   </div>
 </template>
 
 <style scoped>
 .recent-card {
   animation: fadeInUp 0.4s ease-out both;
+  /* A long press opens the quick actions, not the link preview. */
+  -webkit-touch-callout: none;
 }
 
 @keyframes fadeInUp {

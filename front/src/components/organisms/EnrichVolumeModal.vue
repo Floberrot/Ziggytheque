@@ -12,6 +12,7 @@ import { useBarcodeScanner } from '@/composables/useBarcodeScanner'
 import { useScanSession } from '@/composables/useScanSession'
 import { useCoverProvider } from '@/composables/useCoverProvider'
 import BaseQrCode from '@/components/atoms/BaseQrCode.vue'
+import BaseCover from '@/components/atoms/BaseCover.vue'
 import BaseCoverProviderLogo from '@/components/atoms/BaseCoverProviderLogo.vue'
 import PriceOfferCard from '@/components/molecules/PriceOfferCard.vue'
 import RetailerPriceCard from '@/components/molecules/RetailerPriceCard.vue'
@@ -181,6 +182,9 @@ const otherPriceOffers = computed(() => {
 // ── ISBN mode state ──
 const isbnInput = ref('')
 const { covers: isbnCovers, isLoading: isbnLoading, error: isbnError, search: isbnSearch } = useIsbnCoverSearch(isbnInput)
+// A "found" cover whose image turns out broken or blank is not offered at all.
+const brokenCoverUrls = ref(new Set<string>())
+const visibleIsbnCovers = computed(() => isbnCovers.value.filter((cover) => !brokenCoverUrls.value.has(cover.coverUrl)))
 const videoRef = ref<HTMLVideoElement | null>(null)
 const { isScanning, errorMessage: cameraError, start: startScanner, stop: stopScanner } = useBarcodeScanner()
 const { start: startScanSession } = useScanSession()
@@ -577,7 +581,7 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                   ]"
                   @click="volume.coverUrl && (lightboxOpen = true)"
                 >
-                  <img v-if="volume.coverUrl" :src="coverUrl(volume.coverUrl)!" :alt="`Tome ${volume.number}`" class="w-full h-full object-cover" />
+                  <BaseCover v-if="volume.coverUrl" :src="volume.coverUrl" :alt="`Tome ${volume.number}`" class="w-full h-full" />
                   <div v-else-if="volume.isAnnounced && !volume.isOwned" class="w-full h-full flex items-end justify-center bg-base-300" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,.06) 4px, rgba(0,0,0,.06) 8px);">
                     <span class="badge badge-secondary mb-2 text-[9px]">Annoncé</span>
                   </div>
@@ -774,10 +778,11 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                           ? 'group-hover:ring-primary group-hover:scale-[1.03] group-hover:shadow-lg cursor-pointer active:scale-95'
                           : 'opacity-40'"
                       >
-                        <img v-if="result.coverUrl" :src="coverUrl(result.coverUrl)!" :alt="result.title" class="w-full h-full object-cover" />
-                        <div v-else class="w-full h-full flex items-center justify-center text-base-content/20">
-                          <ImageOff class="h-9 w-9" stroke-width="1.5" />
-                        </div>
+                        <BaseCover :src="result.coverUrl" :alt="result.title" class="w-full h-full">
+                          <template #fallback>
+                            <ImageOff class="h-9 w-9" stroke-width="1.5" />
+                          </template>
+                        </BaseCover>
                       </div>
                       <span v-if="result.source" class="badge badge-sm badge-ghost w-full justify-center font-medium">{{ sourceLabel(result.source) }}</span>
                       <div v-if="result.title || result.edition" class="px-0.5">
@@ -813,11 +818,11 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
 
                 <!-- Résultats ISBN/Scan regroupés par source — affichés EN PRIORITÉ, au-dessus du scan -->
                 <Transition name="fade">
-                  <div v-if="mode !== 'search' && isbnCovers.length" :class="mode === 'isbn' ? 'mt-4' : ''">
+                  <div v-if="mode !== 'search' && visibleIsbnCovers.length" :class="mode === 'isbn' ? 'mt-4' : ''">
                     <p class="text-sm font-medium mb-2">{{ t('enrich.coverFound') }}</p>
                     <TransitionGroup name="cover-pop" tag="div" class="grid grid-cols-2 sm:grid-cols-3 gap-4" appear>
                       <button
-                        v-for="(cover, idx) in isbnCovers"
+                        v-for="(cover, idx) in visibleIsbnCovers"
                         :key="cover.source + idx"
                         class="group flex flex-col gap-1.5 text-left"
                         :style="{ transitionDelay: Math.min(idx, 8) * 35 + 'ms' }"
@@ -825,14 +830,14 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                         @click="applyIsbnCover(cover)"
                       >
                         <div class="w-full aspect-[2/3] rounded-lg overflow-hidden bg-base-200 ring-2 ring-transparent transition-all duration-150 cursor-pointer group-hover:ring-primary group-hover:scale-[1.03] group-hover:shadow-lg active:scale-95">
-                          <img :src="coverUrl(cover.coverUrl)!" :alt="cover.source" class="w-full h-full object-cover" />
+                          <BaseCover :src="cover.coverUrl" :alt="cover.source" class="w-full h-full" @missing="brokenCoverUrls.add(cover.coverUrl)" />
                         </div>
                         <span class="badge badge-sm badge-ghost w-full justify-center font-medium">{{ sourceLabel(cover.source) }}</span>
                       </button>
                     </TransitionGroup>
                   </div>
                 </Transition>
-                <div v-if="mode === 'isbn' && isbnSearched && !isbnLoading && !isbnError && !isbnCovers.length" class="mt-4 flex flex-col gap-2 items-start">
+                <div v-if="mode === 'isbn' && isbnSearched && !isbnLoading && !isbnError && !visibleIsbnCovers.length" class="mt-4 flex flex-col gap-2 items-start">
                   <p class="text-sm text-base-content/40">{{ t('enrich.noCoverForIsbn') }}</p>
                   <button class="btn btn-sm btn-outline gap-2" @click="fallbackToTitleSearch()">
                     <Search class="h-4 w-4" />
@@ -841,7 +846,7 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                 </div>
 
                 <!-- Scan : caméra + téléphone — placés SOUS les résultats -->
-                <div v-if="mode === 'scan'" class="flex flex-col gap-3" :class="isbnCovers.length ? 'mt-5 pt-5 border-t border-base-200' : ''">
+                <div v-if="mode === 'scan'" class="flex flex-col gap-3" :class="visibleIsbnCovers.length ? 'mt-5 pt-5 border-t border-base-200' : ''">
                   <button class="btn btn-sm btn-outline gap-2 w-full" :class="{ 'btn-active': isScanning }" @click="isScanning ? stopScanner() : startCameraScanner()">
                     <Camera class="h-4 w-4" />
                     {{ t('enrich.scanCamera') }}
@@ -925,7 +930,7 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                     Appliquer
                   </button>
                   <div v-if="manualCoverUrl.trim()" class="w-9 aspect-[2/3] rounded overflow-hidden bg-base-200 ring-1 ring-base-300 shrink-0">
-                    <img :src="manualCoverUrl.trim()" class="w-full h-full object-cover" />
+                    <BaseCover :src="manualCoverUrl.trim()" class="w-full h-full" icon-class="h-4 w-4" />
                   </div>
                 </div>
               </div>
