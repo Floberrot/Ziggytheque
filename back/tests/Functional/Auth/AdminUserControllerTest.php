@@ -39,6 +39,33 @@ final class AdminUserControllerTest extends AbstractApiTestCase
         $this->assertArrayHasKey('total', $data);
     }
 
+    public function testListUsersRefusesAnUnknownStatus(): void
+    {
+        $this->client->request('GET', '/api/admin/users?status=bogus', [], [], $this->unlockedHeaders());
+
+        $this->assertJsonStatus(422, $this->client->getResponse());
+    }
+
+    public function testListUsersKeepsThePageInRange(): void
+    {
+        $this->client->request('GET', '/api/admin/users?page=0&limit=100000', [], [], $this->unlockedHeaders());
+
+        $data = $this->assertJsonStatus(200, $this->client->getResponse());
+        $this->assertSame(1, $data['page']);
+        $this->assertSame(100, $data['limit']);
+    }
+
+    /** @return array<string, string> */
+    private function unlockedHeaders(): array
+    {
+        $gatePassword = (string) ($_SERVER['GATE_PASSWORD'] ?? $_ENV['GATE_PASSWORD'] ?? '');
+        $gateResponse = $this->jsonRequest('POST', '/api/auth/gate', ['password' => $gatePassword]);
+        /** @var array{token?: string} $gateData */
+        $gateData = json_decode((string) $gateResponse->getContent(), true);
+
+        return ['HTTP_AUTHORIZATION' => 'Bearer ' . ($gateData['token'] ?? ''), 'HTTP_ACCEPT' => 'application/json'];
+    }
+
     // ── GET /api/admin/users/{id} ─────────────────────────────────────────
 
     public function testGetUserReturns404ForUnknownId(): void

@@ -113,6 +113,29 @@ final class MangaControllerTest extends AbstractApiTestCase
         $this->assertSame(422, $response->getStatusCode());
     }
 
+    public function testImportMangaRefusesAnAbsurdTomeCount(): void
+    {
+        $response = $this->jsonRequest('POST', '/api/manga', ['title' => 'X', 'language' => 'fr', 'totalVolumes' => 100000]);
+
+        $this->assertJsonStatus(422, $response);
+    }
+
+    public function testImportMangaRefusesAnUnknownGenre(): void
+    {
+        $response = $this->jsonRequest('POST', '/api/manga', ['title' => 'X', 'language' => 'fr', 'genre' => 'bogus']);
+
+        $this->assertJsonStatus(422, $response);
+    }
+
+    public function testImportMangaRefusesACoverThatIsNoWebUrl(): void
+    {
+        $response = $this->jsonRequest('POST', '/api/manga', [
+            'title' => 'X', 'language' => 'fr', 'coverUrl' => 'javascript:alert(1)',
+        ]);
+
+        $this->assertJsonStatus(422, $response);
+    }
+
     public function testImportMangaRequiresAuth(): void
     {
         $response = $this->jsonRequest('POST', '/api/manga', ['title' => 'X', 'language' => 'fr'], auth: false);
@@ -196,6 +219,23 @@ final class MangaControllerTest extends AbstractApiTestCase
         $this->assertArrayHasKey('id', $data);
     }
 
+    public function testAddingAnExistingTomeNumberReturns409(): void
+    {
+        $id = $this->importManga();
+        $this->assertJsonStatus(201, $this->jsonRequest('POST', '/api/manga/' . $id . '/volumes', ['number' => 1]));
+
+        $this->assertJsonStatus(409, $this->jsonRequest('POST', '/api/manga/' . $id . '/volumes', ['number' => 1]));
+    }
+
+    public function testAddVolumeRefusesAnInvalidReleaseDate(): void
+    {
+        $id = $this->importManga();
+
+        $response = $this->jsonRequest('POST', '/api/manga/' . $id . '/volumes', ['number' => 1, 'releaseDate' => 'soon']);
+
+        $this->assertJsonStatus(422, $response);
+    }
+
     public function testAddVolumeToNonExistentManga(): void
     {
         $response = $this->jsonRequest('POST', '/api/manga/bad-id/volumes', ['number' => 1]);
@@ -225,6 +265,20 @@ final class MangaControllerTest extends AbstractApiTestCase
         $detail = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/manga/' . $mangaId));
         $volume = $detail['volumes'][0];
         $this->assertSame('9782811645632', $volume['isbn']);
+    }
+
+    public function testUpdateVolumeRefusesAnInvalidReleaseDate(): void
+    {
+        $mangaId  = $this->importManga();
+        $volumeId = $this->assertJsonStatus(201, $this->jsonRequest(
+            'POST',
+            '/api/manga/' . $mangaId . '/volumes',
+            ['number' => 1],
+        ))['id'];
+
+        $response = $this->jsonRequest('PATCH', '/api/manga/' . $mangaId . '/volumes/' . $volumeId, ['releaseDate' => '31/02/2026']);
+
+        $this->assertJsonStatus(422, $response);
     }
 
     public function testUpdateVolumeWithIsbnAlone(): void

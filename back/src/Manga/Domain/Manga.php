@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Manga\Domain;
 
+use App\Manga\Domain\Exception\TooManyVolumesException;
+use App\Manga\Domain\Exception\VolumeAlreadyExistsException;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -15,6 +17,9 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Table(name: 'mangas')]
 class Manga
 {
+    /** The longest series stays far below; anything above is a typo or an abuse. */
+    public const int MAX_VOLUMES = 500;
+
     /** @var Collection<int, Volume> */
     #[ORM\OneToMany(
         targetEntity: Volume::class,
@@ -58,11 +63,18 @@ class Manga
         $this->createdAt = new DateTimeImmutable();
     }
 
+    /** @throws VolumeAlreadyExistsException when another volume already has this number */
     public function addVolume(Volume $volume): void
     {
-        if (!$this->volumes->contains($volume)) {
-            $this->volumes->add($volume);
+        if ($this->volumes->contains($volume)) {
+            return;
         }
+
+        if ($this->volumeByNumber($volume->number) !== null) {
+            throw new VolumeAlreadyExistsException($volume->number);
+        }
+
+        $this->volumes->add($volume);
     }
 
     public function volumeByNumber(int $number): ?Volume
@@ -81,9 +93,15 @@ class Manga
      * exist — adding tome 12 of a series known up to tome 10 also creates tome 11.
      *
      * @return list<Volume> the volumes created by this call
+     *
+     * @throws TooManyVolumesException above MAX_VOLUMES
      */
     public function ensureVolumesUpTo(int $lastNumber): array
     {
+        if ($lastNumber > self::MAX_VOLUMES) {
+            throw new TooManyVolumesException($lastNumber);
+        }
+
         $created = [];
         for ($number = 1; $number <= $lastNumber; $number++) {
             if ($this->volumeByNumber($number) !== null) {

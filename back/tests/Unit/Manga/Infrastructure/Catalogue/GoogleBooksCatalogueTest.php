@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Manga\Infrastructure\Catalogue;
 
+use App\Manga\Domain\Exception\CatalogueUnavailableException;
 use App\Manga\Domain\Isbn;
 use App\Manga\Domain\Service\CatalogueTitleParser;
 use App\Manga\Domain\Service\EditionRelevanceFilter;
@@ -112,9 +113,18 @@ final class GoogleBooksCatalogueTest extends TestCase
         $this->assertSame([], $this->requestedUrls);
     }
 
-    public function testErrorsReturnNoRecord(): void
+    /** A quota error or a network failure is an outage, not "no book". */
+    public function testAQuotaErrorIsAnOutage(): void
     {
-        $this->assertSame([], $this->makeCatalogue(new MockResponse('', ['http_code' => 429]))->searchByTitle('Berserk'));
-        $this->assertSame([], $this->makeCatalogue(new TransportException('down'))->searchByTitle('Berserk'));
+        $this->expectException(CatalogueUnavailableException::class);
+
+        $this->makeCatalogue(new MockResponse('', ['http_code' => 429]))->searchByTitle('Berserk');
+    }
+
+    public function testATransportErrorIsAnOutage(): void
+    {
+        $this->expectException(CatalogueUnavailableException::class);
+
+        $this->makeCatalogue(new TransportException('down'))->searchByTitle('Berserk');
     }
 }

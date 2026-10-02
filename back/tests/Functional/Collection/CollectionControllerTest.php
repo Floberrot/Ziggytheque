@@ -473,6 +473,27 @@ final class CollectionControllerTest extends AbstractApiTestCase
         $this->assertSame(204, $response->getStatusCode());
     }
 
+    /** No series has thousands of tomes: the request is refused before any loop runs. */
+    public function testSyncVolumesRefusesAnAbsurdTomeCount(): void
+    {
+        $mangaId = $this->createManga(volumes: 1);
+        $entryId = $this->addToCollection($mangaId);
+
+        $response = $this->jsonRequest('POST', '/api/collection/' . $entryId . '/sync-volumes', ['upToVolume' => 10000000]);
+        $this->assertJsonStatus(422, $response);
+
+        $this->assertCount(1, $this->getDetail($entryId)['volumes']);
+    }
+
+    public function testSyncVolumesRefusesANonNumericTomeCount(): void
+    {
+        $mangaId = $this->createManga(volumes: 1);
+        $entryId = $this->addToCollection($mangaId);
+
+        $response = $this->jsonRequest('POST', '/api/collection/' . $entryId . '/sync-volumes', ['upToVolume' => 'many']);
+        $this->assertJsonStatus(422, $response);
+    }
+
     public function testSyncVolumesNotFoundReturns404(): void
     {
         $response = $this->jsonRequest('POST', '/api/collection/bad/sync-volumes', ['upToVolume' => 5]);

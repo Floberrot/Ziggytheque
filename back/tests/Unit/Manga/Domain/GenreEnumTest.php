@@ -27,6 +27,12 @@ final class GenreEnumTest extends TestCase
         $this->assertSame('other', GenreEnum::Other->value);
     }
 
+    public function testValuesListsEveryGenre(): void
+    {
+        $this->assertCount(count(GenreEnum::cases()), GenreEnum::values());
+        $this->assertContains('slice_of_life', GenreEnum::values());
+    }
+
     public function testFromValue(): void
     {
         $this->assertSame(GenreEnum::Shonen, GenreEnum::from('shonen'));

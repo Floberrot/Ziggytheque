@@ -6,6 +6,7 @@ namespace App\Manga\Infrastructure\Catalogue;
 
 use App\Manga\Domain\Catalogue\CatalogueInterface;
 use App\Manga\Domain\Catalogue\CatalogueRecord;
+use App\Manga\Domain\Exception\CatalogueUnavailableException;
 use App\Manga\Domain\Isbn;
 use App\Manga\Domain\Service\CatalogueTitleParser;
 use App\Manga\Domain\Service\EditionRelevanceFilter;
@@ -57,7 +58,11 @@ final readonly class BnfCatalogue implements CatalogueInterface
         return $this->search(sprintf('bib.isbn all "%s"', $isbn->value), null);
     }
 
-    /** @return list<CatalogueRecord> */
+    /**
+     * @return list<CatalogueRecord>
+     *
+     * @throws CatalogueUnavailableException when the BnF does not answer
+     */
     private function search(string $cqlQuery, ?string $searchedTitle): array
     {
         $this->logger->info(self::LOG_PREFIX . 'search; BEGIN.', ['query' => $cqlQuery]);
@@ -74,19 +79,30 @@ final readonly class BnfCatalogue implements CatalogueInterface
             ]);
 
             if ($response->getStatusCode() !== 200) {
-                $this->logger->info(self::LOG_PREFIX . 'search; NOT 200.', ['status' => $response->getStatusCode()]);
+                $this->logger->warning(self::LOG_PREFIX . 'search; NOT 200.', ['status' => $response->getStatusCode()]);
 
-                return [];
+                throw new CatalogueUnavailableException('BnF');
             }
 
-            return $this->parseResponse($response->getContent(), $searchedTitle);
+            $content = $response->getContent();
+        } catch (CatalogueUnavailableException $exception) {
+            throw $exception;
         } catch (Throwable $exception) {
             $this->logger->error(self::LOG_PREFIX . 'search; ERROR.', [
                 'query' => $cqlQuery,
                 'error' => $exception->getMessage(),
             ]);
 
-            return [];
+            throw new CatalogueUnavailableException('BnF');
+        }
+
+        try {
+            return $this->parseResponse($content, $searchedTitle);
+        } catch (Throwable $exception) {
+            // An answer we cannot read is a broken answer, not "no book".
+            $this->logger->error(self::LOG_PREFIX . 'search; UNREADABLE.', ['error' => $exception->getMessage()]);
+
+            throw new CatalogueUnavailableException('BnF');
         }
     }
 

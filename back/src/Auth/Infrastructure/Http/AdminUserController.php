@@ -35,15 +35,14 @@ final readonly class AdminUserController
     #[Route('', methods: ['GET'])]
     public function list(
         #[MapQueryParameter] string $search = '',
-        #[MapQueryParameter] ?string $status = null,
+        #[MapQueryParameter(validationFailedStatusCode: Response::HTTP_UNPROCESSABLE_ENTITY)]
+        ?UserStatusEnum $status = null,
         #[MapQueryParameter] int $page = 1,
         #[MapQueryParameter] int $limit = 20,
     ): JsonResponse {
-        $statusEnum = $status !== null ? UserStatusEnum::from($status) : null;
-
         $result = $this->queryBus->ask(new ListUsersQuery(
             search: $search,
-            status: $statusEnum,
+            status: $status,
             page: $page,
             limit: $limit,
         ));

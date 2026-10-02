@@ -15,6 +15,8 @@ final readonly class UpdateMangaRequest
         public ?string $edition = null,
         #[Assert\Length(max: 150)]
         public ?string $specialEdition = null,
+        #[Assert\Url(protocols: ['http', 'https'], requireTld: true)]
+        #[Assert\Length(max: 255)]
         public ?string $coverUrl = null,
     ) {
     }

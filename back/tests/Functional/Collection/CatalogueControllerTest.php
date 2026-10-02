@@ -328,6 +328,29 @@ final class CatalogueControllerTest extends AbstractApiTestCase
         $this->assertJsonStatus(404, $this->jsonRequest('POST', '/api/catalogue/scan', ['isbn' => '9782811645632']));
     }
 
+    /** A catalogue outage is no "no French edition": the user must retry. */
+    public function testScanDuringACatalogueOutageReturns503(): void
+    {
+        $this->catalogue()->simulateOutage();
+
+        $this->assertJsonStatus(503, $this->jsonRequest('POST', '/api/catalogue/scan', ['isbn' => self::PRESTIGE_TOME_2]));
+    }
+
+    public function testSearchDuringACatalogueOutageReturns503(): void
+    {
+        $this->catalogue()->simulateOutage();
+
+        $this->assertJsonStatus(503, $this->jsonRequest('GET', '/api/catalogue/search?q=berserk'));
+    }
+
+    private function catalogue(): InMemoryCatalogue
+    {
+        /** @var InMemoryCatalogue $catalogue */
+        $catalogue = static::getContainer()->get(InMemoryCatalogue::class);
+
+        return $catalogue;
+    }
+
     public function testScanOfAnInvalidIsbnReturns422(): void
     {
         $this->assertJsonStatus(422, $this->jsonRequest('POST', '/api/catalogue/scan', ['isbn' => 'not-an-isbn']));
