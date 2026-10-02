@@ -366,6 +366,13 @@ services:
 
 when@test:
     services:
+        # Counts SQL statements so tests can assert a page has no N+1.
+        App\Tests\Doubles\Doctrine\QueryCounter:
+            public: true
+        App\Tests\Doubles\Doctrine\QueryCountingMiddleware:
+            arguments: ['@App\Tests\Doubles\Doctrine\QueryCounter']
+            tags: ['doctrine.middleware']
+
         # Lets AbstractApiTestCase clear rate-limit counters between tests.
         test.rate_limiter_cache:
             alias: rate_limiter_cache

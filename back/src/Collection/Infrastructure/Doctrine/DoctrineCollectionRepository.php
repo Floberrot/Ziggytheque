@@ -22,13 +22,21 @@ final readonly class DoctrineCollectionRepository implements CollectionRepositor
     {
         // DQL (not em->find) so the owner filter always applies, even when the
         // entry is already in the identity map.
-        return $this->em->createQueryBuilder()
-            ->select('ce')
+        /** @var CollectionEntry|null $entry */
+        $entry = $this->em->createQueryBuilder()
+            ->select('ce', 'm')
             ->from(CollectionEntry::class, 'ce')
+            ->join('ce.manga', 'm')
             ->where('ce.id = :id')
             ->setParameter('id', $id)
             ->getQuery()
             ->getOneOrNullResult();
+
+        if ($entry !== null) {
+            $this->loadVolumes([$entry]);
+        }
+
+        return $entry;
     }
 
     public function findByMangaId(string $mangaId): ?CollectionEntry
@@ -44,7 +52,15 @@ final readonly class DoctrineCollectionRepository implements CollectionRepositor
         }
 
         /** @var list<CollectionEntry> $entries */
-        $entries = $this->em->getRepository(CollectionEntry::class)->findBy(['manga' => $mangaIds]);
+        $entries = $this->em->createQueryBuilder()
+            ->select('ce', 'volumeEntry', 'volume')
+            ->from(CollectionEntry::class, 'ce')
+            ->leftJoin('ce.volumeEntries', 'volumeEntry')
+            ->leftJoin('volumeEntry.volume', 'volume')
+            ->where('IDENTITY(ce.manga) IN (:mangaIds)')
+            ->setParameter('mangaIds', $mangaIds)
+            ->getQuery()
+            ->getResult();
 
         return $entries;
     }
@@ -58,7 +74,7 @@ final readonly class DoctrineCollectionRepository implements CollectionRepositor
     public function findFiltered(GetCollectionQuery $query): array
     {
         $qb = $this->em->createQueryBuilder()
-            ->select('ce')
+            ->select('ce', 'm')
             ->from(CollectionEntry::class, 'ce')
             ->join('ce.manga', 'm');
 
@@ -140,6 +156,7 @@ final readonly class DoctrineCollectionRepository implements CollectionRepositor
             ->setMaxResults($query->limit)
             ->getQuery()
             ->getResult();
+        $this->loadVolumes($items);
 
         return ['items' => $items, 'total' => $total];
     }
@@ -149,7 +166,7 @@ final readonly class DoctrineCollectionRepository implements CollectionRepositor
         // EXISTS keeps the parent row count intact (no join fan-out) so the wished
         // filter composes cleanly with the title search and pagination.
         $qb = $this->em->createQueryBuilder()
-            ->select('ce')
+            ->select('ce', 'm')
             ->from(CollectionEntry::class, 'ce')
             ->join('ce.manga', 'm')
             ->where(
@@ -177,8 +194,51 @@ final readonly class DoctrineCollectionRepository implements CollectionRepositor
             ->setMaxResults($query->limit)
             ->getQuery()
             ->getResult();
+        $this->loadVolumes($items);
 
         return ['items' => $items, 'total' => $total];
+    }
+
+    /**
+     * Initialises, in two queries for any number of entries, what serialising them
+     * reads: each entry's tracked volumes and each series' volumes. Without it every
+     * entry — and every tome of a detail page — costs its own query.
+     *
+     * The page itself is never fetch-joined to a collection: that would break
+     * LIMIT/OFFSET. These queries re-select entries already loaded, which fills
+     * their collections in the identity map.
+     *
+     * @param list<CollectionEntry> $entries
+     */
+    private function loadVolumes(array $entries): void
+    {
+        if ($entries === []) {
+            return;
+        }
+
+        $this->em->createQueryBuilder()
+            ->select('ce', 'volumeEntry', 'trackedVolume')
+            ->from(CollectionEntry::class, 'ce')
+            ->leftJoin('ce.volumeEntries', 'volumeEntry')
+            ->leftJoin('volumeEntry.volume', 'trackedVolume')
+            ->where('ce IN (:entries)')
+            ->setParameter('entries', $entries)
+            ->orderBy('trackedVolume.number', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        // Separate query: joining both collections at once would multiply the rows.
+        $this->em->createQueryBuilder()
+            ->select('ce', 'manga', 'seriesVolume')
+            ->from(CollectionEntry::class, 'ce')
+            ->join('ce.manga', 'manga')
+            ->leftJoin('manga.volumes', 'seriesVolume')
+            ->where('ce IN (:entries)')
+            ->setParameter('entries', $entries)
+            // Same order as the #[OrderBy] a lazy load would apply.
+            ->orderBy('seriesVolume.number', 'ASC')
+            ->getQuery()
+            ->getResult();
     }
 
     public function findFollowed(): array
