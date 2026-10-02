@@ -262,7 +262,7 @@ function open(): void {
           />
           <div
             class="absolute top-0 h-full bg-success transition-all duration-500"
-            :style="{ left: `${readRatio}%`, width: `${ownedRatio - readRatio}%` }"
+            :style="{ left: `${readRatio}%`, width: `${Math.max(0, ownedRatio - readRatio)}%` }"
           />
           <div
             class="absolute top-0 h-full bg-warning/80 transition-all duration-500"

@@ -179,7 +179,9 @@
     "price": "Price (€)",
     "announced": "Announced",
     "wished": "Wished",
-    "untracked": "Untracked"
+    "untracked": "Untracked",
+    "batchUpdated": "No volume updated | 1 volume updated | {count} volumes updated",
+    "batchFailed": "Failed after {done} of {total} volume(s) — try again."
   },
   "notifications": {
     "title": "News Feed",
@@ -306,7 +308,8 @@
     "next": "Next",
     "close": "Close",
     "noData": "No data",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "actionFailed": "Could not do that — try again."
   },
   "share": {
     "button": "Share",

@@ -100,7 +100,11 @@ const notificationsActive = computed(() => route.path.startsWith('/notifications
 
     <div class="drawer-content flex flex-col">
       <main class="flex-1 bg-base-200 min-h-screen pt-mobile-header pb-mobile-nav lg:pt-0 lg:pb-0">
-        <RouterView />
+        <!-- Keyed by route + id: opening another series from a series page mounts a fresh
+             page, so nothing keeps acting on the previous id. -->
+        <RouterView v-slot="{ Component, route: viewRoute }">
+          <component :is="Component" :key="`${String(viewRoute.name)}:${String(viewRoute.params.id ?? '')}`" />
+        </RouterView>
       </main>
     </div>
 
