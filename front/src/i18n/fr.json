@@ -179,7 +179,9 @@
     "price": "Prix (€)",
     "announced": "Annoncé",
     "wished": "Souhaité",
-    "untracked": "Non suivi"
+    "untracked": "Non suivi",
+    "batchUpdated": "Aucun tome mis à jour | 1 tome mis à jour | {count} tomes mis à jour",
+    "batchFailed": "Échec après {done} tome(s) sur {total} — réessaie."
   },
   "notifications": {
     "title": "Actualités",
@@ -306,7 +308,8 @@
     "next": "Suivant",
     "close": "Fermer",
     "noData": "Aucune donnée",
-    "loading": "Chargement…"
+    "loading": "Chargement…",
+    "actionFailed": "Action impossible — réessaie."
   },
   "share": {
     "button": "Partager",

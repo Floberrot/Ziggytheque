@@ -34,6 +34,7 @@ import BaseModal from '@/components/atoms/BaseModal.vue'
 import { useIsMobile } from '@/composables/useMediaQuery'
 import type { CollectionEntryDetail, ReadingStatus, VolumeEntry, VolumeToggleField } from '@/types'
 import { coverUrl } from '@/utils/coverUrl'
+import { VOLUME_BATCH_RULES, batchTargets, type VolumeBatchAction } from '@/utils/volumeBatch'
 
 const route = useRoute()
 const router = useRouter()
@@ -582,21 +583,32 @@ const autoFillMutation = useMutation({
 // ── Batch operations ──
 const isBatchProcessing = ref(false)
 
-async function batchToggle(field: 'isOwned' | 'isRead' | 'isWished' | 'isAnnounced') {
-  if (selectedIds.value.size === 0) return
-  const count = selectedIds.value.size
-  const ids = [...selectedIds.value]
+/**
+ * The API flips a flag, so each action only reaches the tomes not yet in the wanted
+ * state (`batchTargets`). Sent one after the other: concurrent toggles of the same
+ * series would race on its reading status.
+ */
+async function batchApply(action: VolumeBatchAction) {
+  const targets = batchTargets(selectedVolumes.value, action)
+  if (targets.length === 0) return
+  const { field } = VOLUME_BATCH_RULES[action]
   isBatchProcessing.value = true
+  let updated = 0
   try {
-    await Promise.all(ids.map((veId) => toggleVolume(id, veId, field)))
+    for (const volume of targets) {
+      await toggleVolume(id, volume.id, field)
+      updated++
+    }
+    selectedIds.value = new Set()
+    ui.addToast(t('volume.batchUpdated', { count: updated }, updated), 'success')
+  } catch {
+    ui.addToast(t('volume.batchFailed', { done: updated, total: targets.length }), 'error')
+  } finally {
+    isBatchProcessing.value = false
     await qc.invalidateQueries({ queryKey: ['collection', id] })
     await qc.invalidateQueries({ queryKey: ['collection'] })
     await qc.invalidateQueries({ queryKey: ['wishlist'] })
     await qc.invalidateQueries({ queryKey: ['stats'] })
-    selectedIds.value = new Set()
-    ui.addToast(`${count} tome${count > 1 ? 's' : ''} mis à jour`, 'success')
-  } finally {
-    isBatchProcessing.value = false
   }
 }
 
@@ -1661,55 +1673,55 @@ function volumeOpacityClass(ve: VolumeEntry): string {
           </span>
           <div class="flex flex-wrap gap-2 flex-1 min-w-0">
             <button
-              v-if="selectedVolumes.some((v) => v.isOwned && !v.isRead)"
+              v-if="selectedVolumes.some(VOLUME_BATCH_RULES.markRead.applies)"
               class="btn btn-info btn-sm gap-1.5"
               :disabled="isBatchProcessing"
-              @click="batchToggle('isRead')"
+              @click="batchApply('markRead')"
             >
               <BookOpen class="h-4 w-4" />
               Marquer lus
             </button>
             <button
-              v-if="selectedVolumes.some((v) => v.isOwned && v.isRead)"
+              v-if="selectedVolumes.some(VOLUME_BATCH_RULES.markUnread.applies)"
               class="btn btn-info btn-sm btn-outline gap-1.5"
               :disabled="isBatchProcessing"
-              @click="batchToggle('isRead')"
+              @click="batchApply('markUnread')"
             >
               <BookOpen class="h-4 w-4" />
               Marquer non lus
             </button>
             <button
-              v-if="selectedVolumes.some((v) => !v.isOwned)"
+              v-if="selectedVolumes.some(VOLUME_BATCH_RULES.markOwned.applies)"
               class="btn btn-success btn-sm gap-1.5"
               :disabled="isBatchProcessing"
-              @click="batchToggle('isOwned')"
+              @click="batchApply('markOwned')"
             >
               <Package class="h-4 w-4" />
               Marquer possédés
             </button>
             <button
-              v-if="selectedVolumes.some((v) => !v.isOwned && !v.isWished)"
+              v-if="selectedVolumes.some(VOLUME_BATCH_RULES.wish.applies)"
               class="btn btn-warning btn-sm btn-outline gap-1.5"
               :disabled="isBatchProcessing"
-              @click="batchToggle('isWished')"
+              @click="batchApply('wish')"
             >
               <Star class="h-4 w-4" />
               Wishlist
             </button>
             <button
-              v-if="selectedVolumes.some((v) => !v.isOwned && !v.isAnnounced)"
+              v-if="selectedVolumes.some(VOLUME_BATCH_RULES.announce.applies)"
               class="btn btn-secondary btn-sm btn-outline gap-1.5"
               :disabled="isBatchProcessing"
-              @click="batchToggle('isAnnounced')"
+              @click="batchApply('announce')"
             >
               <Bell class="h-4 w-4" />
               Marquer annoncés
             </button>
             <button
-              v-if="selectedVolumes.some((v) => !v.isOwned && v.isAnnounced)"
+              v-if="selectedVolumes.some(VOLUME_BATCH_RULES.unannounce.applies)"
               class="btn btn-secondary btn-sm gap-1.5"
               :disabled="isBatchProcessing"
-              @click="batchToggle('isAnnounced')"
+              @click="batchApply('unannounce')"
             >
               <BellOff class="h-4 w-4" />
               Retirer annoncés
