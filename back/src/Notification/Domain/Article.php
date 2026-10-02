@@ -13,6 +13,8 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity]
 #[ORM\Table(name: 'articles')]
 #[ORM\UniqueConstraint(name: 'uniq_article_entry_url', columns: ['collection_entry_id', 'url'])]
+// News feed lists newest first and the digest reads "created since".
+#[ORM\Index(columns: ['created_at'])]
 class Article
 {
     #[ORM\Column]

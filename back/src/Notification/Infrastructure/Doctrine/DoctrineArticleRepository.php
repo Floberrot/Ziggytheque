@@ -36,10 +36,13 @@ final readonly class DoctrineArticleRepository implements ArticleRepositoryInter
 
     public function findPaginated(int $page, int $limit, ?string $collectionEntryId): array
     {
+        // Entry and series are read for every article: loaded with the page (to-one
+        // joins, so LIMIT/OFFSET stay exact) instead of two queries per article.
         $qb = $this->em->createQueryBuilder()
-            ->select('a')
+            ->select('a', 'ce', 'm')
             ->from(Article::class, 'a')
             ->join('a.collectionEntry', 'ce')
+            ->join('ce.manga', 'm')
             ->orderBy('a.createdAt', 'DESC');
 
         if ($collectionEntryId !== null) {
@@ -64,7 +67,7 @@ final readonly class DoctrineArticleRepository implements ArticleRepositoryInter
     public function findCreatedSince(DateTimeImmutable $since): array
     {
         return $this->em->createQueryBuilder()
-            ->select('a')
+            ->select('a', 'ce', 'm')
             ->from(Article::class, 'a')
             ->join('a.collectionEntry', 'ce')
             ->join('ce.manga', 'm')

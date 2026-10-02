@@ -12,6 +12,10 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'activity_logs')]
+// The journal lists by date (newest first), filters by status, and the purge
+// deletes by date: without these every read is a sequential scan.
+#[ORM\Index(columns: ['started_at'])]
+#[ORM\Index(columns: ['status', 'started_at'])]
 class ActivityLog
 {
     #[ORM\Column]
