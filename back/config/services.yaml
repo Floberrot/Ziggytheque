@@ -1,6 +1,5 @@
 parameters:
     gate_password: '%env(GATE_PASSWORD)%'
-    jwt_ttl: '%env(int:JWT_TTL)%'
     notification_email: '%env(NOTIFICATION_EMAIL)%'
     discord_webhook_url: '%env(default::DISCORD_WEBHOOK_URL)%'
     app_front_url: '%env(default:app_front_url_default:APP_FRONT_URL)%'

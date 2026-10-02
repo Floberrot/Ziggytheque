@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, watchEffect } from 'vue'
-import QRCode from 'qrcode'
 
 const props = withDefaults(
   defineProps<{
@@ -13,12 +12,17 @@ const props = withDefaults(
 const dataUrl = ref<string>('')
 
 watchEffect(async () => {
-  if (!props.value) {
+  // Read before the first await: only what is read synchronously is tracked.
+  const value = props.value
+  const width = props.size
+  if (!value) {
     dataUrl.value = ''
     return
   }
   try {
-    dataUrl.value = await QRCode.toDataURL(props.value, { width: props.size })
+    // The QR code library is fetched with the first code shown, not with the page.
+    const { toDataURL } = await import('qrcode')
+    dataUrl.value = await toDataURL(value, { width })
   } catch {
     dataUrl.value = ''
   }

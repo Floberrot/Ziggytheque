@@ -50,6 +50,38 @@ final class UserTest extends TestCase
         $this->assertContains('ROLE_ADMIN', $user->getRoles());
     }
 
+    public function testGetRolesForAnUnlockedAdmin(): void
+    {
+        $user = $this->makeUser(UserRoleEnum::Admin);
+        $user->markAdminUnlocked();
+
+        $this->assertContains('ROLE_ADMIN_UNLOCKED', $user->getRoles());
+    }
+
+    public function testAnUnlockedTokenGivesNoAdminAreaToANonAdmin(): void
+    {
+        // A token unlocked while the account was admin, used after its demotion.
+        $user = $this->makeUser(UserRoleEnum::User);
+        $user->markAdminUnlocked();
+
+        $this->assertSame(['ROLE_USER'], $user->getRoles());
+    }
+
+    /** @return iterable<string, array{UserStatusEnum, bool}> */
+    public static function statusesAndActivity(): iterable
+    {
+        yield 'active' => [UserStatusEnum::Active, true];
+        yield 'disabled' => [UserStatusEnum::Disabled, false];
+        yield 'pending approval' => [UserStatusEnum::PendingAdminApproval, false];
+        yield 'pending email verification' => [UserStatusEnum::PendingEmailVerification, false];
+    }
+
+    #[DataProvider('statusesAndActivity')]
+    public function testIsActive(UserStatusEnum $status, bool $expectedActive): void
+    {
+        $this->assertSame($expectedActive, $this->makeUser(status: $status)->isActive());
+    }
+
     public function testMarkEmailVerifiedTransitionsToPendingApproval(): void
     {
         $user = $this->makeUser(status: UserStatusEnum::PendingEmailVerification);

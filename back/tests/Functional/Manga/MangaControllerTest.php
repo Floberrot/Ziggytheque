@@ -452,6 +452,18 @@ final class MangaControllerTest extends AbstractApiTestCase
         $this->assertSame('A pirate story.', $data['translated']);
     }
 
+    public function testTranslateSummaryRejectsATextTooLongForTheTranslator(): void
+    {
+        $response = $this->jsonRequest('POST', '/api/manga/translate-summary', ['text' => str_repeat('a', 5001)]);
+        $this->assertJsonStatus(422, $response);
+    }
+
+    public function testTranslateSummaryAcceptsTheLongestText(): void
+    {
+        $response = $this->jsonRequest('POST', '/api/manga/translate-summary', ['text' => str_repeat('a', 5000)]);
+        $this->assertJsonStatus(200, $response);
+    }
+
     public function testTranslateSummaryRejectsBlankText(): void
     {
         $response = $this->jsonRequest('POST', '/api/manga/translate-summary', ['text' => '']);

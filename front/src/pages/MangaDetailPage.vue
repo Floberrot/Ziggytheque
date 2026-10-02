@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import {
@@ -21,7 +21,6 @@ import { searchCatalogue, type CatalogueEdition } from '@/api/catalogue'
 import { useCoverBatchProgress } from '@/composables/useCoverBatchProgress'
 import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
-import EnrichVolumeModal from '@/components/organisms/EnrichVolumeModal.vue'
 import CatalogueEditionCard from '@/components/organisms/CatalogueEditionCard.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
 import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
@@ -35,6 +34,10 @@ import { useIsMobile } from '@/composables/useMediaQuery'
 import type { CollectionEntryDetail, ReadingStatus, VolumeEntry, VolumeToggleField } from '@/types'
 import { coverUrl } from '@/utils/coverUrl'
 import { VOLUME_BATCH_RULES, batchTargets, type VolumeBatchAction } from '@/utils/volumeBatch'
+
+// The cover / ISBN / scan / price tool (and its QR code library) is fetched once the
+// page is up, not with it; it handles being mounted already open.
+const EnrichVolumeModal = defineAsyncComponent(() => import('@/components/organisms/EnrichVolumeModal.vue'))
 
 const route = useRoute()
 const router = useRouter()

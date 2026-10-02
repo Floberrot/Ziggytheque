@@ -34,20 +34,23 @@ Every time a feature is planned, developed, or removed — this rule is non-nego
 - Frontend: Vue 3 + TypeScript + Vite + DaisyUI (`front/`)
 - Docker: 5 containers via `docker-compose.yml` at root
 
-## Auth (Gate)
-- Single password from `GATE_PASSWORD` env var — no user accounts
-- `POST /api/auth/gate { password }` → JWT
-- All `/api/*` routes require Bearer JWT
-- `/messenger` uses HTTP Basic (MONITOR_USER / MONITOR_PASSWORD)
+## Auth (accounts + admin gate)
+- Accounts: `POST /api/auth/register` → email verification (`verify-email`) → admin approval → `active`. `POST /api/auth/login { email, password }` → JWT, valid `JWT_TTL` seconds (6 h). Password reset: `request-reset` → `reset-password`.
+- All `/api/*` routes require a Bearer JWT, except register / verify-email / login / request-reset / reset-password, `POST /api/scan/submit` (scan token) and `GET /api/share/{token}`.
+- The account is reloaded on every request: one no longer `active` (disabled, back to pending) gets 401 with the token it already holds (`ActiveUserChecker`, `api` firewall).
+- Admin gate (second factor): an admin posts `POST /api/auth/gate { password }` (`GATE_PASSWORD`, ≥ 12 chars, else 503) → JWT carrying `adminUnlocked` → `ROLE_ADMIN_UNLOCKED`, required by `/api/admin/*` (front: /journal, /admin/users). Granted only while the account is still an admin.
+- `/messenger` uses HTTP Basic (MONITOR_USER / MONITOR_PASSWORD; refused while the password is weak)
+- Quotas (`CacheRateLimiter` → 429), per account: catalogue 60/min; manga lookups that call outside services (cover-by-isbn, volume-search, translate-summary, prices) 30/min; cover batches 5/10 min; test notification 5/15 min. Login / register / reset are limited per email, the gate per user.
 
 ## Bounded Contexts (back/src/)
-- `Shared/` — CommandBus, QueryBus, EventBus interfaces + Messenger implementations + ExceptionListener
-- `Auth/` — GateUser, GateUserProvider, GateCommand/Handler, GateController
+- `Shared/` — CommandBus / QueryBus (Messenger), EventBus (`SymfonyEventBus`, EventDispatcher), ExceptionListener, `CacheRateLimiter`, `SecretStrength`, `CurrentUserProviderInterface`
+- `Auth/` — User (role, status, notification channel), AuthToken (email verification / reset), login / register / reset / gate handlers, admin user management, `DoctrineUserProvider` + `ActiveUserChecker`
 - `Manga/` — Manga + Volume entities (price lives on Volume). A Manga is one *series* = work × publisher (`edition`) × special edition (`specialEdition`, free text, null = standard run). French catalogue (`Domain/Catalogue`, BnF + Google Books fallback)
-- `Collection/` — CollectionEntry + VolumeEntry, toggle owned/read per volume
-- `Wishlist/` — WishlistItem, purchase moves to collection
-- `Stats/` — GetStats query (totalOwned, totalRead, totalWishlist, collectionValue, genreBreakdown)
-- `Notification/` — Notification entity, stub endpoints
+- `Collection/` — CollectionEntry (one series in a user's collection: reading status, rating, follow) + VolumeEntry (per tome: owned / read / wished / announced, price), the catalogue add / scan endpoints
+- `Wishlist/` — HTTP only: the wishlist is the tomes flagged `isWished` (VolumeEntry); buying one marks it owned
+- `Stats/` — GetStats query (counts, owned / wishlist / total value, genre and reading-status breakdowns, top authors, ratings, monthly and recent additions)
+- `Share/` — public snapshot of a user's stats (`/share/:token`)
+- `Notification/` — news (RSS feeds + Jikan, matched to followed series → Article), in-app Notification + email / Discord delivery, activity journal (ActivityLog), scheduler (daily crawl)
 
 ## Code Style
 
@@ -113,7 +116,7 @@ Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrin
 
 ## Key Patterns
 - Hexagonal: Domain → Application → Infrastructure
-- CQRS via Symfony Messenger (command.bus / query.bus / event.bus), default_bus: command.bus
+- CQRS via Symfony Messenger (command.bus / query.bus), default_bus: command.bus; domain events go through `EventBusInterface` → `SymfonyEventBus` (Symfony EventDispatcher, synchronous)
 - No try/catch in controllers — ExceptionListener handles all DomainExceptions
 - #[MapRequestPayload] on every controller that reads a request body
 - `final readonly` on every class that is not extended
@@ -122,7 +125,9 @@ Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrin
 ## Frontend (front/src/)
 - Atomic Design: atoms (Base*) → molecules → organisms → pages
 - Only pages call useQuery/useMutation
-- Auth: useAuthStore (sessionStorage), Bearer JWT via axios interceptor
+- Auth: useAuthStore (sessionStorage), Bearer JWT via axios interceptor (a 401 logs out)
+- vue-query: default `staleTime` 30 s (main.ts) — every mutation invalidates the keys it changes; a mutation without its own `onError` gets the global "action failed" toast
+- Heavy code is loaded on demand: pages are lazy routes; zxing (only without a native `BarcodeDetector`), chart.js (`GenrePieChart`), qrcode (`BaseQrCode`) and `EnrichVolumeModal` are dynamic imports. A failed chunk after a deploy reloads the page once (`vite:preloadError`)
 - Stores: useAuthStore, useThemeStore (dark default), useUiStore (toasts)
 - API layer: api/client.ts (axios), api/auth.ts, manga.ts, collection.ts, wishlist.ts, stats.ts, notification.ts
 - Covers: always `BaseCover` (or `BaseLazyImage` + `coverUrl()`), never a raw `<img :src>` — it proxies anti-hotlink hosts (Google Books, MangaDex, BnF) through `/proxy/cover`, upgrades `http://`, and falls back to an icon on a broken or placeholder image
@@ -132,25 +137,31 @@ Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrin
 - i18n: vue-i18n, fr.json + en.json, FR default
 
 ## Routes (frontend)
-- /gate — public password gate
+- Public: /login, /register, /verify-email, /forgot-password, /reset-password, /scan/:token (phone scanner), /share/:token
+- /gate — admin second factor (admins only)
 - / → /dashboard (protected, MainLayout sidebar)
-- /collection, /collection/:id, /wishlist, /add, /notifications
+- /collection, /collection/:id, /wishlist, /add, /notifications, /notification-preferences
+- Admin, unlocked by the gate: /journal, /admin/users
 
 ## API Endpoints
-- POST   /api/auth/gate
-- GET    /api/manga?q=, GET /api/manga/:id, POST /api/manga, POST /api/manga/:id/volumes
+- POST   /api/auth/register, verify-email, login, request-reset, reset-password (public) · POST /api/auth/gate (admin)
+- GET    /api/me, PATCH /api/me/notifications, POST /api/me/notifications/test
+- Admin (unlocked): GET /api/admin/users, GET/PATCH/DELETE /api/admin/users/:id, POST /api/admin/users/:id/approve, POST /api/admin/users/:id/reset-link
+- GET    /api/manga?q=, GET/PATCH /api/manga/:id, POST /api/manga, POST /api/manga/:id/volumes, PATCH /api/manga/:id/volumes/:volumeId
+- External lookups: GET /api/manga/cover-by-isbn?isbn=, GET /api/manga/volume-search?q=, POST /api/manga/translate-summary { text ≤ 5000 }, GET /api/manga/:id/volumes/:volumeId/prices, POST /api/manga/:id/auto-covers (async batch, Mercure progress)
 - GET    /api/catalogue/search?q=&mode=title|author|isbn → series (work × publisher × special edition) + the user's owned tomes
 - GET    /api/catalogue/edition?workTitle=&publisher=&specialEdition= → one series with every known tome
 - POST   /api/catalogue/add { workTitle, publisher, specialEdition, author, coverUrl, volumeCount, volumes, ownedNumbers } → creates the series (all tomes) if needed, marks the picked tomes owned (201 new entry / 200 existing)
 - POST   /api/catalogue/scan { isbn } → one scanned tome in the collection, its series created if needed (404 = no French edition)
-- POST   /api/scan/sessions {} (free, 30 min — phone scans a shelf) or { mangaId, volumeId } (one tome, 10 min)
+- POST   /api/scan/sessions {} (free, 30 min — phone scans a shelf) or { mangaId, volumeId } (one tome, 10 min) · POST /api/scan/submit (public, scan token)
 - GET/POST /api/collection, GET/DELETE /api/collection/:id — list default sort = by work (A → Z), `sort=added_desc|rating_desc|rating_asc`
-- PATCH  /api/collection/:id/status
-- PATCH  /api/collection/:id/volumes/:veId/toggle { field: isOwned|isRead }
-- GET/POST /api/wishlist, DELETE /api/wishlist/:id, POST /api/wishlist/:id/purchase
-- GET    /api/stats
+- PATCH  /api/collection/:id/status, /rating, /follow, /batch-price · POST /api/collection/:id/sync-volumes, /add-to-wishlist
+- PATCH  /api/collection/:id/volumes/:veId/toggle { field: isOwned|isRead } · POST /api/collection/:id/volumes/:veId/purchase
+- GET    /api/wishlist, POST /api/wishlist/:id/add-remaining, DELETE /api/wishlist/:id, POST /api/wishlist/:id/volumes/:veId/purchase
+- GET    /api/stats · POST /api/share, GET /api/share/:token (public)
+- GET    /api/articles, /api/articles/followed, /api/articles/activity-logs
 - GET    /api/notifications, PATCH /api/notifications/:id/read
-- GET    /messenger (Basic auth)
+- GET    /proxy/cover?url= (cover proxy, raster images only) · GET /health · /messenger (Basic auth)
 
 ## Add flow — manga first, French editions only
 - The user finds a *tome* (scan, title or author); the whole series follows (created with every tome, the others stay untracked).
@@ -175,7 +186,8 @@ Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrin
 - Public URL: **https://www.ziggytheque.fr** (apex `ziggytheque.fr` redirects 301 → www via OVH)
 - 4 Railway services: backend (FrankenPHP), worker (Messenger consumer), frontend (nginx SPA), PostgreSQL
 - Emails: **Resend** — domain `ziggytheque.fr` verified, sender `notifications@ziggytheque.fr`, `MAILER_DSN=resend+api://KEY@default`. Full setup: `docs/resend.md`
-- Frontend nginx proxies `/api` and `/proxy` to the backend via `BACKEND_URL` (internal Railway URL), so the SPA stays same-origin
+- Frontend nginx proxies `/api` and `/proxy` to the backend via `BACKEND_URL` (internal Railway URL), so the SPA stays same-origin. It gzips the bundles, caches `/assets/*` (hashed) for a year as immutable and revalidates everything else (`no-cache`), so a deploy is seen at once
+- Backend image: `php.ini-production` + `back/docker/php-prod.ini` (OPcache without timestamp checks — the code never changes in an image —, `memory_limit` above the worker's own limit, `expose_php` off). The SPA is not in it. `.github/workflows/docker.yml` builds and checks both images on every PR that touches them
 - CORS prod value: `CORS_ALLOW_ORIGIN=^https://(www\.)?ziggytheque\.fr$`
 - **Secrets never live in `back/.env`** (it ships in the image): their keys stay there with an EMPTY value, local values go in `back/.env.dev`, test values in `back/.env.test`, real values in Railway. A weak value (empty, short, `CHANGEME`, an old committed default — `SecretStrength`) keeps its feature closed: `/messenger` accepts nobody (MONITOR_PASSWORD < 12 chars), the admin gate answers 503 (GATE_PASSWORD < 12 chars). `bin/console app:security:check-secrets` runs at container start and lists the weak ones (names only).
 - **Env var sync at deploy**: a `sync-env` job (in both deploy workflows) compares the env vars declared in the repo's `.env` files against what's set on the target Railway environment and creates any **new** one with a sentinel value `CHANGEME` (the Railway CLI can't set empty; `--skip-deploys`, never edits existing values) so it only needs its real value typed in Railway. Always exits 0 — never blocks a deploy. Script + ignore-list (`IGNORE_KEYS` exact + `IGNORE_PATTERNS` globs, incl. `*_BASE_URL`): `scripts/railway-sync-env-keys.sh`; full doc: `docs/railway-env-sync.md`. When you add a `back/.env` var whose committed default IS the prod value, add its key to `IGNORE_KEYS` so it isn't shadowed by a `CHANGEME` placeholder.

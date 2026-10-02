@@ -2,3 +2,6 @@ lexik_jwt_authentication:
     secret_key: '%env(resolve:JWT_SECRET_KEY)%'
     public_key: '%env(resolve:JWT_PUBLIC_KEY)%'
     pass_phrase: '%env(JWT_PASSPHRASE)%'
+    # Session length in seconds (JWT_TTL in .env); a disabled account is cut on its
+    # next request anyway (ActiveUserChecker), not when its token expires.
+    token_ttl: '%env(int:JWT_TTL)%'

@@ -1,6 +1,5 @@
 import { ref, onScopeDispose } from 'vue'
-import { BrowserMultiFormatOneDReader } from '@zxing/browser'
-import { BarcodeFormat, DecodeHintType } from '@zxing/library'
+import type { DecodeHintType } from '@zxing/library'
 
 /** Rear camera in HD: a book barcode is small and thin-lined. */
 const CAMERA_CONSTRAINTS: MediaStreamConstraints = {
@@ -101,10 +100,17 @@ async function startNative(
   }
 }
 
-function startZxing(video: HTMLVideoElement, onCode: (code: string) => void): Promise<ScanControls> {
+async function startZxing(video: HTMLVideoElement, onCode: (code: string) => void): Promise<ScanControls> {
+  // zxing weighs hundreds of kB and only browsers without a native detector need it:
+  // it is fetched on their first scan, never shipped with the page.
+  const [{ BrowserMultiFormatOneDReader }, zxingLibrary] = await Promise.all([
+    import('@zxing/browser'),
+    import('@zxing/library'),
+  ])
+  const { BarcodeFormat, DecodeHintType: DecodeHint } = zxingLibrary
   const hints = new Map<DecodeHintType, unknown>([
-    [DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A]],
-    [DecodeHintType.TRY_HARDER, true],
+    [DecodeHint.POSSIBLE_FORMATS, [BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A]],
+    [DecodeHint.TRY_HARDER, true],
   ])
   const reader = new BrowserMultiFormatOneDReader(hints, {
     delayBetweenScanAttempts: ZXING_SCAN_INTERVAL_MS,

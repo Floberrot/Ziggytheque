@@ -1,0 +1,145 @@
+name: Docker images
+
+# The production images are otherwise built only by the deploy workflows: a broken
+# nginx or PHP setting would first show in production. Builds both images and
+# checks what they serve, whenever a PR touches how they are built.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - back/docker/**
+      - back/Caddyfile
+      - back/docker-entrypoint.sh
+      - back/worker-supervisor.sh
+      - back/composer.json
+      - back/composer.lock
+      - front/Dockerfile
+      - front/nginx.conf.template
+      - front/package.json
+      - front/package-lock.json
+      - .github/workflows/docker.yml
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend image (FrankenPHP, production PHP)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build the prod stage
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          target: prod
+          load: true
+          tags: ziggy-back:ci
+          cache-from: type=gha,scope=pr-back
+          cache-to: type=gha,mode=max,scope=pr-back
+
+      - name: Production PHP settings are loaded
+        # Here-strings, not pipes: `grep -q` closing a pipe early fails the step under pipefail.
+        run: |
+          settings=$(docker run --rm --entrypoint php ziggy-back:ci -i)
+          grep -E '^(opcache.validate_timestamps|opcache.memory_consumption|memory_limit|expose_php) ' <<< "$settings"
+          grep -qE '^opcache.validate_timestamps => Off' <<< "$settings"
+          grep -qE '^memory_limit => 512M' <<< "$settings"
+          grep -qE '^expose_php => Off' <<< "$settings"
+
+      - name: No dev or test values and no SPA copy in the image
+        run: docker run --rm --entrypoint sh ziggy-back:ci -c 'test ! -e .env.dev && test ! -e .env.test && test ! -e public/spa'
+
+      - name: The server boots and answers
+        run: |
+          # Throwaway values: Caddy's Mercure hub refuses to start without its keys.
+          docker run -d --name back -p 8080:8080 \
+            -e PORT=8080 \
+            -e APP_SECRET=ci-only-app-secret-not-used-anywhere-else \
+            -e JWT_PASSPHRASE=ci-only-jwt-passphrase \
+            -e MERCURE_PUBLISHER_JWT_KEY=ci-only-mercure-publisher-key-0000000000 \
+            -e MERCURE_SUBSCRIBER_JWT_KEY=ci-only-mercure-subscriber-key-000000000 \
+            ziggy-back:ci
+          for attempt in $(seq 1 60); do
+            curl -fsS -o /dev/null http://localhost:8080/health && break
+            sleep 2
+          done
+          headers=$(curl -fsS -D - -o /dev/null http://localhost:8080/health)
+          echo "$headers"
+          # expose_php = Off: PHP no longer announces itself.
+          if grep -qi '^x-powered-by:' <<< "$headers"; then
+            echo "X-Powered-By is still sent"
+            exit 1
+          fi
+
+      - name: Server logs
+        if: always()
+        run: docker logs back 2>&1 | tail -80 || true
+
+  frontend:
+    name: Frontend image (nginx compression and caching)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build the image
+        uses: docker/build-push-action@v7
+        with:
+          context: front
+          file: front/Dockerfile
+          load: true
+          tags: ziggy-front:ci
+          cache-from: type=gha,scope=pr-front
+          cache-to: type=gha,mode=max,scope=pr-front
+
+      - name: nginx serves the SPA compressed, with the right cache headers
+        run: |
+          expect() {
+            if ! grep -qi "$2" <<< "$1"; then
+              echo "expected: $2"
+              exit 1
+            fi
+          }
+
+          docker run -d --name front -p 8080:80 -e BACKEND_URL=http://backend.invalid:8080 ziggy-front:ci
+          for attempt in $(seq 1 30); do
+            curl -fsS -o /dev/null http://localhost:8080/ && break
+            sleep 1
+          done
+
+          index=$(curl -fsS -D - -o /dev/null http://localhost:8080/)
+          echo "$index"
+          expect "$index" '^cache-control: no-cache'
+          expect "$index" '^x-content-type-options: nosniff'
+
+          # A deep link falls back to index.html, revalidated too.
+          deep_link=$(curl -fsS -D - -o /dev/null http://localhost:8080/collection)
+          expect "$deep_link" '^cache-control: no-cache'
+
+          html=$(curl -fsS http://localhost:8080/)
+          bundle=$(grep -oE '/assets/[^"]+\.js' <<< "$html" | sed -n 1p)
+          test -n "$bundle"
+          asset=$(curl -fsS -D - -o /dev/null -H 'Accept-Encoding: gzip' "http://localhost:8080$bundle")
+          echo "$asset"
+          expect "$asset" '^cache-control: public, max-age=31536000, immutable'
+          expect "$asset" '^content-encoding: gzip'
+          expect "$asset" '^x-content-type-options: nosniff'
+
+          # A missing bundle is a 404, never index.html, and never cached.
+          missing=$(curl -s -D - -o /dev/null http://localhost:8080/assets/missing-chunk.js)
+          echo "$missing"
+          expect "$missing" '^HTTP/[0-9.]* 404'
+          if grep -qi '^cache-control:' <<< "$missing"; then
+            echo "a 404 bundle must not carry Cache-Control"
+            exit 1
+          fi
+
+      - name: nginx logs
+        if: always()
+        run: docker logs front 2>&1 | tail -40 || true

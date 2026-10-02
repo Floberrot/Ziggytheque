@@ -88,6 +88,16 @@ final class ProfileControllerTest extends AbstractApiTestCase
         $this->assertSame(202, $response->getStatusCode());
     }
 
+    public function testTestNotificationIsRateLimited(): void
+    {
+        // Every test sends a real email / Discord message: 5 per 15 minutes.
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->assertSame(202, $this->jsonRequest('POST', '/api/me/notifications/test')->getStatusCode());
+        }
+
+        $this->assertJsonStatus(429, $this->jsonRequest('POST', '/api/me/notifications/test'));
+    }
+
     public function testTestNotificationRequiresAuth(): void
     {
         $response = $this->jsonRequest('POST', '/api/me/notifications/test', auth: false);

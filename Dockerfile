@@ -1,16 +1,7 @@
-# ── Stage 1: Frontend build ────────────────────────────────────────────────────
-FROM node:22-alpine AS frontend
+# The SPA is not built here: the frontend service (front/Dockerfile, nginx) serves
+# it and proxies /api to this backend.
 
-WORKDIR /app
-
-COPY front/package.json front/package-lock.json ./
-RUN npm ci
-
-COPY front/ .
-RUN npm run build
-# Output: /app/dist/
-
-# ── Stage 2: PHP base ─────────────────────────────────────────────────────────
+# ── Stage 1: PHP base ─────────────────────────────────────────────────────────
 FROM dunglas/frankenphp:1-php8.4 AS base
 
 WORKDIR /app
@@ -24,7 +15,11 @@ RUN install-php-extensions \
 
 COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
 
-# ── Stage 3: PHP application code (shared by server and worker) ───────────────
+# Production php.ini (no error display, …) plus OPcache and limits for this app.
+RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
+COPY back/docker/php-prod.ini $PHP_INI_DIR/conf.d/zz-app-prod.ini
+
+# ── Stage 2: PHP application code (shared by server and worker) ───────────────
 FROM base AS app
 
 ENV APP_ENV=prod
@@ -36,6 +31,8 @@ ENV COMPOSER_ALLOW_SUPERUSER=1
 
 COPY back/ .
 
+# composer install also warms the prod cache (auto-scripts: cache:clear), so the
+# container starts on a built cache; the entrypoint only refreshes it.
 RUN composer install \
     --no-dev \
     --no-interaction && \
@@ -43,7 +40,7 @@ RUN composer install \
     --optimize \
     --classmap-authoritative
 
-# ── Stage 4: Messenger worker (no SPA, no Caddy — pure PHP consumer) ──────────
+# ── Stage 3: Messenger worker (no Caddy — pure PHP consumer) ──────────────────
 FROM app AS worker
 
 COPY back/worker-supervisor.sh /usr/local/bin/worker-supervisor.sh
@@ -51,11 +48,8 @@ RUN chmod +x /usr/local/bin/worker-supervisor.sh
 
 ENTRYPOINT ["worker-supervisor.sh"]
 
-# ── Stage 5: Production server (app + SPA + FrankenPHP/Caddy) — DEFAULT TARGET ─
+# ── Stage 4: Production server (app + FrankenPHP/Caddy) — DEFAULT TARGET ──────
 FROM app AS prod
-
-# Copy built Vue SPA into Symfony public directory (served by FrankenPHP as static files)
-COPY --from=frontend /app/dist /app/public/spa
 
 COPY back/Caddyfile /etc/caddy/Caddyfile
 COPY back/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
