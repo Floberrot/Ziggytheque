@@ -27,6 +27,18 @@ services:
             - '../src/*/Shared/Event/'
             - '../src/Auth/Domain/ValueObject/'
 
+    # Secrets report run at container start (names only, never values)
+    App\Shared\Infrastructure\Console\CheckSecretsCommand:
+        arguments:
+            $secrets:
+                APP_SECRET: '%env(default::APP_SECRET)%'
+                JWT_PASSPHRASE: '%env(default::JWT_PASSPHRASE)%'
+                GATE_PASSWORD: '%env(default::GATE_PASSWORD)%'
+                MONITOR_PASSWORD: '%env(default::MONITOR_PASSWORD)%'
+                MERCURE_PUBLISHER_JWT_KEY: '%env(default::MERCURE_PUBLISHER_JWT_KEY)%'
+                MERCURE_SUBSCRIBER_JWT_KEY: '%env(default::MERCURE_SUBSCRIBER_JWT_KEY)%'
+                SCAN_TOKEN_SECRET: '%env(default::SCAN_TOKEN_SECRET)%'
+
     # Auth providers
     App\Auth\Infrastructure\Http\MonitorUserProvider:
         arguments:

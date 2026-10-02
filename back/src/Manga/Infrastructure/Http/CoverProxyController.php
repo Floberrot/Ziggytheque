@@ -43,6 +43,23 @@ final readonly class CoverProxyController
         'catalogue.bnf.fr' => 2000,
     ];
 
+    /**
+     * Raster formats only: an SVG served from our own origin could run script next to
+     * the SPA (and its token).
+     *
+     * @var list<string>
+     */
+    private const array ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
+
+    /** Sent with every proxied image: never rendered as a document, never sniffed. */
+    private const array IMAGE_SECURITY_HEADERS = [
+        'Content-Security-Policy' => "default-src 'none'; sandbox",
+        'X-Content-Type-Options'  => 'nosniff',
+    ];
+
+    /** A missing cover stays missing for a while: no point asking upstream on every render. */
+    private const string MISSING_COVER_CACHE = 'public, max-age=86400';
+
     /** Upstream may redirect, but every hop is re-validated against the allowlist. */
     private const int MAX_REDIRECTS = 3;
 
@@ -105,15 +122,16 @@ final readonly class CoverProxyController
             }
 
             $contentType = $headers['content-type'][0] ?? '';
+            $mediaType   = strtolower(trim(explode(';', $contentType)[0]));
 
-            if ($status !== 200 || !str_starts_with($contentType, 'image/')) {
+            if ($status !== 200 || !in_array($mediaType, self::ALLOWED_IMAGE_TYPES, true)) {
                 $this->logger->warning('CoverProxy: upstream failed', [
                     'url'          => $url,
                     'status'       => $status,
                     'content_type' => $contentType,
                 ]);
 
-                return new Response('', Response::HTTP_NOT_FOUND);
+                return $this->missingCover();
             }
 
             $body = $this->readCapped($response);
@@ -128,15 +146,16 @@ final readonly class CoverProxyController
             }
 
             if (strlen($body) < $this->minimumBytesFor($currentUrl)) {
-                return new Response('', Response::HTTP_NOT_FOUND);
+                return $this->missingCover();
             }
 
             return new Response(
                 $body,
                 Response::HTTP_OK,
                 [
-                    'Content-Type' => $contentType,
+                    'Content-Type' => $mediaType,
                     'Cache-Control' => 'public, max-age=604800',
+                    ...self::IMAGE_SECURITY_HEADERS,
                 ],
             );
         }
@@ -199,6 +218,11 @@ final readonly class CoverProxyController
         $basePath = substr($basePath, 0, (int) strrpos($basePath, '/') + 1);
 
         return $origin . $basePath . $location;
+    }
+
+    private function missingCover(): Response
+    {
+        return new Response('', Response::HTTP_NOT_FOUND, ['Cache-Control' => self::MISSING_COVER_CACHE]);
     }
 
     private function minimumBytesFor(string $url): int

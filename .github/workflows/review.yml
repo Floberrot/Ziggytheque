@@ -231,6 +231,9 @@ SYSTEM_EOF
         id: claude
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Passed through the environment, never interpolated into the script:
+          # a PR title is attacker-controlled text.
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           if [ -z "$ANTHROPIC_API_KEY" ]; then
             echo "::warning::ANTHROPIC_API_KEY secret not set — skipping AI review"
@@ -247,7 +250,7 @@ SYSTEM_EOF
           jq -n \
             --rawfile system /tmp/system.txt \
             --rawfile diff /tmp/pr.diff \
-            --arg title "${{ github.event.pull_request.title }}" \
+            --arg title "$PR_TITLE" \
             '{
               model: "claude-opus-4-7",
               max_tokens: 4096,

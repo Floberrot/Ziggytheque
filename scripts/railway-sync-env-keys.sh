@@ -23,8 +23,9 @@
 #     and the script always exits 0.
 #
 # Source of truth = the committed .env files. `back/.env` is the canonical list
-# of backend vars (its defaults are live in prod: the image runs `composer
-# install` without `dump-env` and ships `back/.env`); `front/.env` for the SPA.
+# of backend vars (its non-secret defaults are live in prod: the image runs
+# `composer install` without `dump-env` and ships `back/.env`; secrets are left
+# empty there); `front/.env` for the SPA.
 # Keys that must NOT be managed on Railway are skipped via IGNORE_KEYS /
 # IGNORE_PATTERNS below — build-time vars, image-generated key paths,
 # Railway-provided references, and vars whose committed default is already the

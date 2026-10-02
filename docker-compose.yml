@@ -19,11 +19,11 @@ services:
       CORS_ALLOW_ORIGIN: "^https?://(localhost|127\\.0\\.0\\.1)(:[0-9]+)?$"
       MAILER_DSN: smtp://mailer:1025
       NOTIFICATION_EMAIL: you@example.com
-      MERCURE_PUBLISHER_JWT_KEY: "!ChangeThisLocalMercurePublisherKey!"
-      MERCURE_SUBSCRIBER_JWT_KEY: "!ChangeThisLocalMercureSubscriberKey!"
+      MERCURE_PUBLISHER_JWT_KEY: ziggy-dev-mercure-publisher-key-0001
+      MERCURE_SUBSCRIBER_JWT_KEY: ziggy-dev-mercure-subscriber-key-0001
       MERCURE_URL: http://back:80/.well-known/mercure
       MERCURE_PUBLIC_URL: http://localhost:8000/.well-known/mercure
-      SCAN_TOKEN_SECRET: "!ChangeThisLocalScanTokenSecret32c!"
+      SCAN_TOKEN_SECRET: ziggy-dev-scan-token-secret-key-00001
     depends_on:
       db:
         condition: service_healthy
@@ -69,7 +69,10 @@ services:
       dockerfile: Dockerfile.dev
     command: ["sh", "/app/worker-supervisor.sh"]
     restart: unless-stopped
+    # The local worker runs APP_ENV=prod, so Symfony does not read .env.dev itself:
+    # its local secrets come from it here (.env.local still wins).
     env_file:
+      - ./back/.env.dev
       - ./back/.env.local
     volumes:
       - ./back:/app
@@ -80,8 +83,6 @@ services:
       MESSENGER_TRANSPORT_DSN: doctrine://default?auto_setup=0
       MAILER_DSN: smtp://mailer:1025
       NOTIFICATION_EMAIL: you@example.com
-      MERCURE_PUBLISHER_JWT_KEY: "!ChangeThisLocalMercurePublisherKey!"
-      MERCURE_SUBSCRIBER_JWT_KEY: "!ChangeThisLocalMercureSubscriberKey!"
       MERCURE_URL: http://back:80/.well-known/mercure
       MERCURE_PUBLIC_URL: http://localhost:8000/.well-known/mercure
       NO_PROXY: "back,db,mailer,localhost,127.0.0.1"

@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Auth\Application\Gate;
 
+use App\Auth\Domain\Exception\GateDisabledException;
 use App\Auth\Domain\Exception\InvalidGatePasswordException;
 use App\Auth\Domain\User;
 use App\Auth\Shared\Event\GateFailedEvent;
 use App\Auth\Shared\Event\GateStartedEvent;
 use App\Auth\Shared\Event\GateSucceededEvent;
 use App\Shared\Application\Bus\EventBusInterface;
+use App\Shared\Domain\Security\SecretStrength;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Throwable;
@@ -30,6 +32,11 @@ final readonly class GateHandler
         $this->eventBus->publish($started);
 
         try {
+            // A placeholder or default password must not unlock the admin area.
+            if (SecretStrength::isWeak($this->gatePassword, SecretStrength::MIN_PASSWORD_LENGTH)) {
+                throw new GateDisabledException();
+            }
+
             if (!hash_equals($this->gatePassword, $command->password)) {
                 throw new InvalidGatePasswordException();
             }

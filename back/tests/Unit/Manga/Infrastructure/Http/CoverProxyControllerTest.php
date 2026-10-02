@@ -141,6 +141,38 @@ final class CoverProxyControllerTest extends TestCase
         self::assertSame(Response::HTTP_NOT_FOUND, $this->handle($client, self::ALLOWED)->getStatusCode());
     }
 
+    public function testServedImagesCannotRunAsADocument(): void
+    {
+        $client   = new MockHttpClient(new MockResponse('IMAGE-BYTES', [
+            'response_headers' => ['content-type' => 'image/png; charset=binary'],
+        ]));
+        $response = $this->handle($client, self::ALLOWED);
+
+        self::assertSame(Response::HTTP_OK, $response->getStatusCode());
+        self::assertSame('image/png', $response->headers->get('Content-Type'));
+        self::assertSame("default-src 'none'; sandbox", $response->headers->get('Content-Security-Policy'));
+        self::assertSame('nosniff', $response->headers->get('X-Content-Type-Options'));
+    }
+
+    /** An SVG served from our origin could run script next to the SPA. */
+    public function testRefusesAnSvgImage(): void
+    {
+        $client = new MockHttpClient(new MockResponse('<svg onload="alert(1)"/>', [
+            'response_headers' => ['content-type' => 'image/svg+xml'],
+        ]));
+
+        self::assertSame(Response::HTTP_NOT_FOUND, $this->handle($client, self::ALLOWED)->getStatusCode());
+    }
+
+    public function testAMissingCoverIsCachedByTheBrowser(): void
+    {
+        $client   = new MockHttpClient(new MockResponse('', ['http_code' => 404]));
+        $response = $this->handle($client, self::ALLOWED);
+
+        self::assertSame(Response::HTTP_NOT_FOUND, $response->getStatusCode());
+        self::assertSame('86400', $response->headers->getCacheControlDirective('max-age'));
+    }
+
     public function testServesABnfCoverWithTheBnfReferer(): void
     {
         $sentHeaders = [];
