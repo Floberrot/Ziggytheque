@@ -1,9 +1,33 @@
+# Vite's hashed bundles (/assets/*) never change once built: a year, immutable.
+# Everything else the SPA serves (index.html, icons) is revalidated on each load,
+# so a deploy is picked up at once. Empty = no header: the backend's own
+# Cache-Control stands on what nginx proxies.
+map $uri $static_cache_control {
+    ~^/assets/                   "public, max-age=31536000, immutable";
+    ~^/(api|proxy|\.well-known)/ "";
+    default                      "no-cache";
+}
+
 server {
     listen 80;
     server_name _;
 
     root /usr/share/nginx/html;
     index index.html;
+
+    # Not `always`: an error (a bundle 404) must never be cached for a year.
+    add_header Cache-Control $static_cache_control;
+
+    # The bundles are text: compress them (html is always compressed when on).
+    # The backend compresses its own responses; nginx never compresses twice,
+    # and the Mercure event stream (text/event-stream) is not in the list.
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_types text/css text/javascript application/javascript application/json
+               application/manifest+json image/svg+xml text/plain;
 
     # Baseline hardening. `always` so they are set on error responses too.
     # No CSP here: the SPA's inline styles and the camera-based scanner need a
@@ -59,6 +83,12 @@ server {
         proxy_cache off;
         proxy_read_timeout 24h;
         chunked_transfer_encoding off;
+    }
+
+    # A bundle missing after a deploy is a 404, not index.html served as script
+    # (the SPA reloads itself on a failed chunk, see main.ts).
+    location /assets/ {
+        try_files $uri =404;
     }
 
     # SPA fallback: all unknown routes → index.html

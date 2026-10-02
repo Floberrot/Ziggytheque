@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, defineAsyncComponent, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useI18n } from 'vue-i18n'
@@ -11,7 +11,6 @@ import { useLongPress } from '@/composables/useLongPress'
 import { useUiStore } from '@/stores/useUiStore'
 import type { CollectionEntry, QuickActionRequest } from '@/types'
 import StatCard from '@/components/molecules/StatCard.vue'
-import GenrePieChart from '@/components/molecules/GenrePieChart.vue'
 import MonthlyAdditionsChart from '@/components/molecules/MonthlyAdditionsChart.vue'
 import ReadingStatusBar from '@/components/molecules/ReadingStatusBar.vue'
 import TopAuthorsList from '@/components/molecules/TopAuthorsList.vue'
@@ -20,6 +19,9 @@ import CollectionQuickActions from '@/components/organisms/CollectionQuickAction
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
 import BaseCover from '@/components/atoms/BaseCover.vue'
 import { editionLabel } from '@/utils/edition'
+
+// chart.js comes after the page, not with it: the figures show first.
+const GenrePieChart = defineAsyncComponent(() => import('@/components/molecules/GenrePieChart.vue'))
 
 const { t, locale } = useI18n()
 const { data: stats, isPending } = useQuery({ queryKey: ['stats'], queryFn: getStats })

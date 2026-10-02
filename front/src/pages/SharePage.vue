@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, defineAsyncComponent } from 'vue'
 import { useRoute } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
 import { useI18n } from 'vue-i18n'
@@ -7,7 +7,9 @@ import { BookMarked, Layers, BookOpen, Heart, ArrowRight, Library } from 'lucide
 import { getShare } from '@/api/share'
 import AppLogo from '@/components/atoms/AppLogo.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
-import GenrePieChart from '@/components/molecules/GenrePieChart.vue'
+
+// chart.js comes after the page, not with it.
+const GenrePieChart = defineAsyncComponent(() => import('@/components/molecules/GenrePieChart.vue'))
 
 const route = useRoute()
 const { t, locale } = useI18n()

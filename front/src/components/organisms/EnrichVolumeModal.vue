@@ -282,8 +282,9 @@ watch(() => props.open, (open) => {
 
 // Reset + (re)launch the title search whenever the targeted tome changes — covers
 // both opening the modal and switching from one tome to another while it stays open.
+// Immediate: the page loads this component lazily, so it can mount already open.
 watch(() => props.volume?.id ?? null, (volumeEntryId, previousId) => {
-  if (volumeEntryId === previousId) return
+  if (volumeEntryId === (previousId ?? null)) return
   resetTransientState()
   const vol = props.volume
   if (props.open && vol && !vol.coverUrl && mode.value !== 'prix') {
@@ -294,7 +295,7 @@ watch(() => props.volume?.id ?? null, (volumeEntryId, previousId) => {
   if (props.open && mode.value === 'prix') {
     loadPrices()
   }
-})
+}, { immediate: true })
 
 // Stop the camera when leaving the Scan tab, auto-fill ISBN from stored ISBN,
 // and load prices on first opening of the prix tab.

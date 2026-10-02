@@ -81,6 +81,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->status = UserStatusEnum::Disabled;
     }
 
+    /** Only an active account may use the API (pending and disabled ones may not). */
+    public function isActive(): bool
+    {
+        return $this->status === UserStatusEnum::Active;
+    }
+
     public function changePassword(string $newPasswordHash): void
     {
         $this->passwordHash = $newPasswordHash;
@@ -122,7 +128,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             $roles[] = UserRoleEnum::Admin->value;
         }
 
-        if ($this->adminUnlocked) {
+        // The unlock rides in the token: an admin demoted since keeps the flag
+        // but must not keep the admin area.
+        if ($this->adminUnlocked && $this->role === UserRoleEnum::Admin) {
             $roles[] = 'ROLE_ADMIN_UNLOCKED';
         }
 

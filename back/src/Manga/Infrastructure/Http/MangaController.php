@@ -17,6 +17,8 @@ use App\Manga\Application\Update\UpdateMangaCommand;
 use App\Manga\Application\UpdateVolume\UpdateVolumeCommand;
 use App\Shared\Application\Bus\CommandBusInterface;
 use App\Shared\Application\Bus\QueryBusInterface;
+use App\Shared\Domain\Security\CurrentUserProviderInterface;
+use App\Shared\Infrastructure\RateLimit\CacheRateLimiter;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -26,9 +28,18 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/api/manga')]
 final readonly class MangaController
 {
+    /** Lookups that call outside services (cover sources, translation, price sites). */
+    private const int EXTERNAL_LOOKUP_LIMIT  = 30;
+    private const int EXTERNAL_LOOKUP_WINDOW = 60;
+    /** A cover batch fans out to every tome of the series. */
+    private const int COVER_BATCH_LIMIT  = 5;
+    private const int COVER_BATCH_WINDOW = 600;
+
     public function __construct(
         private CommandBusInterface $commandBus,
         private QueryBusInterface $queryBus,
+        private CacheRateLimiter $rateLimiter,
+        private CurrentUserProviderInterface $currentUserProvider,
     ) {
     }
 
@@ -43,6 +54,7 @@ final readonly class MangaController
     #[Route('/cover-by-isbn', methods: ['GET'])]
     public function coverByIsbn(Request $request): JsonResponse
     {
+        $this->consumeExternalLookupQuota();
         $isbn = $request->query->get('isbn', '');
 
         // Grouped result: every source's cover for this ISBN (empty array when none).
@@ -53,6 +65,7 @@ final readonly class MangaController
     #[Route('/volume-search', methods: ['GET'])]
     public function searchVolumeExternal(Request $request): JsonResponse
     {
+        $this->consumeExternalLookupQuota();
         $query        = $request->query->get('q', '');
         $page         = max(1, (int) $request->query->get('page', 1));
         $volumeNumber = $request->query->get('volumeNumber') !== null
@@ -74,6 +87,8 @@ final readonly class MangaController
     #[Route('/translate-summary', methods: ['POST'])]
     public function translateSummary(#[MapRequestPayload] TranslateSummaryRequest $request): JsonResponse
     {
+        $this->consumeExternalLookupQuota();
+
         return new JsonResponse($this->queryBus->ask(new TranslateSummaryQuery($request->text)));
     }
 
@@ -150,6 +165,12 @@ final readonly class MangaController
     #[Route('/{id}/auto-covers', methods: ['POST'])]
     public function autoCovers(string $id, #[MapRequestPayload] AutoCoversRequest $request): JsonResponse
     {
+        $this->rateLimiter->consume(
+            'cover-batch:' . $this->currentUserProvider->currentUserId(),
+            self::COVER_BATCH_LIMIT,
+            self::COVER_BATCH_WINDOW,
+        );
+
         $result = $this->commandBus->dispatch(new StartCoverBatchCommand(
             mangaId: $id,
             force: $request->force,
@@ -163,10 +184,22 @@ final readonly class MangaController
     #[Route('/{id}/volumes/{volumeId}/prices', methods: ['GET'])]
     public function volumePrices(string $id, string $volumeId, Request $request): JsonResponse
     {
+        $this->consumeExternalLookupQuota();
+
         return new JsonResponse($this->queryBus->ask(new GetVolumePricesQuery(
             mangaId:     $id,
             volumeId:    $volumeId,
             marketplace: $request->query->get('marketplace'),
         )));
+    }
+
+    /** Per account (see CatalogueController): a looping client cannot hammer the outside services. */
+    private function consumeExternalLookupQuota(): void
+    {
+        $this->rateLimiter->consume(
+            'manga-external:' . $this->currentUserProvider->currentUserId(),
+            self::EXTERNAL_LOOKUP_LIMIT,
+            self::EXTERNAL_LOOKUP_WINDOW,
+        );
     }
 }

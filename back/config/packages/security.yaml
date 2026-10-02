@@ -30,6 +30,7 @@ security:
             pattern: ^/api
             stateless: true
             provider: app_user_provider
+            user_checker: App\Auth\Infrastructure\Security\ActiveUserChecker
             jwt: ~
 
     access_control:
