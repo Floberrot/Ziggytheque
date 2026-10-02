@@ -5,20 +5,23 @@ import { useI18n } from 'vue-i18n'
 import type { RetailerOffer } from '@/api/manga'
 import BaseMerchantLogo from '@/components/atoms/BaseMerchantLogo.vue'
 import { formatPrice } from '@/utils/price'
+import { safeUrl } from '@/utils/safeUrl'
 
 const props = defineProps<{ retailer: RetailerOffer }>()
 
 const { t } = useI18n()
 
 const found = computed(() => props.retailer.status === 'found' && props.retailer.bestOffer !== null)
+// A scraped offer link: http(s) only.
+const offerUrl = computed(() => (found.value ? safeUrl(props.retailer.bestOffer?.url) : undefined))
 </script>
 
 <template>
   <component
-    :is="found && retailer.bestOffer?.url ? 'a' : 'div'"
-    :href="found ? (retailer.bestOffer?.url ?? undefined) : undefined"
-    :target="found && retailer.bestOffer?.url ? '_blank' : undefined"
-    :rel="found && retailer.bestOffer?.url ? 'noopener noreferrer' : undefined"
+    :is="offerUrl ? 'a' : 'div'"
+    :href="offerUrl"
+    :target="offerUrl ? '_blank' : undefined"
+    :rel="offerUrl ? 'noopener noreferrer' : undefined"
     class="flex flex-col items-center gap-2 p-3 rounded-xl border text-center transition-all duration-150"
     :class="found
       ? 'border-base-300/70 bg-base-100 hover:border-primary/50 hover:shadow-md'
@@ -33,7 +36,7 @@ const found = computed(() => props.retailer.status === 'found' && props.retailer
       <span class="text-base font-bold tabular-nums leading-none">
         {{ formatPrice(retailer.bestOffer.amount, retailer.bestOffer.currency) }}
       </span>
-      <span v-if="retailer.bestOffer.url" class="inline-flex items-center gap-1 text-[11px] text-primary/80 font-medium">
+      <span v-if="offerUrl" class="inline-flex items-center gap-1 text-[11px] text-primary/80 font-medium">
         <ExternalLink class="h-3 w-3" />
         {{ t('prices.viewOn', { merchant: retailer.label }) }}
       </span>

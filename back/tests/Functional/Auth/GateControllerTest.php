@@ -17,7 +17,7 @@ final class GateControllerTest extends AbstractApiTestCase
     public function testValidPasswordReturnsAdminUnlockedToken(): void
     {
         // $this->token is already a ROLE_ADMIN JWT (set up in AbstractApiTestCase::setUp)
-        $response = $this->jsonRequest('POST', '/api/auth/gate', ['password' => 'ziggy123']);
+        $response = $this->jsonRequest('POST', '/api/auth/gate', ['password' => 'test-gate-password']);
         $data     = $this->assertJsonStatus(200, $response);
 
         $this->assertArrayHasKey('token', $data);
@@ -45,7 +45,7 @@ final class GateControllerTest extends AbstractApiTestCase
 
     public function testGateRequiresAuthentication(): void
     {
-        $response = $this->jsonRequest('POST', '/api/auth/gate', ['password' => 'ziggy123'], auth: false);
+        $response = $this->jsonRequest('POST', '/api/auth/gate', ['password' => 'test-gate-password'], auth: false);
         $this->assertSame(401, $response->getStatusCode());
     }
 
@@ -76,7 +76,7 @@ final class GateControllerTest extends AbstractApiTestCase
                 'CONTENT_TYPE'      => 'application/json',
                 'HTTP_AUTHORIZATION' => 'Bearer ' . $userToken,
             ],
-            (string) json_encode(['password' => 'ziggy123']),
+            (string) json_encode(['password' => 'test-gate-password']),
         );
 
         $this->assertSame(403, $this->client->getResponse()->getStatusCode());

@@ -10,6 +10,10 @@ else
     echo "[entrypoint] JWT keypair already present, skipping generation."
 fi
 
+echo "[entrypoint] Checking secrets..."
+php bin/console app:security:check-secrets --env=prod \
+    || echo "[entrypoint] WARNING: weak or placeholder secrets (listed above) — set them in the environment."
+
 echo "[entrypoint] Warming up Symfony cache..."
 php bin/console cache:warmup --env=prod \
     || echo "[entrypoint] Warning: cache warmup failed, continuing..."

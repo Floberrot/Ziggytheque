@@ -275,7 +275,7 @@ final class ActivityLogControllerTest extends AbstractApiTestCase
 
     private function getAdminUnlockedToken(): string
     {
-        $gateResponse = $this->jsonRequest('POST', '/api/auth/gate', ['password' => 'ziggy123']);
+        $gateResponse = $this->jsonRequest('POST', '/api/auth/gate', ['password' => 'test-gate-password']);
         /** @var array{token?: string} $data */
         $data = json_decode((string) $gateResponse->getContent(), true);
 

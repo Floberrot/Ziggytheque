@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import type { Article } from '@/types'
 import BaseCover from '@/components/atoms/BaseCover.vue'
+import { safeUrl } from '@/utils/safeUrl'
 
 defineProps<{ article: Article }>()
 
@@ -11,7 +12,7 @@ const previewFailed = ref(false)
 
 <template>
   <a
-    :href="article.url"
+    :href="safeUrl(article.url)"
     target="_blank"
     rel="noopener noreferrer"
     class="card card-side bg-base-200 shadow hover:shadow-lg transition-shadow duration-200 overflow-hidden group"

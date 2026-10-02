@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import type { PriceOffer } from '@/api/manga'
 import BaseMerchantLogo from '@/components/atoms/BaseMerchantLogo.vue'
 import { formatPrice } from '@/utils/price'
+import { safeUrl } from '@/utils/safeUrl'
 
 defineProps<{ offer: PriceOffer }>()
 
@@ -31,8 +32,8 @@ const { t } = useI18n()
         {{ formatPrice(offer.amount, offer.currency) }}
       </span>
       <a
-        v-if="offer.url"
-        :href="offer.url"
+        v-if="safeUrl(offer.url)"
+        :href="safeUrl(offer.url)"
         target="_blank"
         rel="noopener noreferrer"
         class="btn btn-ghost btn-xs btn-circle"

@@ -11,6 +11,7 @@ use App\Notification\Domain\Service\MangaArticleMatcher;
 use App\Notification\Domain\Service\RssFeedParserException;
 use App\Notification\Domain\Service\RssFeedParserInterface;
 use App\Notification\Domain\Service\RssFetchResult;
+use App\Shared\Domain\ValueObject\WebLink;
 use DateTimeImmutable;
 use DateTimeInterface;
 use SimpleXMLElement;
@@ -85,7 +86,8 @@ final readonly class RssFeedParser implements RssFeedParserInterface
             $itemDate = (string) ($item->pubDate ?? $item->children('dc', true)->date ?? '');
 
             // The work must be named in the article — a loose keyword overlap is not enough.
-            if ($itemUrl === '' || !$this->matcher->mentions($mangaTitle, $itemTitle . ' ' . $itemDesc)) {
+            // The link ends up in an href: http(s) only.
+            if (!WebLink::isWebLink($itemUrl) || !$this->matcher->mentions($mangaTitle, $itemTitle . ' ' . $itemDesc)) {
                 continue;
             }
 

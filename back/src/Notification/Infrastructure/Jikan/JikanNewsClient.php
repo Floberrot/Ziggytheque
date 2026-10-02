@@ -10,6 +10,7 @@ use App\Notification\Domain\ArticleRepositoryInterface;
 use App\Notification\Domain\Service\JikanFetchResult;
 use App\Notification\Domain\Service\JikanNewsClientInterface;
 use App\Notification\Domain\Service\MangaArticleMatcher;
+use App\Shared\Domain\ValueObject\WebLink;
 use DateTimeImmutable;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -38,7 +39,8 @@ final readonly class JikanNewsClient implements JikanNewsClientInterface
         $newCount = 0;
         foreach ($items as $item) {
             $url = $item['url'] ?? null;
-            if ($url === null) {
+            // The link ends up in an href: http(s) only.
+            if (!is_string($url) || !WebLink::isWebLink($url)) {
                 continue;
             }
             $itemTitle   = (string) ($item['title'] ?? '');

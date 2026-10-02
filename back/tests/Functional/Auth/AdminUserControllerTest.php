@@ -21,7 +21,7 @@ final class AdminUserControllerTest extends AbstractApiTestCase
 
     public function testListUsersWithAdminUnlockedToken(): void
     {
-        $gateResponse = $this->jsonRequest('POST', '/api/auth/gate', ['password' => 'ziggy123']);
+        $gateResponse = $this->jsonRequest('POST', '/api/auth/gate', ['password' => 'test-gate-password']);
         /** @var array{token?: string} $gateData */
         $gateData      = json_decode((string) $gateResponse->getContent(), true);
         $unlockedToken = $gateData['token'] ?? '';
@@ -194,7 +194,7 @@ final class AdminUserControllerTest extends AbstractApiTestCase
 
     private function getAdminUnlockedToken(): string
     {
-        $gateResponse = $this->jsonRequest('POST', '/api/auth/gate', ['password' => 'ziggy123']);
+        $gateResponse = $this->jsonRequest('POST', '/api/auth/gate', ['password' => 'test-gate-password']);
         /** @var array{token?: string} $data */
         $data = json_decode((string) $gateResponse->getContent(), true);
 
