@@ -306,7 +306,9 @@ jobs:
           cache-dependency-path: front/package-lock.json
       - run: npm ci
       - run: npm run type-check
-      - run: npm run lint
+      # lint:check, not lint (eslint --fix would hide fixable errors from the gate)
+      - run: npm run lint:check
+      - run: npm test
 
   # --- Docker build validation -----------------------------------------------
 
