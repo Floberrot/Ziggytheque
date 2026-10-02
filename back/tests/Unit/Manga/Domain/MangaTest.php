@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Manga\Domain;
 
+use App\Manga\Domain\Exception\TooManyVolumesException;
+use App\Manga\Domain\Exception\VolumeAlreadyExistsException;
 use App\Manga\Domain\GenreEnum;
 use App\Manga\Domain\Manga;
 use App\Manga\Domain\Volume;
@@ -118,5 +120,34 @@ final class MangaTest extends TestCase
         $this->assertCount(4, $manga->volumes);
         $this->assertSame($existing, $manga->volumeByNumber(2));
         $this->assertSame([], $manga->ensureVolumesUpTo(3));
+    }
+
+    public function testEnsureVolumesUpToAcceptsTheLongestSeries(): void
+    {
+        $manga = $this->makeManga();
+
+        $this->assertCount(Manga::MAX_VOLUMES, $manga->ensureVolumesUpTo(Manga::MAX_VOLUMES));
+    }
+
+    /** No series has thousands of tomes: nothing is created past the bound. */
+    public function testEnsureVolumesUpToRefusesAnAbsurdCount(): void
+    {
+        $manga = $this->makeManga();
+
+        try {
+            $manga->ensureVolumesUpTo(Manga::MAX_VOLUMES + 1);
+            $this->fail('An absurd tome count must be refused.');
+        } catch (TooManyVolumesException) {
+            $this->assertCount(0, $manga->volumes);
+        }
+    }
+
+    public function testAnotherVolumeWithTheSameNumberIsRefused(): void
+    {
+        $manga = $this->makeManga();
+        $manga->addVolume(new Volume(id: 'v1', manga: $manga, number: 1));
+
+        $this->expectException(VolumeAlreadyExistsException::class);
+        $manga->addVolume(new Volume(id: 'v1-bis', manga: $manga, number: 1));
     }
 }

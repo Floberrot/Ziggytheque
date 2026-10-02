@@ -13,12 +13,14 @@ use Symfony\Contracts\Cache\ItemInterface;
 
 /**
  * Keeps catalogue answers for an hour: scanning a whole shelf of one series asks the
- * catalogue for the same work again and again. Empty answers are not kept, so a
- * catalogue outage does not stick.
+ * catalogue for the same work again and again. An empty answer is kept five minutes
+ * (a real "nothing found" — an outage raises CatalogueUnavailableException, which is
+ * never cached).
  */
 final readonly class CachedCatalogue implements CatalogueInterface
 {
     private const int TTL_SECONDS = 3600;
+    private const int EMPTY_TTL_SECONDS = 300;
 
     public function __construct(
         private CatalogueInterface $inner,
@@ -64,7 +66,7 @@ final readonly class CachedCatalogue implements CatalogueInterface
         /** @var list<CatalogueRecord> $records */
         $records = $this->cache->get($cacheKey, static function (ItemInterface $item) use ($fetch): array {
             $records = $fetch();
-            $item->expiresAfter($records === [] ? 1 : self::TTL_SECONDS);
+            $item->expiresAfter($records === [] ? self::EMPTY_TTL_SECONDS : self::TTL_SECONDS);
 
             return $records;
         });

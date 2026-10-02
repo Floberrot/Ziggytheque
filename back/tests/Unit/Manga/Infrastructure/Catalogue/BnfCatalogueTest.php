@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Manga\Infrastructure\Catalogue;
 
+use App\Manga\Domain\Exception\CatalogueUnavailableException;
 use App\Manga\Domain\Isbn;
 use App\Manga\Domain\Service\CatalogueTitleParser;
 use App\Manga\Domain\Service\EditionRelevanceFilter;
@@ -105,14 +106,26 @@ final class BnfCatalogueTest extends TestCase
         $this->assertStringContainsString('query=bib.title all "Berserk"', $this->requestedUrls[0]);
     }
 
-    public function testNon200ReturnsNoRecord(): void
+    /** A BnF outage must not read as "no French edition". */
+    public function testAServerErrorIsAnOutage(): void
     {
-        $this->assertSame([], $this->makeCatalogue(new MockResponse('', ['http_code' => 503]))->searchByTitle('Berserk'));
+        $this->expectException(CatalogueUnavailableException::class);
+
+        $this->makeCatalogue(new MockResponse('', ['http_code' => 503]))->searchByTitle('Berserk');
     }
 
-    public function testTransportErrorReturnsNoRecord(): void
+    public function testATimeoutIsAnOutage(): void
     {
-        $this->assertSame([], $this->makeCatalogue(new TransportException('timeout'))->searchByTitle('Berserk'));
+        $this->expectException(CatalogueUnavailableException::class);
+
+        $this->makeCatalogue(new TransportException('timeout'))->searchByTitle('Berserk');
+    }
+
+    public function testAnUnreadableAnswerIsAnOutage(): void
+    {
+        $this->expectException(CatalogueUnavailableException::class);
+
+        $this->makeCatalogue(new MockResponse('<html>maintenance'))->searchByTitle('Berserk');
     }
 
     public function testEmptyBodyReturnsNoRecord(): void

@@ -7,7 +7,6 @@ namespace App\Manga\Application\Import;
 use App\Manga\Domain\GenreEnum;
 use App\Manga\Domain\Manga;
 use App\Manga\Domain\MangaRepositoryInterface;
-use App\Manga\Domain\Volume;
 use App\Manga\Shared\Event\ImportMangaFailedEvent;
 use App\Manga\Shared\Event\ImportMangaStartedEvent;
 use App\Manga\Shared\Event\ImportMangaSucceededEvent;
@@ -44,15 +43,9 @@ final readonly class ImportMangaHandler
                 specialEdition: $command->specialEdition,
             );
 
-            // Auto-create volume placeholders when total is known from external API
+            // Volume placeholders when the total is known.
             if ($command->totalVolumes !== null && $command->totalVolumes > 0) {
-                for ($n = 1; $n <= $command->totalVolumes; $n++) {
-                    $manga->addVolume(new Volume(
-                        id: Uuid::v4()->toRfc4122(),
-                        manga: $manga,
-                        number: $n,
-                    ));
-                }
+                $manga->ensureVolumesUpTo($command->totalVolumes);
             }
 
             $this->repository->save($manga);

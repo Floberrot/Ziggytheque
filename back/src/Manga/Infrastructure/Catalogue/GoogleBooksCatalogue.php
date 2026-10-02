@@ -6,6 +6,7 @@ namespace App\Manga\Infrastructure\Catalogue;
 
 use App\Manga\Domain\Catalogue\CatalogueInterface;
 use App\Manga\Domain\Catalogue\CatalogueRecord;
+use App\Manga\Domain\Exception\CatalogueUnavailableException;
 use App\Manga\Domain\Isbn;
 use App\Manga\Domain\Service\CatalogueTitleParser;
 use App\Manga\Domain\Service\EditionRelevanceFilter;
@@ -71,20 +72,22 @@ final readonly class GoogleBooksCatalogue implements CatalogueInterface
             ]);
 
             if ($response->getStatusCode() !== 200) {
-                $this->logger->info(self::LOG_PREFIX . 'search; NOT 200.', ['status' => $response->getStatusCode()]);
+                $this->logger->warning(self::LOG_PREFIX . 'search; NOT 200.', ['status' => $response->getStatusCode()]);
 
-                return [];
+                throw new CatalogueUnavailableException('Google Books');
             }
 
-            /** @var array{items?: list<array<string, mixed>>} $payload */
+            /** @var array{items?: list<array<string, mixed>>}|null $payload */
             $payload = json_decode($response->getContent(), true);
+        } catch (CatalogueUnavailableException $exception) {
+            throw $exception;
         } catch (Throwable $exception) {
             $this->logger->error(self::LOG_PREFIX . 'search; ERROR.', [
                 'query' => $googleQuery,
                 'error' => $exception->getMessage(),
             ]);
 
-            return [];
+            throw new CatalogueUnavailableException('Google Books');
         }
 
         $records = [];

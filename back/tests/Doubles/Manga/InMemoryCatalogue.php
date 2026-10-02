@@ -6,6 +6,7 @@ namespace App\Tests\Doubles\Manga;
 
 use App\Manga\Domain\Catalogue\CatalogueInterface;
 use App\Manga\Domain\Catalogue\CatalogueRecord;
+use App\Manga\Domain\Exception\CatalogueUnavailableException;
 use App\Manga\Domain\Isbn;
 use App\Manga\Domain\TextFold;
 
@@ -18,6 +19,9 @@ final class InMemoryCatalogue implements CatalogueInterface
 {
     /** @var list<CatalogueRecord> */
     private array $records = [];
+
+    /** Every search fails as a real catalogue outage would. */
+    private bool $down = false;
 
     /** @var array<string, list<CatalogueRecord>> ISBN → records the catalogue answers for it */
     private array $isbnAnswers = [];
@@ -36,14 +40,21 @@ final class InMemoryCatalogue implements CatalogueInterface
         $this->add(...$records);
     }
 
+    public function simulateOutage(): void
+    {
+        $this->down = true;
+    }
+
     public function reset(): void
     {
+        $this->down = false;
         $this->records     = [];
         $this->isbnAnswers = [];
     }
 
     public function searchByTitle(string $title): array
     {
+        $this->failIfDown();
         $foldedTitle = TextFold::fold($title);
 
         return array_values(array_filter(
@@ -57,6 +68,7 @@ final class InMemoryCatalogue implements CatalogueInterface
 
     public function searchByAuthor(string $author): array
     {
+        $this->failIfDown();
         $foldedAuthor = TextFold::fold($author);
 
         return array_values(array_filter(
@@ -67,6 +79,8 @@ final class InMemoryCatalogue implements CatalogueInterface
 
     public function findByIsbn(Isbn $isbn): array
     {
+        $this->failIfDown();
+
         if (isset($this->isbnAnswers[$isbn->value])) {
             return $this->isbnAnswers[$isbn->value];
         }
@@ -75,5 +89,12 @@ final class InMemoryCatalogue implements CatalogueInterface
             $this->records,
             static fn (CatalogueRecord $record): bool => $record->isbn !== null && $record->isbn->equals($isbn),
         ));
+    }
+
+    private function failIfDown(): void
+    {
+        if ($this->down) {
+            throw new CatalogueUnavailableException('in-memory');
+        }
     }
 }

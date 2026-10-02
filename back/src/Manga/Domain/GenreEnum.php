@@ -20,4 +20,10 @@ enum GenreEnum: string
     case SliceOfLife = 'slice_of_life';
     case Sports = 'sports';
     case Other = 'other';
+
+    /** @return list<string> */
+    public static function values(): array
+    {
+        return array_map(static fn (self $genre): string => $genre->value, self::cases());
+    }
 }

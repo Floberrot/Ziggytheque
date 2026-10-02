@@ -19,7 +19,6 @@ use App\Collection\Application\UpdateRating\UpdateRatingCommand;
 use App\Shared\Application\Bus\CommandBusInterface;
 use App\Shared\Application\Bus\QueryBusInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -127,10 +126,6 @@ final readonly class CollectionController
         return new Response(null, Response::HTTP_NO_CONTENT);
     }
 
-    /**
-     * Sync volume placeholders for ongoing manga.
-     * Body: { upToVolume: 30 } — creates missing Volume and VolumeEntry records up to that number.
-     */
     #[Route('/{id}/follow', methods: ['PATCH'])]
     public function toggleFollow(string $id): JsonResponse
     {
@@ -139,13 +134,16 @@ final readonly class CollectionController
         return new JsonResponse(['notificationsEnabled' => $enabled]);
     }
 
+    /**
+     * Sync volume placeholders for ongoing manga.
+     * Body: { upToVolume: 30 } — creates missing Volume and VolumeEntry records up to that number.
+     */
     #[Route('/{id}/sync-volumes', methods: ['POST'])]
-    public function syncVolumes(string $id, Request $request): JsonResponse
-    {
-        $body = json_decode($request->getContent(), true) ?? [];
-        $upToVolume = isset($body['upToVolume']) ? (int) $body['upToVolume'] : null;
-
-        $this->commandBus->dispatch(new SyncVolumesCommand($id, $upToVolume));
+    public function syncVolumes(
+        string $id,
+        #[MapRequestPayload] SyncVolumesRequest $request = new SyncVolumesRequest(),
+    ): JsonResponse {
+        $this->commandBus->dispatch(new SyncVolumesCommand($id, $request->upToVolume));
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }

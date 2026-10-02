@@ -5,6 +5,13 @@ framework:
     # Note that the session will be started ONLY if you read or write from it.
     session: true
 
+    # No external call may hang a request: BnF, Google Books, covers, prices,
+    # Jikan… A client that needs more sets its own timeout per request.
+    http_client:
+        default_options:
+            timeout: 6
+            max_duration: 15
+
     #esi: true
     #fragments: true
 
