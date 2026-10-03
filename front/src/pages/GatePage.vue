@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/useAuthStore'
 import BaseButton from '@/components/atoms/BaseButton.vue'
 import BaseModal from '@/components/atoms/BaseModal.vue'
@@ -8,8 +9,10 @@ import BaseModal from '@/components/atoms/BaseModal.vue'
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+const { t } = useI18n()
 
 const password = ref('')
+/** i18n key of the failure, '' when none. */
 const error = ref('')
 const loading = ref(false)
 
@@ -30,7 +33,7 @@ async function submit() {
     await auth.unlockGate(password.value)
     await router.push(resolveRedirectTarget())
   } catch {
-    error.value = 'Mot de passe d\'accès invalide.'
+    error.value = 'auth.gate.invalid'
     password.value = ''
   } finally {
     loading.value = false
@@ -51,9 +54,9 @@ function cancel() {
     @close="cancel"
   >
     <div class="p-6 pb-4 sm:pb-6">
-      <h3 class="font-bold text-lg">Accès administrateur</h3>
+      <h3 class="font-bold text-lg">{{ t('auth.gate.title') }}</h3>
       <p class="py-2 text-sm text-base-content/70">
-        Entrez le mot de passe d'accès pour débloquer cette section.
+        {{ t('auth.gate.intro') }}
       </p>
 
       <form class="flex flex-col gap-4 pt-2" @submit.prevent="submit">
@@ -61,14 +64,15 @@ function cancel() {
           <input
             v-model="password"
             type="password"
-            placeholder="Mot de passe d'accès"
+            :placeholder="t('auth.gate.password')"
+            :aria-label="t('auth.gate.password')"
             class="input input-bordered w-full"
             :class="{ 'input-error': error }"
             autocomplete="current-password"
             autofocus
           />
           <label v-if="error" class="label">
-            <span class="label-text-alt text-error">{{ error }}</span>
+            <span class="label-text-alt text-error">{{ t(error) }}</span>
           </label>
         </div>
 
@@ -79,14 +83,14 @@ function cancel() {
             :disabled="loading"
             @click="cancel"
           >
-            Annuler
+            {{ t('common.cancel') }}
           </button>
           <BaseButton
             type="submit"
             class="btn btn-primary"
             :loading="loading"
           >
-            Débloquer
+            {{ t('auth.gate.submit') }}
           </BaseButton>
         </div>
       </form>

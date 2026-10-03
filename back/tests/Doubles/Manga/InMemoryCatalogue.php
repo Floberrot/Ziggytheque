@@ -8,7 +8,7 @@ use App\Manga\Domain\Catalogue\CatalogueInterface;
 use App\Manga\Domain\Catalogue\CatalogueRecord;
 use App\Manga\Domain\Exception\CatalogueUnavailableException;
 use App\Manga\Domain\Isbn;
-use App\Manga\Domain\TextFold;
+use App\Shared\Domain\Text\TextFold;
 
 /**
  * Catalogue seeded by the test: title and author searches match on folded

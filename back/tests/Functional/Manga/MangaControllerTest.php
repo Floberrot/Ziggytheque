@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Manga;
 
 use App\Tests\Functional\AbstractApiTestCase;
+use App\Tests\Functional\Fixtures\HandTypedSeriesTrait;
 
 final class MangaControllerTest extends AbstractApiTestCase
 {
+    use HandTypedSeriesTrait;
+
     // ── Helpers ─────────────────────────────────────────────────────────────
 
     private function importManga(array $overrides = []): string
@@ -31,53 +34,6 @@ final class MangaControllerTest extends AbstractApiTestCase
         return (string) $data['id'];
     }
 
-    // ── GET /api/manga ───────────────────────────────────────────────────────
-
-    public function testSearchRequiresAuth(): void
-    {
-        $response = $this->jsonRequest('GET', '/api/manga', auth: false);
-        $this->assertSame(401, $response->getStatusCode());
-    }
-
-    public function testSearchReturnsEmptyList(): void
-    {
-        $response = $this->jsonRequest('GET', '/api/manga');
-        $data     = $this->assertJsonStatus(200, $response);
-        $this->assertIsArray($data);
-    }
-
-    public function testSearchByQuery(): void
-    {
-        $this->importManga(['title' => 'Naruto']);
-        $this->importManga(['title' => 'Bleach']);
-
-        $response = $this->jsonRequest('GET', '/api/manga?q=Naruto');
-        $data     = $this->assertJsonStatus(200, $response);
-
-        $this->assertIsArray($data);
-        $titles = array_column($data, 'title');
-        $this->assertContains('Naruto', $titles);
-    }
-
-    // ── GET /api/manga/{id} ──────────────────────────────────────────────────
-
-    public function testGetMangaById(): void
-    {
-        $id       = $this->importManga(['title' => 'Dragon Ball']);
-        $response = $this->jsonRequest('GET', '/api/manga/' . $id);
-        $data     = $this->assertJsonStatus(200, $response);
-
-        $this->assertSame($id, $data['id']);
-        $this->assertSame('Dragon Ball', $data['title']);
-        $this->assertArrayHasKey('volumes', $data);
-    }
-
-    public function testGetMangaNotFound(): void
-    {
-        $response = $this->jsonRequest('GET', '/api/manga/nonexistent-id');
-        $this->assertJsonStatus(404, $response);
-    }
-
     // ── POST /api/manga ──────────────────────────────────────────────────────
 
     public function testImportMangaMinimal(): void
@@ -94,17 +50,12 @@ final class MangaControllerTest extends AbstractApiTestCase
 
     public function testImportMangaWithVolumes(): void
     {
-        $response = $this->jsonRequest('POST', '/api/manga', [
-            'title'        => 'Fullmetal Alchemist',
-            'language'     => 'fr',
-            'genre'        => 'shonen',
-            'totalVolumes' => 3,
-        ]);
-        $data = $this->assertJsonStatus(201, $response);
-        $id   = $data['id'];
+        $series = $this->collectHandTypedSeries('Fullmetal Alchemist', 3, ['genre' => 'shonen']);
 
-        $detail = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/manga/' . $id));
-        $this->assertCount(3, $detail['volumes']);
+        $detail = $this->collectionDetail($series['entryId']);
+        $this->assertSame('Fullmetal Alchemist', $detail['manga']['title']);
+        $this->assertSame('shonen', $detail['manga']['genre']);
+        $this->assertSame([1, 2, 3], array_column($detail['volumes'], 'number'));
     }
 
     public function testImportMangaRequiresTitle(): void
@@ -146,22 +97,21 @@ final class MangaControllerTest extends AbstractApiTestCase
 
     public function testUpdateManga(): void
     {
-        $id = $this->importManga(['title' => 'Old Title']);
+        $series = $this->collectHandTypedSeries('Old Title');
 
-        $response = $this->jsonRequest('PATCH', '/api/manga/' . $id, ['title' => 'New Title']);
+        $response = $this->jsonRequest('PATCH', '/api/manga/' . $series['mangaId'], ['title' => 'New Title']);
         $this->assertSame(204, $response->getStatusCode());
 
-        $detail = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/manga/' . $id));
-        $this->assertSame('New Title', $detail['title']);
+        $this->assertSame('New Title', $this->collectionDetail($series['entryId'])['manga']['title']);
     }
 
     public function testImportMangaWithSpecialEdition(): void
     {
-        $id = $this->importManga(['edition' => 'Glénat', 'specialEdition' => 'Prestige']);
+        $series = $this->collectHandTypedSeries('Berserk', 1, ['edition' => 'Glénat', 'specialEdition' => 'Prestige']);
 
-        $detail = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/manga/' . $id));
-        $this->assertSame('Glénat', $detail['edition']);
-        $this->assertSame('Prestige', $detail['specialEdition']);
+        $manga = $this->collectionDetail($series['entryId'])['manga'];
+        $this->assertSame('Glénat', $manga['edition']);
+        $this->assertSame('Prestige', $manga['specialEdition']);
     }
 
     public function testImportMangaRejectsTooLongSpecialEdition(): void
@@ -177,15 +127,13 @@ final class MangaControllerTest extends AbstractApiTestCase
 
     public function testUpdateMangaSetsAndClearsTheSpecialEdition(): void
     {
-        $id = $this->importManga();
+        ['mangaId' => $id, 'entryId' => $entryId] = $this->collectHandTypedSeries('One Piece');
 
         $this->assertSame(204, $this->jsonRequest('PATCH', '/api/manga/' . $id, ['specialEdition' => 'Perfect edition'])->getStatusCode());
-        $detail = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/manga/' . $id));
-        $this->assertSame('Perfect edition', $detail['specialEdition']);
+        $this->assertSame('Perfect edition', $this->collectionDetail($entryId)['manga']['specialEdition']);
 
         $this->assertSame(204, $this->jsonRequest('PATCH', '/api/manga/' . $id, ['specialEdition' => ''])->getStatusCode());
-        $detail = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/manga/' . $id));
-        $this->assertNull($detail['specialEdition']);
+        $this->assertNull($this->collectionDetail($entryId)['manga']['specialEdition']);
     }
 
     public function testUpdateMangaRejectsTooLongSpecialEdition(): void
@@ -203,78 +151,34 @@ final class MangaControllerTest extends AbstractApiTestCase
         $this->assertJsonStatus(404, $response);
     }
 
-    // ── POST /api/manga/{id}/volumes ─────────────────────────────────────────
-
-    public function testAddVolume(): void
+    public function testUpdateMangaRequiresAuth(): void
     {
-        $id = $this->importManga();
-
-        $response = $this->jsonRequest('POST', '/api/manga/' . $id . '/volumes', [
-            'number'      => 1,
-            'coverUrl'    => null,
-            'releaseDate' => null,
-        ]);
-        $data = $this->assertJsonStatus(201, $response);
-
-        $this->assertArrayHasKey('id', $data);
-    }
-
-    public function testAddingAnExistingTomeNumberReturns409(): void
-    {
-        $id = $this->importManga();
-        $this->assertJsonStatus(201, $this->jsonRequest('POST', '/api/manga/' . $id . '/volumes', ['number' => 1]));
-
-        $this->assertJsonStatus(409, $this->jsonRequest('POST', '/api/manga/' . $id . '/volumes', ['number' => 1]));
-    }
-
-    public function testAddVolumeRefusesAnInvalidReleaseDate(): void
-    {
-        $id = $this->importManga();
-
-        $response = $this->jsonRequest('POST', '/api/manga/' . $id . '/volumes', ['number' => 1, 'releaseDate' => 'soon']);
-
-        $this->assertJsonStatus(422, $response);
-    }
-
-    public function testAddVolumeToNonExistentManga(): void
-    {
-        $response = $this->jsonRequest('POST', '/api/manga/bad-id/volumes', ['number' => 1]);
-        $this->assertJsonStatus(404, $response);
+        $response = $this->jsonRequest('PATCH', '/api/manga/any-id', ['title' => 'T'], auth: false);
+        $this->assertSame(401, $response->getStatusCode());
     }
 
     // ── PATCH /api/manga/{id}/volumes/{volumeId} ──────────────────────────────
 
     public function testUpdateVolume(): void
     {
-        $mangaId = $this->importManga();
-
-        $volData = $this->assertJsonStatus(201, $this->jsonRequest(
-            'POST',
-            '/api/manga/' . $mangaId . '/volumes',
-            ['number' => 1],
-        ));
-        $volumeId = $volData['id'];
+        ['mangaId' => $mangaId, 'entryId' => $entryId, 'volumeIds' => [$volumeId]] = $this->collectHandTypedSeries('One Piece');
 
         $response = $this->jsonRequest(
             'PATCH',
             '/api/manga/' . $mangaId . '/volumes/' . $volumeId,
-            ['price' => 7.99, 'isbn' => '9782811645632'],
+            ['price' => 7.99, 'isbn' => '9782811645632', 'coverUrl' => 'https://covers.example/1.jpg'],
         );
         $this->assertSame(204, $response->getStatusCode());
 
-        $detail = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/manga/' . $mangaId));
-        $volume = $detail['volumes'][0];
+        $volume = $this->collectionDetail($entryId)['volumes'][0];
         $this->assertSame('9782811645632', $volume['isbn']);
+        $this->assertSame(7.99, $volume['price']);
+        $this->assertSame('https://covers.example/1.jpg', $volume['coverUrl']);
     }
 
     public function testUpdateVolumeRefusesAnInvalidReleaseDate(): void
     {
-        $mangaId  = $this->importManga();
-        $volumeId = $this->assertJsonStatus(201, $this->jsonRequest(
-            'POST',
-            '/api/manga/' . $mangaId . '/volumes',
-            ['number' => 1],
-        ))['id'];
+        ['mangaId' => $mangaId, 'volumeIds' => [$volumeId]] = $this->collectHandTypedSeries('One Piece');
 
         $response = $this->jsonRequest('PATCH', '/api/manga/' . $mangaId . '/volumes/' . $volumeId, ['releaseDate' => '31/02/2026']);
 
@@ -283,14 +187,7 @@ final class MangaControllerTest extends AbstractApiTestCase
 
     public function testUpdateVolumeWithIsbnAlone(): void
     {
-        $mangaId = $this->importManga();
-
-        $volData = $this->assertJsonStatus(201, $this->jsonRequest(
-            'POST',
-            '/api/manga/' . $mangaId . '/volumes',
-            ['number' => 1],
-        ));
-        $volumeId = $volData['id'];
+        ['mangaId' => $mangaId, 'entryId' => $entryId, 'volumeIds' => [$volumeId]] = $this->collectHandTypedSeries('One Piece');
 
         // The ISBN is the only field of the PATCH — the auto-save flow of the front
         $response = $this->jsonRequest(
@@ -300,21 +197,12 @@ final class MangaControllerTest extends AbstractApiTestCase
         );
         $this->assertSame(204, $response->getStatusCode());
 
-        $detail = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/manga/' . $mangaId));
-        $volume = $detail['volumes'][0];
-        $this->assertSame('9782811645632', $volume['isbn']);
+        $this->assertSame('9782811645632', $this->collectionDetail($entryId)['volumes'][0]['isbn']);
     }
 
     public function testUpdateVolumeConvertsIsbn10ToIsbn13(): void
     {
-        $mangaId = $this->importManga();
-
-        $volData = $this->assertJsonStatus(201, $this->jsonRequest(
-            'POST',
-            '/api/manga/' . $mangaId . '/volumes',
-            ['number' => 1],
-        ));
-        $volumeId = $volData['id'];
+        ['mangaId' => $mangaId, 'entryId' => $entryId, 'volumeIds' => [$volumeId]] = $this->collectHandTypedSeries('One Piece');
 
         // 2723425487 is a checksum-valid ISBN-10 — stored as its ISBN-13 form
         $response = $this->jsonRequest(
@@ -324,20 +212,12 @@ final class MangaControllerTest extends AbstractApiTestCase
         );
         $this->assertSame(204, $response->getStatusCode());
 
-        $detail = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/manga/' . $mangaId));
-        $this->assertSame('9782723425483', $detail['volumes'][0]['isbn']);
+        $this->assertSame('9782723425483', $this->collectionDetail($entryId)['volumes'][0]['isbn']);
     }
 
     public function testUpdateVolumeRejectsInvalidIsbn(): void
     {
-        $mangaId = $this->importManga();
-
-        $volData = $this->assertJsonStatus(201, $this->jsonRequest(
-            'POST',
-            '/api/manga/' . $mangaId . '/volumes',
-            ['number' => 1],
-        ));
-        $volumeId = $volData['id'];
+        ['mangaId' => $mangaId, 'volumeIds' => [$volumeId]] = $this->collectHandTypedSeries('One Piece');
 
         $response = $this->jsonRequest(
             'PATCH',
@@ -345,6 +225,18 @@ final class MangaControllerTest extends AbstractApiTestCase
             ['isbn' => 'xxx'],
         );
         $this->assertSame(422, $response->getStatusCode());
+    }
+
+    public function testUpdateVolumeOfAnUnknownSeriesReturns404(): void
+    {
+        $response = $this->jsonRequest('PATCH', '/api/manga/bad-id/volumes/bad-vol', ['price' => 5.0]);
+        $this->assertJsonStatus(404, $response);
+    }
+
+    public function testUpdateVolumeRequiresAuth(): void
+    {
+        $response = $this->jsonRequest('PATCH', '/api/manga/any-id/volumes/any-vol', ['price' => 5.0], auth: false);
+        $this->assertSame(401, $response->getStatusCode());
     }
 
     public function testUpdateVolumeNotFound(): void

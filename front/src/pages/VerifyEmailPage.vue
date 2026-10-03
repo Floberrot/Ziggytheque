@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { postVerifyEmail } from '@/api/auth'
 import { useThemeStore } from '@/stores/useThemeStore'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
@@ -8,6 +9,7 @@ import BaseLoader from '@/components/atoms/BaseLoader.vue'
 const route = useRoute()
 const router = useRouter()
 const themeStore = useThemeStore()
+const { t } = useI18n()
 
 const status = ref<'loading' | 'success' | 'error'>('loading')
 
@@ -38,27 +40,26 @@ onMounted(async () => {
 
         <template v-if="status === 'loading'">
           <BaseLoader size="lg" class="text-primary" />
-          <p class="text-base-content/70 text-sm">Vérification de votre email…</p>
+          <p class="text-base-content/70 text-sm">{{ t('auth.verify.checking') }}</p>
         </template>
 
         <template v-else-if="status === 'success'">
-          <h2 class="text-lg font-semibold">Email vérifié&nbsp;!</h2>
+          <h2 class="text-lg font-semibold">{{ t('auth.verify.doneTitle') }}</h2>
           <p class="text-base-content/70 text-sm">
-            Votre compte est en attente de validation par un administrateur.
-            Vous recevrez un email dès que votre accès sera approuvé.
+            {{ t('auth.verify.doneBody') }}
           </p>
           <button class="btn btn-primary btn-sm" @click="router.push({ name: 'login' })">
-            Aller à la connexion
+            {{ t('auth.goToLogin') }}
           </button>
         </template>
 
         <template v-else>
-          <h2 class="text-lg font-semibold text-error">Lien invalide</h2>
+          <h2 class="text-lg font-semibold text-error">{{ t('auth.verify.failedTitle') }}</h2>
           <p class="text-base-content/70 text-sm">
-            Ce lien de vérification est invalide ou a expiré.
+            {{ t('auth.verify.failedBody') }}
           </p>
           <button class="btn btn-primary btn-sm" @click="router.push({ name: 'login' })">
-            Retour à la connexion
+            {{ t('auth.backToLogin') }}
           </button>
         </template>
       </div>

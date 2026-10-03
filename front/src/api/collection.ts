@@ -55,10 +55,6 @@ export async function addRemainingToWishlist(collectionId: string): Promise<void
   await client.post(`/collection/${collectionId}/add-to-wishlist`)
 }
 
-export async function purchaseVolume(collectionId: string, volumeEntryId: string): Promise<void> {
-  await client.post(`/collection/${collectionId}/volumes/${volumeEntryId}/purchase`)
-}
-
 export async function syncVolumes(collectionId: string, upToVolume?: number): Promise<void> {
   await client.post(`/collection/${collectionId}/sync-volumes`, upToVolume ? { upToVolume } : {})
 }

@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Manga\Infrastructure\ExternalApi;
 
 use App\Manga\Domain\Isbn;
-use App\Manga\Domain\MangaCoverProviderInterface;
 use App\Manga\Domain\MangaVolumeCoverDto;
+use Closure;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\HttpClient\ResponseInterface;
 use Throwable;
 
 /**
@@ -20,7 +21,7 @@ use Throwable;
  * makes no request), so it stays harmless in the cascade until HARDCOVER_API_TOKEN
  * is configured.
  */
-final readonly class HardcoverCoversApiClient implements MangaCoverProviderInterface
+final readonly class HardcoverCoversApiClient implements DeferredIsbnCoverProviderInterface
 {
     private const string PREFIX_LOGGER = 'HARDCOVER : ';
     private const string QUERY = 'query CoverByIsbn($isbn: String!) {'
@@ -36,8 +37,13 @@ final readonly class HardcoverCoversApiClient implements MangaCoverProviderInter
 
     public function findByIsbn(Isbn $isbn): ?MangaVolumeCoverDto
     {
+        return $this->requestByIsbn($isbn)();
+    }
+
+    public function requestByIsbn(Isbn $isbn): Closure
+    {
         if (trim($this->apiToken) === '') {
-            return null;
+            return static fn (): ?MangaVolumeCoverDto => null;
         }
 
         $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; BEGIN.', ['isbn' => $isbn->value]);
@@ -57,39 +63,58 @@ final readonly class HardcoverCoversApiClient implements MangaCoverProviderInter
                     'variables' => ['isbn' => $isbn->value],
                 ],
             ]);
+        } catch (Throwable $exception) {
+            $this->logError($isbn, $exception);
 
-            if ($response->getStatusCode() !== 200) {
-                $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; NOT FOUND.', [
-                    'isbn' => $isbn->value,
-                    'status' => $response->getStatusCode(),
-                ]);
+            return static fn (): ?MangaVolumeCoverDto => null;
+        }
+
+        return function () use ($isbn, $response): ?MangaVolumeCoverDto {
+            try {
+                return $this->readCover($isbn, $response);
+            } catch (Throwable $exception) {
+                $this->logError($isbn, $exception);
+
                 return null;
             }
+        };
+    }
 
-            $editions = $response->toArray()['data']['editions'] ?? [];
-
-            foreach ($editions as $edition) {
-                $coverUrl = $edition['image']['url'] ?? null;
-                if (is_string($coverUrl) && $coverUrl !== '') {
-                    $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; FOUND.', ['isbn' => $isbn->value]);
-
-                    return new MangaVolumeCoverDto(
-                        coverUrl: $coverUrl,
-                        isbn: $isbn,
-                        source: 'hardcover',
-                    );
-                }
-            }
-
-            $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; NO COVER.', ['isbn' => $isbn->value]);
-            return null;
-        } catch (Throwable $exception) {
-            $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; ERROR.', [
+    private function readCover(Isbn $isbn, ResponseInterface $response): ?MangaVolumeCoverDto
+    {
+        if ($response->getStatusCode() !== 200) {
+            $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; NOT FOUND.', [
                 'isbn' => $isbn->value,
-                'error' => $exception->getMessage(),
+                'status' => $response->getStatusCode(),
             ]);
             return null;
         }
+
+        $editions = $response->toArray()['data']['editions'] ?? [];
+
+        foreach ($editions as $edition) {
+            $coverUrl = $edition['image']['url'] ?? null;
+            if (is_string($coverUrl) && $coverUrl !== '') {
+                $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; FOUND.', ['isbn' => $isbn->value]);
+
+                return new MangaVolumeCoverDto(
+                    coverUrl: $coverUrl,
+                    isbn: $isbn,
+                    source: 'hardcover',
+                );
+            }
+        }
+
+        $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; NO COVER.', ['isbn' => $isbn->value]);
+        return null;
+    }
+
+    private function logError(Isbn $isbn, Throwable $exception): void
+    {
+        $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; ERROR.', [
+            'isbn' => $isbn->value,
+            'error' => $exception->getMessage(),
+        ]);
     }
 
     public function findByContext(

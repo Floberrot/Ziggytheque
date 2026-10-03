@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { i18n } from '@/i18n'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { scrollBehavior } from './scrollBehavior'
 
@@ -10,37 +11,37 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: () => import('@/pages/LoginPage.vue'),
-      meta: { public: true, title: 'Connexion' },
+      meta: { public: true, titleKey: 'pageTitle.login' },
     },
     {
       path: '/register',
       name: 'register',
       component: () => import('@/pages/RegisterPage.vue'),
-      meta: { public: true, title: 'Inscription' },
+      meta: { public: true, titleKey: 'pageTitle.register' },
     },
     {
       path: '/verify-email',
       name: 'verify-email',
       component: () => import('@/pages/VerifyEmailPage.vue'),
-      meta: { public: true, title: 'Vérification email' },
+      meta: { public: true, titleKey: 'pageTitle.verifyEmail' },
     },
     {
       path: '/forgot-password',
       name: 'forgot-password',
       component: () => import('@/pages/ForgotPasswordPage.vue'),
-      meta: { public: true, title: 'Mot de passe oublié' },
+      meta: { public: true, titleKey: 'pageTitle.forgotPassword' },
     },
     {
       path: '/reset-password',
       name: 'reset-password',
       component: () => import('@/pages/ResetPasswordPage.vue'),
-      meta: { public: true, title: 'Réinitialiser le mot de passe' },
+      meta: { public: true, titleKey: 'pageTitle.resetPassword' },
     },
     {
       path: '/gate',
       name: 'gate',
       component: () => import('@/pages/GatePage.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true, title: 'Accès admin' },
+      meta: { requiresAuth: true, requiresAdmin: true, titleKey: 'pageTitle.gate' },
     },
     {
       path: '/',
@@ -52,56 +53,56 @@ const router = createRouter({
           path: 'dashboard',
           name: 'dashboard',
           component: () => import('@/pages/DashboardPage.vue'),
-          meta: { title: 'Tableau de bord' },
+          meta: { titleKey: 'pageTitle.dashboard' },
         },
         {
           path: 'collection',
           name: 'collection',
           component: () => import('@/pages/CollectionPage.vue'),
           // Search, filters and scroll offset are kept when the reader opens a series and comes back.
-          meta: { title: 'Collection', rememberScroll: true },
+          meta: { titleKey: 'pageTitle.collection', rememberScroll: true },
         },
         {
           path: 'collection/:id',
           name: 'collection-detail',
           component: () => import('@/pages/MangaDetailPage.vue'),
-          meta: { title: 'Série' },
+          meta: { titleKey: 'pageTitle.series' },
         },
         {
           path: 'wishlist',
           name: 'wishlist',
           component: () => import('@/pages/WishlistPage.vue'),
-          meta: { title: 'Liste de souhaits', rememberScroll: true },
+          meta: { titleKey: 'pageTitle.wishlist', rememberScroll: true },
         },
         {
           path: 'add',
           name: 'add',
           component: () => import('@/pages/AddMangaPage.vue'),
-          meta: { title: 'Ajouter une série' },
+          meta: { titleKey: 'pageTitle.add' },
         },
         {
           path: 'notifications',
           name: 'notifications',
           component: () => import('@/pages/NotificationsPage.vue'),
-          meta: { title: 'Actualités' },
+          meta: { titleKey: 'pageTitle.notifications' },
         },
         {
           path: 'notification-preferences',
           name: 'notification-preferences',
           component: () => import('@/pages/NotificationPreferencesPage.vue'),
-          meta: { title: 'Préférences de notification' },
+          meta: { titleKey: 'pageTitle.notificationPreferences' },
         },
         {
           path: 'journal',
           name: 'journal',
           component: () => import('@/pages/JournalPage.vue'),
-          meta: { title: 'Journal', requiresAdminUnlocked: true },
+          meta: { titleKey: 'pageTitle.journal', requiresAdminUnlocked: true },
         },
         {
           path: 'admin/users',
           name: 'admin-users',
           component: () => import('@/pages/AdminUsersPage.vue'),
-          meta: { title: 'Utilisateurs', requiresAdmin: true, requiresAdminUnlocked: true },
+          meta: { titleKey: 'pageTitle.adminUsers', requiresAdmin: true, requiresAdminUnlocked: true },
         },
       ],
     },
@@ -109,13 +110,13 @@ const router = createRouter({
       path: '/scan/:token',
       name: 'scan',
       component: () => import('@/pages/ScanPage.vue'),
-      meta: { public: true, title: 'Scanner un ISBN' },
+      meta: { public: true, titleKey: 'pageTitle.scan' },
     },
     {
       path: '/share/:token',
       name: 'share',
       component: () => import('@/pages/SharePage.vue'),
-      meta: { public: true, title: 'Bibliothèque partagée' },
+      meta: { public: true, titleKey: 'pageTitle.share' },
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
@@ -151,8 +152,9 @@ router.beforeEach(async (to) => {
     return { name: 'gate', query: { redirect: to.fullPath } }
   }
 
-  const pageTitle = to.meta.title as string | undefined
-  document.title = pageTitle ? `${pageTitle} — Ziggy` : 'Ziggytheque'
+  // Titles are i18n keys, translated in the language picked in the settings.
+  const titleKey = to.meta.titleKey as string | undefined
+  document.title = titleKey ? `${i18n.global.t(titleKey)} — Ziggy` : 'Ziggytheque'
 })
 
 export default router

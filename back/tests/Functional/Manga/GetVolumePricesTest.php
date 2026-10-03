@@ -5,29 +5,18 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Manga;
 
 use App\Tests\Functional\AbstractApiTestCase;
+use App\Tests\Functional\Fixtures\HandTypedSeriesTrait;
 
 final class GetVolumePricesTest extends AbstractApiTestCase
 {
+    use HandTypedSeriesTrait;
+
+    /** @return array{mangaId: string, volumeId: string} */
     private function importMangaWithVolume(): array
     {
-        $importResponse = $this->jsonRequest('POST', '/api/manga', [
-            'title'    => 'Berserk',
-            'language' => 'fr',
-            'edition'  => null,
-            'author'   => 'Kentaro Miura',
-        ]);
-        $this->assertSame(201, $importResponse->getStatusCode());
-        $mangaData = json_decode((string) $importResponse->getContent(), true);
-        $mangaId   = (string) $mangaData['id'];
+        $series = $this->collectHandTypedSeries('Berserk', 1, ['author' => 'Kentaro Miura']);
 
-        $volumeResponse = $this->jsonRequest('POST', '/api/manga/' . $mangaId . '/volumes', [
-            'number' => 1,
-        ]);
-        $this->assertSame(201, $volumeResponse->getStatusCode());
-        $volumeData = json_decode((string) $volumeResponse->getContent(), true);
-        $volumeId   = (string) $volumeData['id'];
-
-        return ['mangaId' => $mangaId, 'volumeId' => $volumeId];
+        return ['mangaId' => $series['mangaId'], 'volumeId' => $series['volumeIds'][0]];
     }
 
     // ── GET /api/manga/{id}/volumes/{volumeId}/prices ────────────────────────

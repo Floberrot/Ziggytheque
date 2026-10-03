@@ -2,20 +2,18 @@
 import { ref, computed, watch, onMounted, onUnmounted, type Component } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
+import { useInfiniteQuery } from '@tanstack/vue-query'
 import {
   Search, Plus, Book, X, RotateCcw, SlidersHorizontal, ChevronDown,
   BookOpen, CheckCircle2, PauseCircle, BookmarkPlus, Ban, Heart, Bell,
   Library, BookCheck, Gift, HelpCircle,
 } from 'lucide-vue-next'
-import {
-  getCollection, removeFromCollection, toggleFollow, updateCollectionRating, type CollectionFilters,
-} from '@/api/collection'
+import { getCollection, type CollectionFilters } from '@/api/collection'
 import { useCollectionFiltersStore } from '@/stores/useCollectionFiltersStore'
-import { useUiStore } from '@/stores/useUiStore'
+import { useCollectionQuickActions } from '@/composables/useCollectionQuickActions'
 import { useRememberedScroll } from '@/composables/useRememberedScroll'
 import { useI18n } from 'vue-i18n'
-import type { CollectionEntry, QuickActionRequest } from '@/types'
+import type { CollectionEntry } from '@/types'
 import { groupByWork } from '@/utils/workGroups'
 import MangaCard from '@/components/organisms/MangaCard.vue'
 import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
@@ -27,8 +25,6 @@ const showGuide = ref(false)
 
 const { t } = useI18n()
 const router = useRouter()
-const queryClient = useQueryClient()
-const ui = useUiStore()
 
 const GENRES = [
   'shonen', 'shojo', 'seinen', 'josei', 'kodomomuke',
@@ -240,59 +236,20 @@ const workGroups = computed(() => groupByWork(entries.value, !filters.sort))
 const openWorkKey = ref<string | null>(null)
 const openWork = computed(() => workGroups.value.find((group) => group.key === openWorkKey.value) ?? null)
 
-// ── Quick actions (right click / long press) ─────────────────────────────────
+// ── Quick actions (right click / long press / Menu key) ──────────────────────
 
-const quickActionRequest = ref<QuickActionRequest | null>(null)
-
-function refreshCollection(): void {
-  queryClient.invalidateQueries({ queryKey: ['collection'] })
-  queryClient.invalidateQueries({ queryKey: ['stats'] })
-}
-
-/** The open menu reflects the change at once, before the list is refetched. */
-function patchRequestedEntry(entryId: string, patch: Partial<CollectionEntry>): void {
-  const request = quickActionRequest.value
-  if (request?.entry.id === entryId) {
-    quickActionRequest.value = { ...request, entry: { ...request.entry, ...patch } }
-  }
-}
-
-const followMutation = useMutation({
-  mutationFn: (entry: CollectionEntry) => toggleFollow(entry.id),
-  onSuccess: (result, entry) => {
-    patchRequestedEntry(entry.id, { notificationsEnabled: result.notificationsEnabled })
-    ui.addToast(t(result.notificationsEnabled ? 'quickActions.followed' : 'quickActions.unfollowed'), 'success')
-    refreshCollection()
-  },
-  onError: () => ui.addToast(t('quickActions.error'), 'error'),
-})
-
-const rateMutation = useMutation({
-  mutationFn: ({ entry, rating }: { entry: CollectionEntry; rating: number }) => updateCollectionRating(entry.id, rating),
-  onSuccess: (_, { entry, rating }) => {
-    patchRequestedEntry(entry.id, { rating })
-    ui.addToast(t('quickActions.rated'), 'success')
-    refreshCollection()
-  },
-  onError: () => ui.addToast(t('quickActions.error'), 'error'),
-})
-
-const removeMutation = useMutation({
-  mutationFn: (entry: CollectionEntry) => removeFromCollection(entry.id),
-  onSuccess: () => {
-    quickActionRequest.value = null
-    ui.addToast(t('collection.removed'), 'success')
-    refreshCollection()
-  },
-  onError: () => ui.addToast(t('quickActions.error'), 'error'),
-})
-
-const quickActionBusy = computed(
-  () => followMutation.isPending.value || rateMutation.isPending.value || removeMutation.isPending.value,
-)
+const {
+  quickActionRequest,
+  quickActionBusy,
+  openQuickActions,
+  closeQuickActions,
+  followEntry,
+  rateEntry,
+  removeEntry,
+} = useCollectionQuickActions()
 
 function openEntry(entry: CollectionEntry): void {
-  quickActionRequest.value = null
+  closeQuickActions()
   openWorkKey.value = null
   router.push({ name: 'collection-detail', params: { id: entry.id } })
 }
@@ -330,7 +287,7 @@ onUnmounted(() => {
           <div>
             <h1 class="text-3xl font-extrabold tracking-tight">{{ t('collection.title') }}</h1>
             <p class="text-base-content/50 text-sm mt-1">
-              {{ total }} oeuvre{{ total !== 1 ? 's' : '' }} suivie{{ total !== 1 ? 's' : '' }}
+              {{ t('collection.followedWorks', { count: total }, total) }}
             </p>
           </div>
 
@@ -367,6 +324,7 @@ onUnmounted(() => {
               type="search"
               class="input input-bordered w-full h-10 pl-10 pr-10 text-sm rounded-xl bg-base-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
               :placeholder="t('filter.searchPlaceholder')"
+              :aria-label="t('filter.searchPlaceholder')"
             />
             <button
               v-if="searchInput"
@@ -386,6 +344,7 @@ onUnmounted(() => {
               ? 'bg-primary/10 border-primary/40 text-primary'
               : 'bg-base-100 border-base-300/80 text-base-content/70 hover:border-primary/40 hover:bg-primary/5'"
             :aria-expanded="showAdvanced"
+            :aria-label="t('filter.advanced')"
             @click="showAdvanced = !showAdvanced"
           >
             <SlidersHorizontal class="h-4 w-4" stroke-width="2.25" />
@@ -400,6 +359,7 @@ onUnmounted(() => {
           <button
             v-if="hasActiveFilters"
             class="btn btn-ghost btn-sm gap-1.5 text-base-content/60 hover:text-error shrink-0"
+            :aria-label="t('filter.reset')"
             @click="resetFilters"
           >
             <RotateCcw class="h-3.5 w-3.5" />
@@ -489,7 +449,7 @@ onUnmounted(() => {
           <Book class="h-16 w-16" stroke-width="1" />
         </div>
         <p class="text-base-content/40 text-lg font-medium">
-          {{ hasActiveFilters ? 'Aucun résultat pour ces filtres' : t('collection.empty') }}
+          {{ hasActiveFilters ? t('collection.noFilterResults') : t('collection.empty') }}
         </p>
         <button v-if="hasActiveFilters" class="btn btn-ghost btn-sm" @click="resetFilters">
           {{ t('filter.reset') }}
@@ -513,7 +473,7 @@ onUnmounted(() => {
           :style="{ animationDelay: `${(groupIndex % 20) * 30}ms` }"
           class="card-appear"
           @open-editions="openWorkKey = group.key"
-          @quick-actions="quickActionRequest = $event"
+          @quick-actions="openQuickActions"
         />
       </div>
 
@@ -530,17 +490,17 @@ onUnmounted(() => {
       :title="openWork?.title ?? null"
       :entries="openWork?.entries ?? []"
       @close="openWorkKey = null"
-      @quick-actions="quickActionRequest = $event"
+      @quick-actions="openQuickActions"
     />
 
     <CollectionQuickActions
       :request="quickActionRequest"
       :busy="quickActionBusy"
-      @close="quickActionRequest = null"
+      @close="closeQuickActions"
       @open="openEntry"
-      @toggle-follow="followMutation.mutate($event)"
-      @rate="(entry, rating) => rateMutation.mutate({ entry, rating })"
-      @remove="removeMutation.mutate($event)"
+      @toggle-follow="followEntry"
+      @rate="rateEntry"
+      @remove="removeEntry"
     />
   </div>
 </template>

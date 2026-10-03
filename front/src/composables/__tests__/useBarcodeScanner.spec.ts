@@ -116,7 +116,7 @@ describe('useBarcodeScanner', () => {
     expect(mockStop).toHaveBeenCalledOnce()
   })
 
-  it('sets errorMessage on NotAllowedError', async () => {
+  it('sets the camera-denied error key on NotAllowedError', async () => {
     mockDecode.mockRejectedValueOnce(new DOMException('Permission denied', 'NotAllowedError'))
 
     const scope = effectScope()
@@ -124,12 +124,12 @@ describe('useBarcodeScanner', () => {
     let errorMsg: string | null = null
 
     await scope.run(async () => {
-      const { start, errorMessage } = useBarcodeScanner()
+      const { start, errorKey } = useBarcodeScanner()
       await start(video, vi.fn())
-      errorMsg = errorMessage.value
+      errorMsg = errorKey.value
     })
 
-    expect(errorMsg).toBeTruthy()
+    expect(errorMsg).toBe('scanner.cameraDenied')
 
     scope.stop()
   })
@@ -144,7 +144,7 @@ describe('useBarcodeScanner', () => {
       await scanner.start(document.createElement('video'), vi.fn())
     })
 
-    expect(scanner?.errorMessage.value).toContain('Aucune caméra')
+    expect(scanner?.errorKey.value).toBe('scanner.noCamera')
     scope.stop()
   })
 
@@ -276,7 +276,7 @@ describe('useBarcodeScanner', () => {
       })
 
       expect(scanner?.isScanning.value).toBe(false)
-      expect(scanner?.errorMessage.value).toContain('Accès caméra refusé')
+      expect(scanner?.errorKey.value).toBe('scanner.cameraDenied')
 
       scope.stop()
     })

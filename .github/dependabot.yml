@@ -1,0 +1,16 @@
+# The workflows pin every action by commit SHA (a moved tag cannot change what runs):
+# Dependabot bumps the SHA and its version comment together, in one grouped PR a week.
+# Security updates of the npm / Composer dependencies come from the repository settings.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: chore
+      include: scope

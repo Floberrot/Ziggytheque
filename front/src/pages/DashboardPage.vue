@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useMutation, useQuery } from '@tanstack/vue-query'
 import { useI18n } from 'vue-i18n'
 import { Share2, Star, TrendingUp, CalendarRange, ListChecks, Wallet, Users } from 'lucide-vue-next'
 import { getStats } from '@/api/stats'
 import { createShare } from '@/api/share'
-import { removeFromCollection, toggleFollow, updateCollectionRating } from '@/api/collection'
+import { useCollectionQuickActions } from '@/composables/useCollectionQuickActions'
 import { useLongPress } from '@/composables/useLongPress'
-import { useUiStore } from '@/stores/useUiStore'
-import type { CollectionEntry, QuickActionRequest } from '@/types'
+import type { CollectionEntry } from '@/types'
+import { contextMenuPoint } from '@/utils/pointer'
 import StatCard from '@/components/molecules/StatCard.vue'
 import MonthlyAdditionsChart from '@/components/molecules/MonthlyAdditionsChart.vue'
 import ReadingStatusBar from '@/components/molecules/ReadingStatusBar.vue'
@@ -52,13 +52,19 @@ const hasGenres = computed(() => stats.value && Object.keys(stats.value.genreBre
 // ── Quick actions on the recent additions (right click / long press) ─────────
 
 const router = useRouter()
-const queryClient = useQueryClient()
-const ui = useUiStore()
-const quickActionRequest = ref<QuickActionRequest | null>(null)
+const {
+  quickActionRequest,
+  quickActionBusy,
+  openQuickActions,
+  closeQuickActions,
+  followEntry,
+  rateEntry,
+  removeEntry,
+} = useCollectionQuickActions()
 let pressedEntry: CollectionEntry | null = null
 
 const longPress = useLongPress((point) => {
-  if (pressedEntry) quickActionRequest.value = { entry: pressedEntry, point, source: 'touch' }
+  if (pressedEntry) openQuickActions({ entry: pressedEntry, point, source: 'touch' })
 })
 
 function onTileTouchStart(event: TouchEvent, entry: CollectionEntry): void {
@@ -68,12 +74,13 @@ function onTileTouchStart(event: TouchEvent, entry: CollectionEntry): void {
 
 function onTileContextMenu(event: MouseEvent, entry: CollectionEntry): void {
   event.preventDefault()
-  const point = { x: event.clientX, y: event.clientY }
+  // From the Menu key, the menu opens next to the focused tile.
+  const point = contextMenuPoint(event)
   if (longPress.isTouching()) {
-    if (longPress.markHandled()) quickActionRequest.value = { entry, point, source: 'touch' }
+    if (longPress.markHandled()) openQuickActions({ entry, point, source: 'touch' })
     return
   }
-  quickActionRequest.value = { entry, point, source: 'mouse' }
+  openQuickActions({ entry, point, source: 'mouse' })
 }
 
 /** The click that ends a long press must not follow the link. */
@@ -81,54 +88,8 @@ function onTileClick(event: MouseEvent): void {
   if (longPress.swallowClick()) event.preventDefault()
 }
 
-function refreshCollection(): void {
-  queryClient.invalidateQueries({ queryKey: ['collection'] })
-  queryClient.invalidateQueries({ queryKey: ['stats'] })
-}
-
-function patchRequestedEntry(entryId: string, patch: Partial<CollectionEntry>): void {
-  const request = quickActionRequest.value
-  if (request?.entry.id === entryId) {
-    quickActionRequest.value = { ...request, entry: { ...request.entry, ...patch } }
-  }
-}
-
-const followMutation = useMutation({
-  mutationFn: (entry: CollectionEntry) => toggleFollow(entry.id),
-  onSuccess: (result, entry) => {
-    patchRequestedEntry(entry.id, { notificationsEnabled: result.notificationsEnabled })
-    ui.addToast(t(result.notificationsEnabled ? 'quickActions.followed' : 'quickActions.unfollowed'), 'success')
-    refreshCollection()
-  },
-  onError: () => ui.addToast(t('quickActions.error'), 'error'),
-})
-
-const rateMutation = useMutation({
-  mutationFn: ({ entry, rating }: { entry: CollectionEntry; rating: number }) => updateCollectionRating(entry.id, rating),
-  onSuccess: (_, { entry, rating }) => {
-    patchRequestedEntry(entry.id, { rating })
-    ui.addToast(t('quickActions.rated'), 'success')
-    refreshCollection()
-  },
-  onError: () => ui.addToast(t('quickActions.error'), 'error'),
-})
-
-const removeMutation = useMutation({
-  mutationFn: (entry: CollectionEntry) => removeFromCollection(entry.id),
-  onSuccess: () => {
-    quickActionRequest.value = null
-    ui.addToast(t('collection.removed'), 'success')
-    refreshCollection()
-  },
-  onError: () => ui.addToast(t('quickActions.error'), 'error'),
-})
-
-const quickActionBusy = computed(
-  () => followMutation.isPending.value || rateMutation.isPending.value || removeMutation.isPending.value,
-)
-
 function openEntry(entry: CollectionEntry): void {
-  quickActionRequest.value = null
+  closeQuickActions()
   router.push({ name: 'collection-detail', params: { id: entry.id } })
 }
 
@@ -149,7 +110,7 @@ const today = computed(() =>
         <p class="text-sm text-base-content/40 capitalize mb-0.5">{{ today }}</p>
         <h1 class="text-3xl font-bold tracking-tight">{{ t('dashboard.title') }}</h1>
       </div>
-      <button class="btn btn-primary gap-2 shadow-sm" @click="openShare">
+      <button class="btn btn-primary gap-2 shadow-sm" :aria-label="t('share.button')" @click="openShare">
         <Share2 class="h-4 w-4" />
         <span class="hidden sm:inline">{{ t('share.button') }}</span>
       </button>
@@ -282,7 +243,7 @@ const today = computed(() =>
               v-for="(entry, i) in stats.recentAdditions"
               :key="entry.id"
               :to="`/collection/${entry.id}`"
-              class="group flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-base-200 transition-colors duration-200 recent-card select-none"
+              class="group flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-base-200 transition-colors duration-200 recent-card select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               :style="`animation-delay: ${i * 60}ms`"
               @click.capture="onTileClick"
               @contextmenu="onTileContextMenu($event, entry)"
@@ -317,11 +278,11 @@ const today = computed(() =>
     <CollectionQuickActions
       :request="quickActionRequest"
       :busy="quickActionBusy"
-      @close="quickActionRequest = null"
+      @close="closeQuickActions"
       @open="openEntry"
-      @toggle-follow="followMutation.mutate($event)"
-      @rate="(entry, rating) => rateMutation.mutate({ entry, rating })"
-      @remove="removeMutation.mutate($event)"
+      @toggle-follow="followEntry"
+      @rate="rateEntry"
+      @remove="removeEntry"
     />
   </div>
 </template>

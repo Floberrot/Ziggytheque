@@ -8,13 +8,14 @@ use App\Manga\Domain\Isbn;
 use App\Manga\Domain\Marketplace;
 use App\Manga\Domain\PriceKindEnum;
 use App\Manga\Domain\PriceOfferDto;
-use App\Manga\Domain\VolumePriceProviderInterface;
+use Closure;
 use DOMDocument;
 use DOMElement;
 use DOMXPath;
 use Psr\Log\LoggerInterface;
-use Throwable;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\HttpClient\ResponseInterface;
+use Throwable;
 
 /**
  * Chasse aux livres (chasse-aux-livres.fr) — French book price comparator. One page per
@@ -34,7 +35,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * hit at most once per volume per day. Set CHASSE_AUX_LIVRES_BASE_URL="" to disable
  * the provider entirely.
  */
-final readonly class ChasseAuxLivresPriceProvider implements VolumePriceProviderInterface
+final readonly class ChasseAuxLivresPriceProvider implements DeferredPriceProviderInterface
 {
     private const string LOG_PREFIX = 'CHASSE_AUX_LIVRES PRICES : ';
     private const string USER_AGENT = 'Ziggytheque/1.0 (+https://www.ziggytheque.fr)';
@@ -74,37 +75,56 @@ final readonly class ChasseAuxLivresPriceProvider implements VolumePriceProvider
 
     public function findOffers(Isbn $isbn, Marketplace $marketplace): array
     {
+        return $this->requestOffers($isbn, $marketplace)();
+    }
+
+    public function requestOffers(Isbn $isbn, Marketplace $marketplace): Closure
+    {
         if ($this->baseUrl === '') {
-            return [];
+            return static fn (): array => [];
         }
 
         // French comparator, EUR prices — irrelevant for other marketplaces.
         if ($marketplace !== Marketplace::Fr) {
-            return [];
+            return static fn (): array => [];
         }
 
         $this->logger->info(self::LOG_PREFIX . 'findOffers; BEGIN.', ['isbn' => $isbn->value]);
 
-        try {
-            return $this->doFindOffers($isbn);
-        } catch (Throwable $exception) {
-            $this->logger->error(self::LOG_PREFIX . 'findOffers; ERROR.', [
-                'isbn'  => $isbn->value,
-                'error' => $exception->getMessage(),
-            ]);
+        $url = sprintf('%s/prix/%s', $this->baseUrl, $isbn->value);
 
-            return [];
+        try {
+            $response = $this->httpClient->request('GET', $url, [
+                'headers' => ['User-Agent' => self::USER_AGENT],
+            ]);
+        } catch (Throwable $exception) {
+            $this->logError($isbn, $exception);
+
+            return static fn (): array => [];
         }
+
+        return function () use ($isbn, $url, $response): array {
+            try {
+                return $this->readOffers($isbn, $url, $response);
+            } catch (Throwable $exception) {
+                $this->logError($isbn, $exception);
+
+                return [];
+            }
+        };
+    }
+
+    private function logError(Isbn $isbn, Throwable $exception): void
+    {
+        $this->logger->error(self::LOG_PREFIX . 'findOffers; ERROR.', [
+            'isbn'  => $isbn->value,
+            'error' => $exception->getMessage(),
+        ]);
     }
 
     /** @return list<PriceOfferDto> */
-    private function doFindOffers(Isbn $isbn): array
+    private function readOffers(Isbn $isbn, string $url, ResponseInterface $response): array
     {
-        $url      = sprintf('%s/prix/%s', $this->baseUrl, $isbn->value);
-        $response = $this->httpClient->request('GET', $url, [
-            'headers' => ['User-Agent' => self::USER_AGENT],
-        ]);
-
         if ($response->getStatusCode() !== 200) {
             $this->logger->info(self::LOG_PREFIX . 'findOffers; NOT 200.', [
                 'status' => $response->getStatusCode(),

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createI18n } from 'vue-i18n'
 import { createRouter, createWebHashHistory } from 'vue-router'
+import type { Ref } from 'vue'
 
 vi.mock('@/api/manga', () => ({
   submitScan: vi.fn(),
@@ -13,28 +14,33 @@ const mockScannerInstances: {
   startContinuous: ReturnType<typeof vi.fn>
   stop: ReturnType<typeof vi.fn>
   toggleTorch: ReturnType<typeof vi.fn>
-  isScanning: { value: boolean }
-  errorMessage: { value: string | null }
-  torchAvailable: { value: boolean }
-  torchOn: { value: boolean }
+  isScanning: Ref<boolean>
+  errorKey: Ref<string | null>
+  torchAvailable: Ref<boolean>
+  torchOn: Ref<boolean>
 }[] = []
 
-vi.mock('@/composables/useBarcodeScanner', () => ({
-  useBarcodeScanner: vi.fn(() => {
-    const instance = {
-      start: vi.fn().mockResolvedValue(undefined),
-      startContinuous: vi.fn().mockResolvedValue(undefined),
-      stop: vi.fn(),
-      toggleTorch: vi.fn(),
-      isScanning: { value: false },
-      errorMessage: { value: null },
-      torchAvailable: { value: false },
-      torchOn: { value: false },
-    }
-    mockScannerInstances.push(instance)
-    return instance
-  }),
-}))
+// Real refs, as the composable returns: the template unwraps them (a plain
+// { value: null } would be a truthy object handed to t()).
+vi.mock('@/composables/useBarcodeScanner', async () => {
+  const { ref } = await import('vue')
+  return {
+    useBarcodeScanner: vi.fn(() => {
+      const instance = {
+        start: vi.fn().mockResolvedValue(undefined),
+        startContinuous: vi.fn().mockResolvedValue(undefined),
+        stop: vi.fn(),
+        toggleTorch: vi.fn(),
+        isScanning: ref(false),
+        errorKey: ref<string | null>(null),
+        torchAvailable: ref(false),
+        torchOn: ref(false),
+      }
+      mockScannerInstances.push(instance)
+      return instance
+    }),
+  }
+})
 
 import { submitScan } from '@/api/manga'
 import ScanPage from '../ScanPage.vue'
@@ -53,7 +59,7 @@ const i18n = createI18n({
         scanAnother: 'Scan another',
         expired: 'Link expired.',
         invalidCode: 'Invalid barcode.',
-        cameraError: 'Camera error.',
+        searching: 'Looking for the barcode…',
         batchSent: 'No volume sent | 1 volume sent | {count} volumes sent',
       },
     },

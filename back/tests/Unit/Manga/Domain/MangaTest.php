@@ -77,19 +77,6 @@ final class MangaTest extends TestCase
         $this->assertSame(1, $manga->volumes->count());
     }
 
-    public function testToDetailArray(): void
-    {
-        $manga  = $this->makeManga();
-        $volume = new Volume(id: 'v1', manga: $manga, number: 1, price: 7.99);
-        $manga->addVolume($volume);
-
-        $detail = $manga->toDetailArray();
-
-        $this->assertArrayHasKey('volumes', $detail);
-        $this->assertCount(1, $detail['volumes']);
-        $this->assertSame(1, $detail['volumes'][0]['number']);
-    }
-
     public function testSpecialEditionDefaultsToNullAndIsExposed(): void
     {
         $standard = $this->makeManga();

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notification\Application\GetArticles;
 
+use App\Notification\Domain\Article;
 use App\Notification\Domain\ArticleRepositoryInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -20,7 +21,7 @@ final readonly class GetArticlesHandler
         $result = $this->repository->findPaginated($query->page, $query->limit, $query->collectionEntryId);
 
         return [
-            'items'      => array_map(static fn ($a) => $a->toArray(), $result['items']),
+            'items'      => array_map(static fn (Article $article) => $article->toArray(), $result['items']),
             'total'      => $result['total'],
             'page'       => $query->page,
             'limit'      => $query->limit,

@@ -8,12 +8,13 @@ use App\Manga\Domain\Isbn;
 use App\Manga\Domain\Marketplace;
 use App\Manga\Domain\PriceKindEnum;
 use App\Manga\Domain\PriceOfferDto;
-use App\Manga\Domain\VolumePriceProviderInterface;
+use Closure;
 use Psr\Log\LoggerInterface;
-use Throwable;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\HttpClient\ResponseInterface;
+use Throwable;
 
-final readonly class GoogleBooksPriceProvider implements VolumePriceProviderInterface
+final readonly class GoogleBooksPriceProvider implements DeferredPriceProviderInterface
 {
     private const string BASE_URL   = 'https://www.googleapis.com/books/v1';
     private const string LOG_PREFIX = 'GOOGLE BOOKS PRICES : ';
@@ -36,8 +37,13 @@ final readonly class GoogleBooksPriceProvider implements VolumePriceProviderInte
 
     public function findOffers(Isbn $isbn, Marketplace $marketplace): array
     {
+        return $this->requestOffers($isbn, $marketplace)();
+    }
+
+    public function requestOffers(Isbn $isbn, Marketplace $marketplace): Closure
+    {
         if (!$this->isApiKeyConfigured()) {
-            return [];
+            return static fn (): array => [];
         }
 
         $this->logger->info(self::LOG_PREFIX . 'findOffers; BEGIN.', [
@@ -46,15 +52,30 @@ final readonly class GoogleBooksPriceProvider implements VolumePriceProviderInte
         ]);
 
         try {
-            return $this->doFindOffers($isbn, $marketplace);
+            $response = $this->sendRequest($isbn, $marketplace);
         } catch (Throwable $exception) {
-            $this->logger->error(self::LOG_PREFIX . 'findOffers; ERROR.', [
-                'isbn'  => $isbn->value,
-                'error' => $exception->getMessage(),
-            ]);
+            $this->logError($isbn, $exception);
 
-            return [];
+            return static fn (): array => [];
         }
+
+        return function () use ($isbn, $marketplace, $response): array {
+            try {
+                return $this->readOffers($response, $marketplace);
+            } catch (Throwable $exception) {
+                $this->logError($isbn, $exception);
+
+                return [];
+            }
+        };
+    }
+
+    private function logError(Isbn $isbn, Throwable $exception): void
+    {
+        $this->logger->error(self::LOG_PREFIX . 'findOffers; ERROR.', [
+            'isbn'  => $isbn->value,
+            'error' => $exception->getMessage(),
+        ]);
     }
 
     private function isApiKeyConfigured(): bool
@@ -63,8 +84,7 @@ final readonly class GoogleBooksPriceProvider implements VolumePriceProviderInte
             && !in_array(strtolower($this->apiKey), self::PLACEHOLDER_API_KEYS, true);
     }
 
-    /** @return list<PriceOfferDto> */
-    private function doFindOffers(Isbn $isbn, Marketplace $marketplace): array
+    private function sendRequest(Isbn $isbn, Marketplace $marketplace): ResponseInterface
     {
         $country = match ($marketplace) {
             Marketplace::Us => 'US',
@@ -79,7 +99,12 @@ final readonly class GoogleBooksPriceProvider implements VolumePriceProviderInte
             $this->apiKey,
         );
 
-        $response = $this->httpClient->request('GET', $url);
+        return $this->httpClient->request('GET', $url);
+    }
+
+    /** @return list<PriceOfferDto> */
+    private function readOffers(ResponseInterface $response, Marketplace $marketplace): array
+    {
         if ($response->getStatusCode() !== 200) {
             return [];
         }

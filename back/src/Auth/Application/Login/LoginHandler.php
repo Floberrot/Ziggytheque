@@ -6,17 +6,15 @@ namespace App\Auth\Application\Login;
 
 use App\Auth\Domain\Exception\AccountNotActivatedException;
 use App\Auth\Domain\Exception\InvalidCredentialsException;
-use App\Auth\Domain\User;
+use App\Auth\Domain\Service\PasswordHasherInterface;
+use App\Auth\Domain\Service\SessionTokenIssuerInterface;
 use App\Auth\Domain\UserRepositoryInterface;
 use App\Auth\Domain\UserStatusEnum;
 use App\Auth\Shared\Event\LoginFailedEvent;
 use App\Auth\Shared\Event\LoginStartedEvent;
 use App\Auth\Shared\Event\LoginSucceededEvent;
 use App\Shared\Application\Bus\EventBusInterface;
-use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
-use Symfony\Component\PasswordHasher\Hasher\PasswordHasherFactoryInterface;
-use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Throwable;
 
 #[AsMessageHandler(bus: 'command.bus')]
@@ -24,9 +22,8 @@ final readonly class LoginHandler
 {
     public function __construct(
         private UserRepositoryInterface $userRepository,
-        private UserPasswordHasherInterface $passwordHasher,
-        private PasswordHasherFactoryInterface $passwordHasherFactory,
-        private JWTTokenManagerInterface $jwtManager,
+        private PasswordHasherInterface $passwordHasher,
+        private SessionTokenIssuerInterface $sessionTokenIssuer,
         private EventBusInterface $eventBus,
     ) {
     }
@@ -42,12 +39,12 @@ final readonly class LoginHandler
             if ($user === null) {
                 // Hash anyway: an unknown address must take as long as a wrong
                 // password, or the response time would tell which emails exist.
-                $this->passwordHasherFactory->getPasswordHasher(User::class)->hash($command->password);
+                $this->passwordHasher->hash($command->password);
 
                 throw new InvalidCredentialsException();
             }
 
-            if (!$this->passwordHasher->isPasswordValid($user, $command->password)) {
+            if (!$this->passwordHasher->isValid($user, $command->password)) {
                 throw new InvalidCredentialsException();
             }
 
@@ -58,7 +55,7 @@ final readonly class LoginHandler
             $user->recordLogin();
             $this->userRepository->save($user);
 
-            $token = $this->jwtManager->create($user);
+            $token = $this->sessionTokenIssuer->issue($user);
 
             $this->eventBus->publish(new LoginSucceededEvent(
                 correlationId: $started->correlationId,

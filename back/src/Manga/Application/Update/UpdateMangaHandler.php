@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Manga\Application\Update;
 
 use App\Manga\Domain\MangaRepositoryInterface;
+use App\Manga\Shared\Event\UpdateMangaFailedEvent;
+use App\Manga\Shared\Event\UpdateMangaStartedEvent;
 use App\Manga\Shared\Event\UpdateMangaSucceededEvent;
 use App\Shared\Application\Bus\EventBusInterface;
 use App\Shared\Domain\Exception\NotFoundException;
@@ -22,6 +24,9 @@ final readonly class UpdateMangaHandler
 
     public function __invoke(UpdateMangaCommand $command): void
     {
+        $started = new UpdateMangaStartedEvent(mangaId: $command->mangaId);
+        $this->eventBus->publish($started);
+
         try {
             $manga = $this->mangaRepository->findById($command->mangaId);
 
@@ -47,10 +52,18 @@ final readonly class UpdateMangaHandler
             $this->mangaRepository->save($manga);
 
             $this->eventBus->publish(new UpdateMangaSucceededEvent(
+                correlationId: $started->correlationId,
                 mangaId: $manga->id,
+                mangaTitle: $manga->title,
             ));
-        } catch (Throwable $e) {
-            throw $e;
+        } catch (Throwable $exception) {
+            $this->eventBus->publish(new UpdateMangaFailedEvent(
+                correlationId: $started->correlationId,
+                mangaId: $command->mangaId,
+                error: $exception->getMessage(),
+                exceptionClass: $exception::class,
+            ));
+            throw $exception;
         }
     }
 }

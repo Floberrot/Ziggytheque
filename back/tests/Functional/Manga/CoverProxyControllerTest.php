@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Manga;
 
+use App\Manga\Infrastructure\Http\CoverProxyController;
+use App\Tests\Doubles\Manga\FakeCoverImageResponseFactory;
 use App\Tests\Functional\AbstractApiTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Symfony\Component\HttpFoundation\Response;
 
 final class CoverProxyControllerTest extends AbstractApiTestCase
 {
@@ -60,5 +63,40 @@ final class CoverProxyControllerTest extends AbstractApiTestCase
         yield 'internal service'        => ['http://back:80/api/me'];
         yield 'file scheme'             => ['file:///etc/passwd'];
         yield 'no scheme'               => ['books.google.com/cover.jpg'];
+    }
+
+    /** A collection grid loads a hundred covers or more at once: all of them are served. */
+    public function testServesAWholeCollectionGridOfCovers(): void
+    {
+        for ($cover = 1; $cover <= 150; $cover++) {
+            $response = $this->requestCover('https://books.google.com/books/content?id=' . $cover, '198.51.100.10');
+
+            $this->assertSame(200, $response->getStatusCode());
+            $this->assertSame('image/jpeg', $response->headers->get('Content-Type'));
+            $this->assertSame(FakeCoverImageResponseFactory::IMAGE_BYTES, strlen((string) $response->getContent()));
+        }
+    }
+
+    public function testRefusesAClientIpPastItsQuotaButNotTheOthers(): void
+    {
+        // A rejected URL is answered without any fetch, and still counts.
+        for ($call = 0; $call < CoverProxyController::REQUESTS_PER_IP; $call++) {
+            $this->assertSame(400, $this->requestCover('https://evil.example/x.jpg', '198.51.100.20')->getStatusCode());
+        }
+
+        $refused = $this->requestCover('https://uploads.mangadex.org/covers/a/b.jpg', '198.51.100.20');
+        $this->assertJsonStatus(429, $refused);
+
+        $otherClient = $this->requestCover('https://uploads.mangadex.org/covers/a/b.jpg', '198.51.100.21');
+        $this->assertSame(200, $otherClient->getStatusCode());
+    }
+
+    private function requestCover(string $url, string $clientIp): Response
+    {
+        // Hundreds of requests: no need to boot a fresh kernel for each of them.
+        $this->client->disableReboot();
+        $this->client->request('GET', '/proxy/cover?url=' . urlencode($url), server: ['REMOTE_ADDR' => $clientIp]);
+
+        return $this->client->getResponse();
     }
 }

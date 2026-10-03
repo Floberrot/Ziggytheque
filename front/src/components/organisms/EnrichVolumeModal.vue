@@ -1,162 +1,106 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
-import { useMutation, useQueryClient } from '@tanstack/vue-query'
-import { X, Search, RefreshCw, Book, ImageOff, Megaphone, Package, Star, BookOpen, Camera, Smartphone, QrCode, Info, HelpCircle, Check, Plus, Tag } from 'lucide-vue-next'
-import { searchVolumeExternal, updateVolume, createScanSession } from '@/api/manga'
-import type { CoverProvider } from '@/api/manga'
-import { toggleVolume } from '@/api/collection'
-import { useUiStore } from '@/stores/useUiStore'
-import { useIsbnCoverSearch } from '@/composables/useIsbnCoverSearch'
-import { useVolumePrices } from '@/composables/useVolumePrices'
-import { useBarcodeScanner } from '@/composables/useBarcodeScanner'
-import { useScanSession } from '@/composables/useScanSession'
-import { useCoverProvider } from '@/composables/useCoverProvider'
-import BaseQrCode from '@/components/atoms/BaseQrCode.vue'
-import BaseCover from '@/components/atoms/BaseCover.vue'
-import BaseCoverProviderLogo from '@/components/atoms/BaseCoverProviderLogo.vue'
-import PriceOfferCard from '@/components/molecules/PriceOfferCard.vue'
-import RetailerPriceCard from '@/components/molecules/RetailerPriceCard.vue'
-import { normalizeIsbn13 } from '@/utils/isbn'
-import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
 import { useI18n } from 'vue-i18n'
-import type { CollectionEntryDetail, VolumeEntry, VolumeToggleField } from '@/types'
+import { Camera, HelpCircle, Megaphone, Package, QrCode, Search, Star, Tag, X } from 'lucide-vue-next'
+import type { CoverProvider } from '@/api/manga'
+import { useBarcodeScanner } from '@/composables/useBarcodeScanner'
+import { useCoverTitleSearch } from '@/composables/useCoverTitleSearch'
+import { useIsbnCoverSearch, type IsbnCoverResult } from '@/composables/useIsbnCoverSearch'
+import { useScanSession } from '@/composables/useScanSession'
+import { useVolumePrices } from '@/composables/useVolumePrices'
+import { useUiStore } from '@/stores/useUiStore'
+import type { VolumeEntry, VolumeToggleField } from '@/types'
 import { coverUrl } from '@/utils/coverUrl'
-import BaseButton from '@/components/atoms/BaseButton.vue'
-import BaseLoader from '@/components/atoms/BaseLoader.vue'
+import { normalizeIsbn13 } from '@/utils/isbn'
+import { volumeHeadlineStatus } from '@/utils/volumeStyles'
 import BaseModal from '@/components/atoms/BaseModal.vue'
+import CoverUrlForm from '@/components/molecules/CoverUrlForm.vue'
+import IsbnCoverResults from '@/components/molecules/IsbnCoverResults.vue'
+import IsbnLookupForm from '@/components/molecules/IsbnLookupForm.vue'
+import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
+import CoverSearchPanel from '@/components/organisms/CoverSearchPanel.vue'
+import VolumePricesPanel from '@/components/organisms/VolumePricesPanel.vue'
+import VolumeScanPanel from '@/components/organisms/VolumeScanPanel.vue'
+import VolumeStatusRail from '@/components/organisms/VolumeStatusRail.vue'
 
-const { t } = useI18n()
+type EnrichMode = 'search' | 'isbn' | 'scan' | 'prix'
 
+/**
+ * The tome tool: its statuses, a cover (by title, ISBN, scan or URL) and its prices.
+ * Lookups (cover search, ISBN, prices) run here; every write is emitted — the series
+ * page owns the mutations (status toggle, ISBN, cover) and their cache updates.
+ */
 const props = defineProps<{
   open: boolean
-  collectionEntryId: string
   mangaId: string
   mangaTitle: string
   mangaEdition: string | null
   volume: VolumeEntry | null
-  initialMode?: 'search' | 'isbn' | 'scan' | 'prix'
+  initialMode?: EnrichMode
+  /** The page is saving the ISBN: no second save of the same value. */
+  savingIsbn: boolean
+  /** The page is applying a cover. */
+  applyingCover: boolean
 }>()
 
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{
+  close: []
+  toggle: [field: VolumeToggleField]
+  saveIsbn: [isbn: string]
+  applyCover: [cover: { coverUrl: string; isbn?: string }]
+}>()
 
-const qc = useQueryClient()
+const { t } = useI18n()
 const ui = useUiStore()
 
 // ── Escape key + lightbox + guide ──
 const lightboxOpen = ref(false)
 const showGuide = ref(false)
 
-function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
-    if (showGuide.value) { showGuide.value = false }
-    else if (lightboxOpen.value) { lightboxOpen.value = false }
-    else if (props.open) { emit('close') }
+function onKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') {
+    if (showGuide.value) showGuide.value = false
+    else if (lightboxOpen.value) lightboxOpen.value = false
+    else if (props.open) emit('close')
   }
 }
 onMounted(() => window.addEventListener('keydown', onKeydown))
 onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
-// ── Search state ──
-const searchQuery = ref('')
-const manualCoverUrl = ref('')
-const searchResults = ref<{ externalId: string | null; title: string; edition: string | null; coverUrl: string | null; isbn: string | null; source: string | null }[]>([])
-const isSearching = ref(false)
-const isLoadingMore = ref(false)
-const hasMore = ref(false)
-const PAGE_SIZE = 20
-let currentPage = 1
-let lastQuery = ''
-let searchTimer: ReturnType<typeof setTimeout> | null = null
-
-const { provider: coverProvider, providers: coverProviders } = useCoverProvider()
-const currentCoverProviderLabel = computed(
-  () => coverProviders.find((option) => option.key === coverProvider.value)?.label ?? 'Auto',
-)
-
-function selectCoverProvider(key: CoverProvider): void {
-  coverProvider.value = key
-  // Close the DaisyUI dropdown by removing focus from the trigger/menu.
-  if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
-}
-
-// The field only carries the series title: the volume number and edition are
-// already sent as dedicated params by runSearch, so repeating them here made
-// providers receive a polluted title ("Berserk tome 1 Glénat — Édition
-// classique") that matched nothing.
-function buildContextQuery(title: string): string {
-  return title.trim()
-}
-
-watch(searchQuery, (val) => {
-  if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => runSearch(val), 500)
-})
-
-// Re-run the current search whenever the cover source changes.
-watch(coverProvider, () => {
-  if (searchQuery.value.trim().length >= 2) runSearch(searchQuery.value)
-})
-
-async function runSearch(q: string) {
-  if (q.trim().length < 2) { searchResults.value = []; hasMore.value = false; return }
-  lastQuery = q.trim()
-  currentPage = 1
-  isSearching.value = true
-  try {
-    const data = await searchVolumeExternal(
-      lastQuery,
-      1,
-      props.volume?.number ?? null,
-      props.mangaEdition,
-      coverProvider.value,
-    )
-    searchResults.value = data
-    hasMore.value = data.length >= PAGE_SIZE
-  } catch {
-    searchResults.value = []
-    hasMore.value = false
-    ui.addToast('Erreur lors de la recherche — réessayez', 'error')
-  } finally {
-    isSearching.value = false
-  }
-}
-
-async function loadMore() {
-  if (!hasMore.value || isLoadingMore.value || !lastQuery) return
-  isLoadingMore.value = true
-  try {
-    const data = await searchVolumeExternal(
-      lastQuery,
-      currentPage + 1,
-      props.volume?.number ?? null,
-      props.mangaEdition,
-      coverProvider.value,
-    )
-    if (data.length > 0) {
-      currentPage++
-      searchResults.value = [...searchResults.value, ...data]
-      hasMore.value = data.length >= PAGE_SIZE
-    } else {
-      hasMore.value = false
-    }
-  } catch {
-    // silent
-  } finally {
-    isLoadingMore.value = false
-  }
-}
-
-function onResultsScroll(e: Event) {
-  const el = e.target as HTMLElement
-  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
-    loadMore()
-  }
-}
+const headlineStatus = computed(() => (props.volume ? volumeHeadlineStatus(props.volume) : null))
 
 // ── Mode switcher ──
-const mode = ref<'search' | 'isbn' | 'scan' | 'prix'>(props.initialMode ?? 'search')
+const mode = ref<EnrichMode>(props.initialMode ?? 'search')
 
-// ── Prix mode state ──
+// ── Search by title ──
+const titleSearch = useCoverTitleSearch({
+  volumeNumber: () => props.volume?.number ?? null,
+  edition: () => props.mangaEdition,
+  onError: () => ui.addToast(t('enrich.searchError'), 'error'),
+})
+const {
+  query: searchQuery,
+  results: searchResults,
+  isSearching,
+  isLoadingMore,
+  hasMore,
+  provider: coverProvider,
+  providers: coverProviders,
+  providerLabel: coverProviderLabel,
+} = titleSearch
+
+function selectCoverProvider(provider: CoverProvider): void {
+  coverProvider.value = provider
+}
+
+function onResultsScroll(event: Event): void {
+  const element = event.target as HTMLElement
+  if (element.scrollTop + element.clientHeight >= element.scrollHeight - 80) {
+    titleSearch.loadMore()
+  }
+}
+
+// ── Prices ──
 const volumeIdForPrices = computed(() => props.volume?.volumeId ?? '')
 const {
   offers: priceOffers,
@@ -168,29 +112,20 @@ const {
   load: loadPrices,
 } = useVolumePrices(() => props.mangaId, volumeIdForPrices)
 
-// Offers not already surfaced as a target shop's best offer (shown below the 3 cards).
-const otherPriceOffers = computed(() => {
-  const bestOffers = priceRetailers.value
-    .map((retailerBlock) => retailerBlock.bestOffer)
-    .filter((offer) => offer !== null)
-  return priceOffers.value.filter(
-    (offer) => !bestOffers.some(
-      (best) => best.merchant === offer.merchant && best.amount === offer.amount && best.url === offer.url,
-    ),
-  )
-})
+// A newly saved ISBN unlocks the price search: refresh the prices already shown.
+watch(
+  () => [props.volume?.id, props.volume?.isbn] as const,
+  ([volumeEntryId, isbn], [previousVolumeEntryId, previousIsbn]) => {
+    if (volumeEntryId === previousVolumeEntryId && isbn !== previousIsbn && pricesLoaded.value) loadPrices()
+  },
+)
 
-// ── ISBN mode state ──
+// ── ISBN ──
 const isbnInput = ref('')
 const { covers: isbnCovers, isLoading: isbnLoading, error: isbnError, search: isbnSearch } = useIsbnCoverSearch(isbnInput)
 // A "found" cover whose image turns out broken or blank is not offered at all.
 const brokenCoverUrls = ref(new Set<string>())
 const visibleIsbnCovers = computed(() => isbnCovers.value.filter((cover) => !brokenCoverUrls.value.has(cover.coverUrl)))
-const videoRef = ref<HTMLVideoElement | null>(null)
-const { isScanning, errorMessage: cameraError, start: startScanner, stop: stopScanner } = useBarcodeScanner()
-const { start: startScanSession } = useScanSession()
-const scanQrValue = ref<string>('')
-const isFetchingSession = ref(false)
 const isbnSearched = ref(false)
 
 // Editing the ISBN invalidates the previous search result (hides a stale "no cover" message).
@@ -198,29 +133,14 @@ watch(isbnInput, () => {
   isbnSearched.value = false
 })
 
-// ── ISBN auto-save ──
-// The typed/scanned ISBN is persisted on its own (field blur + before every cover
+// The typed / scanned ISBN is saved on its own (field blur + before every cover
 // search), so it is never lost when no cover is found or the modal is closed.
-const isbnSaveMutation = useMutation({
-  mutationFn: (isbn: string) =>
-    updateVolume(props.mangaId, props.volume!.volumeId, { isbn }),
-  onSuccess: () => {
-    qc.invalidateQueries({ queryKey: ['collection', props.collectionEntryId] })
-    // Keep the price tab in sync — a fresh ISBN unlocks the price search.
-    if (pricesLoaded.value) loadPrices()
-    ui.addToast(t('enrich.isbnSaved'), 'success')
-  },
-  onError: () => {
-    ui.addToast(t('enrich.isbnSaveError'), 'error')
-  },
-})
-
 function autoSaveIsbn(): void {
-  const vol = props.volume
-  if (!vol) return
+  const volume = props.volume
+  if (!volume) return
   const normalized = normalizeIsbn13(isbnInput.value)
-  if (!normalized || normalized === vol.isbn || isbnSaveMutation.isPending.value) return
-  isbnSaveMutation.mutate(normalized)
+  if (!normalized || normalized === volume.isbn || props.savingIsbn) return
+  emit('saveIsbn', normalized)
 }
 
 async function runIsbnSearch(): Promise<void> {
@@ -230,25 +150,14 @@ async function runIsbnSearch(): Promise<void> {
   isbnSearched.value = true
 }
 
-function applyIsbnCover(cover: { coverUrl: string; isbn: string | null }): void {
+function applyIsbnCover(cover: IsbnCoverResult): void {
   // The ISBN the user typed/scanned wins over the one echoed back by the cover API.
   const typedIsbn = normalizeIsbn13(isbnInput.value)
-  enrichMutation.mutate({
-    coverUrl: cover.coverUrl,
-    isbn: typedIsbn ?? cover.isbn ?? undefined,
-  })
+  emit('applyCover', { coverUrl: cover.coverUrl, isbn: typedIsbn ?? cover.isbn ?? undefined })
 }
 
-// Friendly labels for cover provenance, shared by the title-search and ISBN results.
-const SOURCE_LABELS: Record<string, string> = {
-  bnf: 'BnF',
-  open_library: 'Open Library',
-  google_books: 'Google Books',
-  hardcover: 'Hardcover',
-  mangadex: 'MangaDex',
-}
-function sourceLabel(source: string): string {
-  return SOURCE_LABELS[source] ?? source
+function markCoverMissing(brokenCoverUrl: string): void {
+  brokenCoverUrls.value.add(brokenCoverUrl)
 }
 
 // When no source has a cover for this ISBN, fall back to the title + volume
@@ -256,22 +165,68 @@ function sourceLabel(source: string): string {
 function fallbackToTitleSearch(): void {
   if (!props.volume) return
   mode.value = 'search'
-  // Seeding the field triggers the debounced search below.
-  searchQuery.value = buildContextQuery(props.mangaTitle)
+  // Seeding the field triggers the debounced search. It only carries the series
+  // title: the tome number and edition are sent as their own parameters.
+  searchQuery.value = props.mangaTitle.trim()
 }
+
+// ── Scan: the computer's camera or the phone ──
+const scanPanel = ref<InstanceType<typeof VolumeScanPanel> | null>(null)
+const { isScanning, errorKey: cameraErrorKey, start: startScanner, stop: stopScanner } = useBarcodeScanner()
+const phoneSession = useScanSession()
+const phoneUrl = ref('')
+const isOpeningPhoneSession = ref(false)
+
+async function toggleCamera(): Promise<void> {
+  if (isScanning.value) {
+    stopScanner()
+    return
+  }
+  const video = scanPanel.value?.video
+  if (!video) return
+  await startScanner(video, (isbn) => {
+    isbnInput.value = isbn
+    runIsbnSearch()
+  })
+}
+
+async function startPhoneScan(): Promise<void> {
+  const volume = props.volume
+  if (!volume) return
+  isOpeningPhoneSession.value = true
+  try {
+    const session = await phoneSession.open({ mangaId: props.mangaId, volumeId: volume.volumeId }, {
+      onResult: async (isbn) => {
+        // Surface the hand-off immediately so it's clear the phone reached the PC,
+        // even when no cover is found for the ISBN.
+        isbnInput.value = isbn
+        ui.addToast(t('enrich.isbnFromPhone', { isbn }), 'success')
+        await runIsbnSearch()
+        if (isbnCovers.value.length === 1) {
+          // The page toasts "cover updated" and closes the modal once it is applied.
+          applyIsbnCover(isbnCovers.value[0])
+        }
+      },
+    })
+    phoneUrl.value = `${window.location.origin}/scan/${session.scanToken}`
+  } catch {
+    ui.addToast(t('enrich.scanExpired'), 'error')
+  } finally {
+    isOpeningPhoneSession.value = false
+  }
+}
+
+// ── Cover by URL (footer) ──
+const manualCoverUrl = ref('')
 
 // Clears every per-tome result so switching tomes never shows the previous one's.
 function resetTransientState(): void {
-  searchResults.value = []
-  searchQuery.value = ''
+  titleSearch.reset()
   manualCoverUrl.value = ''
-  hasMore.value = false
-  currentPage = 1
-  lastQuery = ''
   isbnInput.value = ''
   isbnSearched.value = false
   isbnCovers.value = []
-  scanQrValue.value = ''
+  phoneUrl.value = ''
   lightboxOpen.value = false
   stopScanner()
   mode.value = props.initialMode ?? 'search'
@@ -284,228 +239,44 @@ watch(() => props.open, (open) => {
 // Reset + (re)launch the title search whenever the targeted tome changes — covers
 // both opening the modal and switching from one tome to another while it stays open.
 // Immediate: the page loads this component lazily, so it can mount already open.
-watch(() => props.volume?.id ?? null, (volumeEntryId, previousId) => {
-  if (volumeEntryId === (previousId ?? null)) return
+watch(() => props.volume?.id ?? null, (volumeEntryId, previousVolumeEntryId) => {
+  if (volumeEntryId === (previousVolumeEntryId ?? null)) return
   resetTransientState()
-  const vol = props.volume
-  if (props.open && vol && !vol.coverUrl && mode.value !== 'prix') {
-    // Seed the field with the default context query — visible and editable —
-    // which triggers the (debounced) search.
-    searchQuery.value = buildContextQuery(props.mangaTitle)
+  const volume = props.volume
+  if (props.open && volume && !volume.coverUrl && mode.value !== 'prix') {
+    // Seed the field with the series title — visible and editable — which triggers
+    // the (debounced) search.
+    searchQuery.value = props.mangaTitle.trim()
   }
   if (props.open && mode.value === 'prix') {
     loadPrices()
   }
 }, { immediate: true })
 
-// Stop the camera when leaving the Scan tab, auto-fill ISBN from stored ISBN,
-// and load prices on first opening of the prix tab.
+// Stop the camera when leaving the Scan tab, auto-fill the ISBN from the stored one,
+// and load the prices on the first opening of the prices tab.
 watch(mode, async (currentMode, previousMode) => {
   if (previousMode === 'scan' && currentMode !== 'scan') stopScanner()
   if (currentMode === 'prix' && !pricesLoaded.value) {
     loadPrices()
   }
   if (currentMode !== 'isbn') return
-  const vol = props.volume
-  if (vol?.isbn && !isbnInput.value) {
-    isbnInput.value = vol.isbn
+  const volume = props.volume
+  if (volume?.isbn && !isbnInput.value) {
+    isbnInput.value = volume.isbn
     await runIsbnSearch()
-    if (isbnCovers.value.length === 1 && !vol.coverUrl) {
+    if (isbnCovers.value.length === 1 && !volume.coverUrl) {
       applyIsbnCover(isbnCovers.value[0])
     }
   }
 })
 
-async function startCameraScanner(): Promise<void> {
-  if (!videoRef.value) return
-  await startScanner(videoRef.value, (isbn) => {
-    isbnInput.value = isbn
-    runIsbnSearch()
-  })
-}
-
-async function startPhoneScan(): Promise<void> {
-  if (!props.volume) return
-  isFetchingSession.value = true
-  try {
-    const session = await createScanSession({ mangaId: props.mangaId, volumeId: props.volume.volumeId })
-    scanQrValue.value = `${window.location.origin}/scan/${session.scanToken}`
-    startScanSession(session, {
-      onResult: async (isbn) => {
-        // Surface the hand-off immediately so it's clear the phone reached the PC,
-        // even when no cover is found for the ISBN.
-        isbnInput.value = isbn
-        ui.addToast(t('enrich.isbnFromPhone', { isbn }), 'success')
-        await runIsbnSearch()
-        if (isbnCovers.value.length === 1) {
-          // enrichMutation toasts "cover updated" and closes the modal on success.
-          applyIsbnCover(isbnCovers.value[0])
-        }
-      },
-    })
-  } catch {
-    ui.addToast(t('enrich.scanExpired'), 'error')
-  } finally {
-    isFetchingSession.value = false
-  }
-}
-
-// ── Enrich mutation ──
-const enrichMutation = useMutation({
-  mutationFn: ({ coverUrl, isbn }: { coverUrl: string; isbn?: string }) =>
-    updateVolume(props.mangaId, props.volume!.volumeId, { coverUrl, isbn }),
-  onSuccess: () => {
-    qc.invalidateQueries({ queryKey: ['collection', props.collectionEntryId] })
-    ui.addToast('Couverture mise à jour', 'success')
-    emit('close')
-  },
-})
-
-// ── Toggle mutations ──
-// Mirrors the backend ToggleVolumeHandler rules so the optimistic cache update
-// matches exactly what the server will persist (no flicker on settle).
-function applyToggleField(volume: VolumeEntry, field: VolumeToggleField): VolumeEntry {
-  const next = { ...volume }
-  if (field === 'isOwned') {
-    next.isOwned = !volume.isOwned
-    // Owning a volume removes it from the wishlist and announced lists.
-    if (next.isOwned) {
-      next.isWished = false
-      next.isAnnounced = false
-    }
-  } else if (field === 'isRead') {
-    next.isRead = !volume.isRead
-  } else if (field === 'isWished') {
-    next.isWished = !volume.isWished
-  } else {
-    next.isAnnounced = !volume.isAnnounced
-  }
-  return next
-}
-
-function recomputeCounts(volumes: VolumeEntry[]) {
-  return {
-    ownedCount:  volumes.filter((v) => v.isOwned).length,
-    readCount:   volumes.filter((v) => v.isRead).length,
-    wishedCount: volumes.filter((v) => v.isWished && !v.isOwned).length,
-    ownedValue:  volumes.reduce((sum, v) => sum + (v.isOwned ? (v.price ?? 0) : 0), 0),
-  }
-}
-
-const detailKey = computed(() => ['collection', props.collectionEntryId])
-
-const toggleMutationKey = computed(() => ['toggle-volume', props.collectionEntryId])
-
-const toggleMutation = useMutation({
-  mutationKey: ['toggle-volume', props.collectionEntryId],
-  mutationFn: ({ field }: { field: VolumeToggleField }) =>
-    toggleVolume(props.collectionEntryId, props.volume!.id, field),
-  // Optimistic update — the toggle feels instant instead of waiting on a round trip.
-  onMutate: async ({ field }: { field: VolumeToggleField }) => {
-    const key = detailKey.value
-    const volumeEntryId = props.volume!.id
-    await qc.cancelQueries({ queryKey: key })
-    const previous = qc.getQueryData<CollectionEntryDetail>(key)
-    qc.setQueryData<CollectionEntryDetail>(key, (old) => {
-      if (!old) return old
-      const volumes = old.volumes.map((v) => (v.id === volumeEntryId ? applyToggleField(v, field) : v))
-      return { ...old, volumes, ...recomputeCounts(volumes) }
-    })
-    return { previous, key }
-  },
-  onError: (_error, _vars, context) => {
-    if (context?.previous) qc.setQueryData(context.key, context.previous)
-    ui.addToast(t('enrich.statusUpdateError'), 'error')
-  },
-  onSettled: () => {
-    // Only refetch once the last rapid toggle has settled — an in-flight refetch
-    // from an earlier toggle would otherwise overwrite the newer optimistic state,
-    // making a quick second tap on "Lu" appear to do nothing.
-    if (qc.isMutating({ mutationKey: toggleMutationKey.value }) === 1) {
-      qc.invalidateQueries({ queryKey: ['collection', props.collectionEntryId] })
-      qc.invalidateQueries({ queryKey: ['collection'] })
-      qc.invalidateQueries({ queryKey: ['wishlist'] })
-      qc.invalidateQueries({ queryKey: ['stats'] })
-    }
-  },
-})
-
-const volumeStatus = computed(() => {
-  const v = props.volume
-  if (!v) return null
-  if (v.isAnnounced && !v.isOwned) return 'announced'
-  if (v.isOwned) return 'owned'
-  if (v.isWished) return 'wished'
-  return 'none'
-})
-
-// ── Status toggle controls (the "owned / read / wishlist / announced" panel) ──
-// Static class literals per field so Tailwind keeps them; visibility + active
-// state are derived from the current volume below.
-interface StatusToggleConfig {
-  field: VolumeToggleField
-  icon: typeof Package
-  labelKey: string
-  descKey: string
-  activeCard: string
-  iconChip: string
-  dotActive: string
-}
-
-const STATUS_TOGGLES: Record<VolumeToggleField, StatusToggleConfig> = {
-  isOwned: {
-    field: 'isOwned',
-    icon: Package,
-    labelKey: 'enrich.statusOwnedLabel',
-    descKey: 'enrich.statusOwnedDesc',
-    activeCard: 'border-success bg-success/10 ring-1 ring-success/30',
-    iconChip: 'bg-success/15 text-success',
-    dotActive: 'bg-success text-success-content',
-  },
-  isRead: {
-    field: 'isRead',
-    icon: BookOpen,
-    labelKey: 'enrich.statusReadLabel',
-    descKey: 'enrich.statusReadDesc',
-    activeCard: 'border-info bg-info/10 ring-1 ring-info/30',
-    iconChip: 'bg-info/15 text-info',
-    dotActive: 'bg-info text-info-content',
-  },
-  isWished: {
-    field: 'isWished',
-    icon: Star,
-    labelKey: 'enrich.statusWishedLabel',
-    descKey: 'enrich.statusWishedDesc',
-    activeCard: 'border-warning bg-warning/10 ring-1 ring-warning/30',
-    iconChip: 'bg-warning/15 text-warning',
-    dotActive: 'bg-warning text-warning-content',
-  },
-  isAnnounced: {
-    field: 'isAnnounced',
-    icon: Megaphone,
-    labelKey: 'enrich.statusAnnouncedLabel',
-    descKey: 'enrich.statusAnnouncedDesc',
-    activeCard: 'border-secondary bg-secondary/10 ring-1 ring-secondary/30',
-    iconChip: 'bg-secondary/15 text-secondary',
-    dotActive: 'bg-secondary text-secondary-content',
-  },
-}
-
-// Possession cards (Possédé / Souhaité / Annoncé). "Possédé" is always offered;
-// wishing / announcing only make sense while not owned. Reading is intentionally
-// excluded here — it is rendered as a separate switch (possession ≠ lecture).
-const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean }[]>(() => {
-  const v = props.volume
-  if (!v) return []
-  const list: { config: StatusToggleConfig; active: boolean }[] = [
-    { config: STATUS_TOGGLES.isOwned, active: v.isOwned },
-  ]
-  if (!v.isOwned) {
-    list.push({ config: STATUS_TOGGLES.isWished, active: v.isWished })
-    list.push({ config: STATUS_TOGGLES.isAnnounced, active: v.isAnnounced })
-  }
-  return list
-})
+const MODES: { key: EnrichMode; icon: typeof Search; labelKey: string }[] = [
+  { key: 'search', icon: Search, labelKey: 'enrich.tabSearch' },
+  { key: 'isbn', icon: QrCode, labelKey: 'enrich.tabIsbn' },
+  { key: 'scan', icon: Camera, labelKey: 'enrich.tabScan' },
+  { key: 'prix', icon: Tag, labelKey: 'prices.tabLabel' },
+]
 </script>
 
 <template>
@@ -521,418 +292,156 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
   >
     <template v-if="volume">
       <!-- Header -->
-          <div class="flex items-center justify-between px-5 py-4 border-b border-base-200">
-            <div class="flex items-center gap-2.5">
-              <div>
-                <h2 class="font-bold text-lg">Tome {{ volume.number }}</h2>
-                <p class="text-sm text-base-content/50">{{ mangaTitle }}</p>
-              </div>
-              <!-- Status badge -->
-              <span
-                v-if="volumeStatus === 'announced'"
-                class="badge badge-neutral gap-1"
+      <div class="flex items-center justify-between px-5 py-4 border-b border-base-200">
+        <div class="flex items-center gap-2.5">
+          <div>
+            <h2 class="font-bold text-lg">{{ t('catalogue.tome', { number: volume.number }) }}</h2>
+            <p class="text-sm text-base-content/50">{{ mangaTitle }}</p>
+          </div>
+          <!-- Status badge -->
+          <span v-if="headlineStatus === 'announced'" class="badge badge-neutral gap-1">
+            <Megaphone class="h-3 w-3" />
+            {{ t('enrich.statusAnnouncedLabel') }}
+          </span>
+          <span v-else-if="headlineStatus === 'owned'" class="badge badge-success gap-1">
+            <Package class="h-3 w-3" />
+            {{ t('enrich.statusOwnedLabel') }}
+          </span>
+          <span v-else-if="headlineStatus === 'wished'" class="badge badge-warning gap-1">
+            <Star class="h-3 w-3" fill="currentColor" stroke-width="0" />
+            {{ t('enrich.statusWishedLabel') }}
+          </span>
+          <span v-else class="badge badge-ghost">{{ t('volume.untracked') }}</span>
+        </div>
+        <div class="flex items-center gap-1">
+          <div class="tooltip tooltip-left" :data-tip="t('guide.openTooltip')">
+            <button
+              class="btn btn-ghost btn-sm btn-circle text-base-content/60 hover:text-primary"
+              :aria-label="t('guide.openTooltip')"
+              @click="showGuide = true"
+            >
+              <HelpCircle class="h-5 w-5" />
+            </button>
+          </div>
+          <button class="btn btn-ghost btn-sm btn-circle" :aria-label="t('common.close')" @click="emit('close')">
+            <X class="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <!-- Layout: single scroll on mobile, side-by-side on desktop -->
+      <div class="flex flex-col sm:flex-row gap-0 overflow-y-auto sm:overflow-hidden flex-1 min-h-0" @scroll="onResultsScroll">
+        <VolumeStatusRail
+          :volume="volume"
+          @toggle="emit('toggle', $event)"
+          @open-guide="showGuide = true"
+          @zoom="lightboxOpen = true"
+        />
+
+        <!-- ── Right zone: find a cover ── -->
+        <div class="min-w-0 flex flex-col sm:flex-1 sm:overflow-hidden">
+          <div class="px-4 sm:px-5 pt-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-base-content/40 mb-2">{{ t('enrich.findCover') }}</p>
+            <!-- Segmented switcher — full width with flex-1 tabs on mobile so
+                 the 4 tabs never overflow at 360px (icons hidden when cramped) -->
+            <div class="flex sm:inline-flex w-full sm:w-auto p-1 bg-base-200 rounded-xl gap-1" role="tablist">
+              <button
+                v-for="option in MODES"
+                :key="option.key"
+                class="btn btn-sm border-0 gap-1.5 flex-1 sm:flex-none min-w-0 max-[440px]:px-1 max-[440px]:text-xs"
+                :class="mode === option.key ? 'btn-primary' : 'btn-ghost'"
+                role="tab"
+                :aria-selected="mode === option.key"
+                @click="mode = option.key"
               >
-                <Megaphone class="h-3 w-3" />
-                Annoncé
-              </span>
-              <span
-                v-else-if="volumeStatus === 'owned'"
-                class="badge badge-success gap-1"
-              >
-                <Package class="h-3 w-3" />
-                Possédé
-              </span>
-              <span
-                v-else-if="volumeStatus === 'wished'"
-                class="badge badge-warning gap-1"
-              >
-                <Star class="h-3 w-3" fill="currentColor" stroke-width="0" />
-                Souhaité
-              </span>
-              <span v-else class="badge badge-ghost">Non suivi</span>
-            </div>
-            <div class="flex items-center gap-1">
-              <div class="tooltip tooltip-left" :data-tip="t('guide.openTooltip')">
-                <button
-                  class="btn btn-ghost btn-sm btn-circle text-base-content/60 hover:text-primary"
-                  :aria-label="t('guide.openTooltip')"
-                  @click="showGuide = true"
-                >
-                  <HelpCircle class="h-5 w-5" />
-                </button>
-              </div>
-              <button class="btn btn-ghost btn-sm btn-circle" :aria-label="t('common.close')" @click="emit('close')">
-                <X class="h-4 w-4" />
+                <component :is="option.icon" class="h-4 w-4 shrink-0 max-[400px]:hidden" />
+                <span class="truncate">{{ t(option.labelKey) }}</span>
               </button>
             </div>
           </div>
 
-          <!-- Layout: single scroll on mobile, side-by-side on desktop -->
-          <div class="flex flex-col sm:flex-row gap-0 overflow-y-auto sm:overflow-hidden flex-1 min-h-0" @scroll="onResultsScroll">
+          <!-- Scrollable content (desktop only — mobile scrolls the outer wrapper) -->
+          <div class="sm:flex-1 sm:overflow-y-auto px-4 sm:px-5 py-4 sm:min-h-0" @scroll="onResultsScroll">
+            <!-- Title: search by title + results -->
+            <CoverSearchPanel
+              v-if="mode === 'search'"
+              v-model:query="searchQuery"
+              :results="searchResults"
+              :is-searching="isSearching"
+              :is-loading-more="isLoadingMore"
+              :has-more="hasMore"
+              :provider="coverProvider"
+              :providers="coverProviders"
+              :provider-label="coverProviderLabel"
+              @select-provider="selectCoverProvider"
+              @refresh="titleSearch.runSearch(searchQuery)"
+              @apply="emit('applyCover', $event)"
+            />
 
-            <!-- ── Left rail : aperçu cover + statut + ISBN du tome ──
-                 Mobile : bande horizontale en haut · Desktop : colonne latérale -->
-            <div class="shrink-0 sm:w-72 flex flex-col gap-4 p-4 sm:p-5 border-b sm:border-b-0 sm:border-r border-base-200 sm:overflow-y-auto">
-              <div class="flex flex-col gap-3">
-                <!-- Cover preview -->
-                <div
-                  class="shrink-0 w-28 mx-auto sm:w-44 aspect-[2/3] rounded-xl overflow-hidden ring-2 bg-base-200 transition-transform duration-150 relative"
-                  :class="[
-                    volumeStatus === 'owned' ? 'ring-success/60' : volumeStatus === 'wished' ? 'ring-warning/60' : volumeStatus === 'announced' ? 'ring-secondary/50 ring-dashed' : 'ring-base-300',
-                    volume.coverUrl ? 'cursor-zoom-in hover:scale-105' : ''
-                  ]"
-                  @click="volume.coverUrl && (lightboxOpen = true)"
-                >
-                  <BaseCover v-if="volume.coverUrl" :src="volume.coverUrl" :alt="`Tome ${volume.number}`" class="w-full h-full" />
-                  <div v-else-if="volume.isAnnounced && !volume.isOwned" class="w-full h-full flex items-end justify-center bg-base-300" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,.06) 4px, rgba(0,0,0,.06) 8px);">
-                    <span class="badge badge-secondary mb-2 text-[9px]">Annoncé</span>
-                  </div>
-                  <div v-else class="w-full h-full flex items-center justify-center text-base-content/20">
-                    <Book class="h-10 w-10" stroke-width="1.5" />
-                  </div>
-                </div>
+            <!-- ISBN: typed by hand -->
+            <IsbnLookupForm
+              v-else-if="mode === 'isbn'"
+              v-model:isbn="isbnInput"
+              :loading="isbnLoading"
+              :error-key="isbnError"
+              @search="runIsbnSearch()"
+              @commit="autoSaveIsbn()"
+            />
 
-                <!-- ── Status toggles — clear, self-explanatory cards ── -->
-                <div class="flex flex-col gap-2.5">
-                  <div class="flex items-center justify-between gap-2">
-                    <p class="text-[11px] font-bold uppercase tracking-wide text-base-content/45">
-                      {{ t('enrich.statusTitle') }}
-                    </p>
-                    <button
-                      class="text-[11px] font-medium text-primary/70 hover:text-primary inline-flex items-center gap-0.5"
-                      @click="showGuide = true"
-                    >
-                      <HelpCircle class="h-3 w-3" />
-                      {{ t('enrich.statusHelp') }}
-                    </button>
-                  </div>
-
-                  <!-- Possession cards (Possédé / Souhaité / Annoncé) -->
-                  <button
-                    v-for="{ config, active } in possessionToggles"
-                    :key="config.field"
-                    type="button"
-                    class="group/status relative flex items-center gap-3 w-full rounded-xl border p-2.5 text-left transition-all duration-150 active:scale-[0.98]"
-                    :class="active
-                      ? config.activeCard
-                      : 'border-base-300/70 bg-base-100 hover:border-base-content/20 hover:bg-base-200/40'"
-                    @click="toggleMutation.mutate({ field: config.field })"
-                  >
-                    <span
-                      class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
-                      :class="active ? config.iconChip : 'bg-base-200 text-base-content/40 group-hover/status:text-base-content/60'"
-                    >
-                      <component :is="config.icon" class="h-4 w-4" />
-                    </span>
-                    <span class="min-w-0 flex-1">
-                      <span class="block text-sm font-semibold leading-tight">{{ t(config.labelKey) }}</span>
-                      <span class="block text-[11px] text-base-content/50 leading-snug mt-0.5">{{ t(config.descKey) }}</span>
-                    </span>
-                    <!-- State indicator: filled check when active, empty ring otherwise -->
-                    <span
-                      class="w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all"
-                      :class="active ? config.dotActive : 'border-2 border-base-300 text-transparent group-hover/status:border-base-content/30'"
-                    >
-                      <Check v-if="active" class="h-3 w-3" stroke-width="3" />
-                      <Plus v-else class="h-3 w-3 text-base-content/30" stroke-width="3" />
-                    </span>
-                  </button>
-
-                  <!-- "Lu" — an independent switch (a volume is read or not, regardless of how it's owned) -->
-                  <button
-                    v-if="volume.isOwned"
-                    type="button"
-                    class="group/read flex items-center gap-3 w-full rounded-xl border p-2.5 text-left transition-all duration-150 active:scale-[0.98]"
-                    :class="volume.isRead
-                      ? 'border-info bg-info/10 ring-1 ring-info/30'
-                      : 'border-base-300/70 bg-base-100 hover:border-base-content/20 hover:bg-base-200/40'"
-                    :aria-pressed="volume.isRead"
-                    @click="toggleMutation.mutate({ field: 'isRead' })"
-                  >
-                    <span
-                      class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
-                      :class="volume.isRead ? 'bg-info/15 text-info' : 'bg-base-200 text-base-content/40 group-hover/read:text-base-content/60'"
-                    >
-                      <BookOpen class="h-4 w-4" />
-                    </span>
-                    <span class="min-w-0 flex-1">
-                      <span class="block text-sm font-semibold leading-tight">{{ t('enrich.statusReadLabel') }}</span>
-                      <span class="block text-[11px] text-base-content/50 leading-snug mt-0.5">{{ t('enrich.statusReadDesc') }}</span>
-                    </span>
-                    <!-- Switch -->
-                    <span
-                      class="relative w-10 h-6 rounded-full shrink-0 transition-colors duration-200"
-                      :class="volume.isRead ? 'bg-info' : 'bg-base-300'"
-                    >
-                      <span
-                        class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-base-100 shadow transition-transform duration-200"
-                        :class="volume.isRead ? 'translate-x-4' : ''"
-                      />
-                    </span>
-                  </button>
-
-                  <p class="text-[11px] text-base-content/40 leading-snug px-0.5">
-                    {{ volume.isOwned ? t('enrich.statusHintOwned') : t('enrich.statusHintNotOwned') }}
-                  </p>
-                </div>
-              </div>
-
-              <!-- ISBN du tome + aide (desktop) -->
-              <div class="hidden sm:block mt-auto pt-4 border-t border-base-200">
-                <p class="text-[11px] font-semibold uppercase tracking-wide text-base-content/40">{{ t('enrich.isbnOfVolume') }}</p>
-                <p class="text-sm font-semibold mt-1 tabular-nums">{{ volume.isbn || t('enrich.isbnUnknown') }}</p>
-                <p class="flex items-start gap-1.5 text-[11px] text-base-content/40 mt-1.5 leading-snug">
-                  <Info class="h-3.5 w-3.5 shrink-0 mt-px text-primary/70" />
-                  {{ t('enrich.isbnHint') }}
-                </p>
-              </div>
+            <!-- ISBN / scan results grouped by source — shown FIRST, above the scan tools -->
+            <Transition name="fade">
+              <IsbnCoverResults
+                v-if="mode !== 'search' && visibleIsbnCovers.length"
+                :class="mode === 'isbn' ? 'mt-4' : ''"
+                :covers="visibleIsbnCovers"
+                :applying="applyingCover"
+                @apply="applyIsbnCover"
+                @missing="markCoverMissing"
+              />
+            </Transition>
+            <div v-if="mode === 'isbn' && isbnSearched && !isbnLoading && !isbnError && !visibleIsbnCovers.length" class="mt-4 flex flex-col gap-2 items-start">
+              <p class="text-sm text-base-content/40">{{ t('enrich.noCoverForIsbn') }}</p>
+              <button class="btn btn-sm btn-outline gap-2" @click="fallbackToTitleSearch()">
+                <Search class="h-4 w-4" />
+                {{ t('enrich.searchByTitle') }}
+              </button>
             </div>
 
-            <!-- ── Right zone : trouver une couverture ── -->
-            <div class="min-w-0 flex flex-col sm:flex-1 sm:overflow-hidden">
-              <div class="px-4 sm:px-5 pt-4">
-                <p class="text-xs font-semibold uppercase tracking-wide text-base-content/40 mb-2">{{ t('enrich.findCover') }}</p>
-                <!-- Segmented switcher — full width with flex-1 tabs on mobile so
-                     the 4 tabs never overflow at 360px (icons hidden when cramped) -->
-                <div class="flex sm:inline-flex w-full sm:w-auto p-1 bg-base-200 rounded-xl gap-1">
-                  <button class="btn btn-sm border-0 gap-1.5 flex-1 sm:flex-none min-w-0 max-[440px]:px-1 max-[440px]:text-xs" :class="mode === 'search' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'search'">
-                    <Search class="h-4 w-4 shrink-0 max-[400px]:hidden" />
-                    <span class="truncate">{{ t('enrich.tabSearch') }}</span>
-                  </button>
-                  <button class="btn btn-sm border-0 gap-1.5 flex-1 sm:flex-none min-w-0 max-[440px]:px-1 max-[440px]:text-xs" :class="mode === 'isbn' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'isbn'">
-                    <QrCode class="h-4 w-4 shrink-0 max-[400px]:hidden" />
-                    <span class="truncate">{{ t('enrich.tabIsbn') }}</span>
-                  </button>
-                  <button class="btn btn-sm border-0 gap-1.5 flex-1 sm:flex-none min-w-0 max-[440px]:px-1 max-[440px]:text-xs" :class="mode === 'scan' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'scan'">
-                    <Camera class="h-4 w-4 shrink-0 max-[400px]:hidden" />
-                    <span class="truncate">{{ t('enrich.tabScan') }}</span>
-                  </button>
-                  <button class="btn btn-sm border-0 gap-1.5 flex-1 sm:flex-none min-w-0 max-[440px]:px-1 max-[440px]:text-xs" :class="mode === 'prix' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'prix'">
-                    <Tag class="h-4 w-4 shrink-0 max-[400px]:hidden" />
-                    <span class="truncate">{{ t('prices.tabLabel') }}</span>
-                  </button>
-                </div>
-              </div>
+            <!-- Scan: camera + phone — placed BELOW the results -->
+            <VolumeScanPanel
+              v-if="mode === 'scan'"
+              ref="scanPanel"
+              :is-scanning="isScanning"
+              :camera-error-key="cameraErrorKey"
+              :opening-phone-session="isOpeningPhoneSession"
+              :phone-url="phoneUrl"
+              :below-results="visibleIsbnCovers.length > 0"
+              @toggle-camera="toggleCamera"
+              @start-phone="startPhoneScan"
+            />
 
-              <!-- Scrollable content (desktop only — mobile scrolls the outer wrapper) -->
-              <div class="sm:flex-1 sm:overflow-y-auto px-4 sm:px-5 py-4 sm:min-h-0" @scroll="onResultsScroll">
-                <!-- Titre : recherche par titre + résultats -->
-                <template v-if="mode === 'search'">
-                  <div class="flex gap-2 items-center mb-4">
-                    <!-- Cover source picker: logo + tooltip naming the active source -->
-                    <div class="dropdown">
-                      <div
-                        tabindex="0"
-                        role="button"
-                        class="btn btn-square btn-outline btn-sm tooltip tooltip-right p-1.5"
-                        :data-tip="t('enrich.coverVia', { name: currentCoverProviderLabel })"
-                        :aria-label="t('enrich.coverVia', { name: currentCoverProviderLabel })"
-                      >
-                        <BaseCoverProviderLogo :provider="coverProvider" class="h-full w-full" />
-                      </div>
-                      <ul
-                        tabindex="0"
-                        class="dropdown-content menu z-30 mt-1 w-48 rounded-box bg-base-100 p-1 shadow"
-                      >
-                        <li class="menu-title text-xs">{{ t('enrich.coverSource') }}</li>
-                        <li v-for="option in coverProviders" :key="option.key">
-                          <button
-                            type="button"
-                            :class="{ active: option.key === coverProvider }"
-                            @click="selectCoverProvider(option.key)"
-                          >
-                            <BaseCoverProviderLogo :provider="option.key" class="h-5 w-5 shrink-0" />
-                            <span>{{ option.label }}</span>
-                          </button>
-                        </li>
-                      </ul>
-                    </div>
-                    <label class="input input-bordered input-sm flex items-center gap-2 flex-1">
-                      <Search class="h-4 w-4 opacity-40 shrink-0" />
-                      <input
-                        v-model="searchQuery"
-                        type="text"
-                        class="grow text-sm"
-                        :placeholder="t('enrich.coverSearchPlaceholder')"
-                      />
-                      <BaseLoader v-if="isSearching" size="xs" class="opacity-40" />
-                    </label>
-                    <BaseButton class="btn btn-square btn-outline btn-sm shrink-0" :loading="isSearching" :disabled="searchQuery.trim().length < 2" title="Relancer" @click="runSearch(searchQuery)">
-                      <template #icon><RefreshCw class="h-4 w-4" /></template>
-                    </BaseButton>
-                  </div>
-                  <p v-if="!searchResults.length && !isSearching" class="text-sm text-base-content/30 text-center py-10">
-                    Suggestions de couvertures — appuyez sur une couverture pour l'appliquer
-                  </p>
-                  <TransitionGroup name="cover-pop" tag="div" class="grid grid-cols-2 sm:grid-cols-3 gap-4" appear>
-                    <button
-                      v-for="(result, idx) in searchResults"
-                      :key="result.externalId ?? result.coverUrl ?? idx"
-                      class="group flex flex-col gap-1.5 text-left"
-                      :style="{ transitionDelay: Math.min(idx, 8) * 35 + 'ms' }"
-                      :disabled="!result.coverUrl"
-                      @click="result.coverUrl && enrichMutation.mutate({ coverUrl: result.coverUrl, isbn: result.isbn ?? undefined })"
-                    >
-                      <div
-                        class="w-full aspect-[2/3] rounded-lg overflow-hidden bg-base-200 ring-2 ring-transparent transition-all duration-150"
-                        :class="result.coverUrl
-                          ? 'group-hover:ring-primary group-hover:scale-[1.03] group-hover:shadow-lg cursor-pointer active:scale-95'
-                          : 'opacity-40'"
-                      >
-                        <BaseCover :src="result.coverUrl" :alt="result.title" class="w-full h-full">
-                          <template #fallback>
-                            <ImageOff class="h-9 w-9" stroke-width="1.5" />
-                          </template>
-                        </BaseCover>
-                      </div>
-                      <span v-if="result.source" class="badge badge-sm badge-ghost w-full justify-center font-medium">{{ sourceLabel(result.source) }}</span>
-                      <div v-if="result.title || result.edition" class="px-0.5">
-                        <p class="text-xs font-medium line-clamp-2 leading-tight">{{ result.title }}</p>
-                        <p v-if="result.edition" class="text-[10px] text-base-content/40 truncate">{{ result.edition }}</p>
-                      </div>
-                    </button>
-                  </TransitionGroup>
-                  <div v-if="isLoadingMore || hasMore" class="py-3 flex items-center justify-center gap-2 text-xs text-base-content/40">
-                    <BaseLoader v-if="isLoadingMore" size="xs" />
-                    <span v-else>Défiler pour plus</span>
-                  </div>
-                </template>
-
-                <!-- ISBN : saisie manuelle -->
-                <template v-else-if="mode === 'isbn'">
-                  <div class="flex gap-2">
-                    <input
-                      v-model="isbnInput"
-                      type="text"
-                      class="input input-bordered input-sm flex-1"
-                      :placeholder="t('enrich.isbnPlaceholder')"
-                      @keyup.enter="runIsbnSearch()"
-                      @blur="autoSaveIsbn()"
-                    />
-                    <BaseButton class="btn btn-sm btn-primary shrink-0" :loading="isbnLoading" :disabled="!isbnInput.trim()" @click="runIsbnSearch()">
-                      {{ t('enrich.searchIsbn') }}
-                    </BaseButton>
-                  </div>
-                  <p v-if="isbnError" class="text-error text-xs mt-2">{{ t(isbnError) }}</p>
-                </template>
-
-                <!-- Résultats ISBN/Scan regroupés par source — affichés EN PRIORITÉ, au-dessus du scan -->
-                <Transition name="fade">
-                  <div v-if="mode !== 'search' && visibleIsbnCovers.length" :class="mode === 'isbn' ? 'mt-4' : ''">
-                    <p class="text-sm font-medium mb-2">{{ t('enrich.coverFound') }}</p>
-                    <TransitionGroup name="cover-pop" tag="div" class="grid grid-cols-2 sm:grid-cols-3 gap-4" appear>
-                      <button
-                        v-for="(cover, idx) in visibleIsbnCovers"
-                        :key="cover.source + idx"
-                        class="group flex flex-col gap-1.5 text-left"
-                        :style="{ transitionDelay: Math.min(idx, 8) * 35 + 'ms' }"
-                        :disabled="enrichMutation.isPending.value"
-                        @click="applyIsbnCover(cover)"
-                      >
-                        <div class="w-full aspect-[2/3] rounded-lg overflow-hidden bg-base-200 ring-2 ring-transparent transition-all duration-150 cursor-pointer group-hover:ring-primary group-hover:scale-[1.03] group-hover:shadow-lg active:scale-95">
-                          <BaseCover :src="cover.coverUrl" :alt="cover.source" class="w-full h-full" @missing="brokenCoverUrls.add(cover.coverUrl)" />
-                        </div>
-                        <span class="badge badge-sm badge-ghost w-full justify-center font-medium">{{ sourceLabel(cover.source) }}</span>
-                      </button>
-                    </TransitionGroup>
-                  </div>
-                </Transition>
-                <div v-if="mode === 'isbn' && isbnSearched && !isbnLoading && !isbnError && !visibleIsbnCovers.length" class="mt-4 flex flex-col gap-2 items-start">
-                  <p class="text-sm text-base-content/40">{{ t('enrich.noCoverForIsbn') }}</p>
-                  <button class="btn btn-sm btn-outline gap-2" @click="fallbackToTitleSearch()">
-                    <Search class="h-4 w-4" />
-                    {{ t('enrich.searchByTitle') }}
-                  </button>
-                </div>
-
-                <!-- Scan : caméra + téléphone — placés SOUS les résultats -->
-                <div v-if="mode === 'scan'" class="flex flex-col gap-3" :class="visibleIsbnCovers.length ? 'mt-5 pt-5 border-t border-base-200' : ''">
-                  <button class="btn btn-sm btn-outline gap-2 w-full" :class="{ 'btn-active': isScanning }" @click="isScanning ? stopScanner() : startCameraScanner()">
-                    <Camera class="h-4 w-4" />
-                    {{ t('enrich.scanCamera') }}
-                  </button>
-                  <p v-if="cameraError" class="text-error text-xs">{{ cameraError }}</p>
-                  <video v-show="isScanning" ref="videoRef" class="w-full rounded-lg aspect-video object-cover bg-base-200" autoplay muted playsinline />
-                  <BaseButton class="btn btn-sm btn-outline gap-2 w-full" :loading="isFetchingSession" @click="startPhoneScan()">
-                    <template #icon><Smartphone class="h-4 w-4" /></template>
-                    {{ t('enrich.scanPhone') }}
-                  </BaseButton>
-                  <div v-if="scanQrValue" class="flex flex-col items-center gap-2 pt-1">
-                    <BaseQrCode :value="scanQrValue" :size="180" />
-                    <a :href="scanQrValue" target="_blank" class="link link-primary text-xs">{{ t('enrich.scanLinkTitle') }}</a>
-                  </div>
-                </div>
-
-                <!-- Prix : offres marchands par ISBN -->
-                <div v-if="mode === 'prix'" class="flex flex-col gap-3">
-                  <BaseLoader v-if="pricesLoading" variant="section" />
-                  <p v-else-if="pricesError" class="text-sm text-error">{{ pricesError }}</p>
-                  <template v-else-if="pricesLoaded">
-                    <!-- No ISBN: explain + shortcut to the ISBN tab (no dead end) -->
-                    <div v-if="!priceHasIsbn" class="flex flex-col items-center gap-3 py-4">
-                      <p class="text-sm text-base-content/50 text-center">
-                        {{ t('prices.noIsbn') }}
-                      </p>
-                      <button class="btn btn-sm btn-primary gap-2" @click="mode = 'isbn'">
-                        <QrCode class="h-4 w-4" />
-                        {{ t('prices.enterIsbn') }}
-                      </button>
-                    </div>
-                    <template v-else>
-                      <!-- The 3 target shops — always shown, found or honestly "not found" -->
-                      <p class="text-[11px] font-bold uppercase tracking-wide text-base-content/45">
-                        {{ t('prices.retailersTitle') }}
-                      </p>
-                      <div class="grid grid-cols-3 gap-2 sm:gap-3">
-                        <RetailerPriceCard
-                          v-for="retailerBlock in priceRetailers"
-                          :key="retailerBlock.retailer"
-                          :retailer="retailerBlock"
-                        />
-                      </div>
-
-                      <!-- Remaining offers (other merchants, publisher references) -->
-                      <template v-if="otherPriceOffers.length">
-                        <p class="text-[11px] font-bold uppercase tracking-wide text-base-content/45 mt-2">
-                          {{ t('prices.otherOffers') }}
-                        </p>
-                        <PriceOfferCard
-                          v-for="(offer, idx) in otherPriceOffers"
-                          :key="`${offer.source}-${idx}`"
-                          :offer="offer"
-                        />
-                      </template>
-                      <p v-else-if="!priceOffers.length" class="text-sm text-base-content/40 py-2 text-center">
-                        {{ t('prices.empty') }}
-                      </p>
-                    </template>
-                  </template>
-                  <p v-else class="text-sm text-base-content/40 py-4 text-center">
-                    {{ t('prices.loading') }}
-                  </p>
-                </div>
-              </div>
-
-              <!-- URL fallback (footer, partagé — hidden in prix mode) -->
-              <div v-if="mode !== 'prix'" class="shrink-0 px-4 sm:px-5 pb-4 pt-3 border-t border-base-200">
-                <p class="text-[11px] text-base-content/40 mb-1.5 font-semibold uppercase tracking-wide">Ou coller une URL</p>
-                <div class="flex gap-2 items-center">
-                  <input v-model="manualCoverUrl" type="url" class="input input-bordered input-xs flex-1 min-w-0" placeholder="https://…" />
-                  <BaseButton
-                    class="btn btn-primary btn-xs shrink-0"
-                    :loading="enrichMutation.isPending.value"
-                    :disabled="!manualCoverUrl.trim()"
-                    @click="manualCoverUrl.trim() && enrichMutation.mutate({ coverUrl: manualCoverUrl.trim() })"
-                  >
-                    Appliquer
-                  </BaseButton>
-                  <div v-if="manualCoverUrl.trim()" class="w-9 aspect-[2/3] rounded overflow-hidden bg-base-200 ring-1 ring-base-300 shrink-0">
-                    <BaseCover :src="manualCoverUrl.trim()" class="w-full h-full" icon-class="h-4 w-4" />
-                  </div>
-                </div>
-              </div>
-            </div>
+            <!-- Prices: merchant offers by ISBN -->
+            <VolumePricesPanel
+              v-if="mode === 'prix'"
+              :loading="pricesLoading"
+              :error-key="pricesError"
+              :loaded="pricesLoaded"
+              :has-isbn="priceHasIsbn"
+              :retailers="priceRetailers"
+              :offers="priceOffers"
+              @enter-isbn="mode = 'isbn'"
+            />
           </div>
+
+          <!-- URL fallback (shared footer — hidden in prices mode) -->
+          <CoverUrlForm
+            v-if="mode !== 'prix'"
+            v-model:url="manualCoverUrl"
+            :applying="applyingCover"
+            @apply="emit('applyCover', { coverUrl: $event })"
+          />
+        </div>
+      </div>
     </template>
   </BaseModal>
 
@@ -946,7 +455,7 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
       >
         <img
           :src="coverUrl(volume.coverUrl)!"
-          :alt="`Tome ${volume.number}`"
+          :alt="t('catalogue.tome', { number: volume.number })"
           class="max-h-[90dvh] max-w-[90vw] object-contain rounded-xl shadow-2xl"
           @click.stop
         />
@@ -965,21 +474,6 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
 }
 .fade-enter-from,
 .fade-leave-to {
-  opacity: 0;
-}
-
-/* Cover suggestions appear with a soft, slightly staggered fade-in instead of popping in */
-.cover-pop-enter-active {
-  transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
-}
-.cover-pop-leave-active {
-  transition: opacity 0.15s ease;
-}
-.cover-pop-enter-from {
-  opacity: 0;
-  transform: scale(0.94) translateY(8px);
-}
-.cover-pop-leave-to {
   opacity: 0;
 }
 </style>

@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace App\Manga\Infrastructure\ExternalApi;
 
 use App\Manga\Domain\Isbn;
-use App\Manga\Domain\MangaCoverProviderInterface;
 use App\Manga\Domain\MangaVolumeCoverDto;
+use Closure;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\HttpClient\ResponseInterface;
 use Throwable;
 
-final readonly class OpenLibraryCoversApiClient implements MangaCoverProviderInterface
+final readonly class OpenLibraryCoversApiClient implements DeferredIsbnCoverProviderInterface
 {
     private const string PREFIX_LOGGER = 'OPEN_LIBRARY : ';
     private const int MIN_COVER_CONTENT_LENGTH = 2000;
@@ -25,45 +26,70 @@ final readonly class OpenLibraryCoversApiClient implements MangaCoverProviderInt
 
     public function findByIsbn(Isbn $isbn): ?MangaVolumeCoverDto
     {
+        return $this->requestByIsbn($isbn)();
+    }
+
+    public function requestByIsbn(Isbn $isbn): Closure
+    {
         $coverUrl = sprintf('%s/b/isbn/%s-L.jpg?default=false', $this->baseUrl, $isbn->value);
 
         $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; BEGIN.', ['isbn' => $isbn->value]);
 
         try {
             $response = $this->httpClient->request('HEAD', $coverUrl);
-            $statusCode = $response->getStatusCode();
-
-            if ($statusCode !== 200) {
-                $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; NOT FOUND.', [
-                    'isbn' => $isbn->value,
-                    'status' => $statusCode,
-                ]);
-                return null;
-            }
-
-            $contentLength = $this->resolveContentLength($response->getHeaders(), $coverUrl);
-            if ($contentLength < self::MIN_COVER_CONTENT_LENGTH) {
-                $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; IMAGE TOO SMALL.', [
-                    'isbn' => $isbn->value,
-                    'content_length' => $contentLength,
-                ]);
-                return null;
-            }
-
-            $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; FOUND.', ['isbn' => $isbn->value]);
-
-            return new MangaVolumeCoverDto(
-                coverUrl: $coverUrl,
-                isbn: $isbn,
-                source: 'open_library',
-            );
         } catch (Throwable $exception) {
-            $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; ERROR.', [
+            $this->logError($isbn, $exception);
+
+            return static fn (): ?MangaVolumeCoverDto => null;
+        }
+
+        return function () use ($isbn, $coverUrl, $response): ?MangaVolumeCoverDto {
+            try {
+                return $this->readCover($isbn, $coverUrl, $response);
+            } catch (Throwable $exception) {
+                $this->logError($isbn, $exception);
+
+                return null;
+            }
+        };
+    }
+
+    private function readCover(Isbn $isbn, string $coverUrl, ResponseInterface $response): ?MangaVolumeCoverDto
+    {
+        $statusCode = $response->getStatusCode();
+
+        if ($statusCode !== 200) {
+            $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; NOT FOUND.', [
                 'isbn' => $isbn->value,
-                'error' => $exception->getMessage(),
+                'status' => $statusCode,
             ]);
             return null;
         }
+
+        $contentLength = $this->resolveContentLength($response->getHeaders(), $coverUrl);
+        if ($contentLength < self::MIN_COVER_CONTENT_LENGTH) {
+            $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; IMAGE TOO SMALL.', [
+                'isbn' => $isbn->value,
+                'content_length' => $contentLength,
+            ]);
+            return null;
+        }
+
+        $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; FOUND.', ['isbn' => $isbn->value]);
+
+        return new MangaVolumeCoverDto(
+            coverUrl: $coverUrl,
+            isbn: $isbn,
+            source: 'open_library',
+        );
+    }
+
+    private function logError(Isbn $isbn, Throwable $exception): void
+    {
+        $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; ERROR.', [
+            'isbn' => $isbn->value,
+            'error' => $exception->getMessage(),
+        ]);
     }
 
     /**

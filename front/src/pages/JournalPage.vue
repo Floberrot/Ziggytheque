@@ -231,13 +231,14 @@ const STATUSES: { value: LogStatus | ''; label: string }[] = [
 
     <!-- Pagination -->
     <div v-if="totalPages > 1" class="flex justify-center items-center gap-2">
-      <button class="btn btn-sm btn-ghost" :disabled="page === 1 || isFetching" @click="page--">
+      <button class="btn btn-sm btn-ghost" :disabled="page === 1 || isFetching" :aria-label="t('common.previous')" @click="page--">
         ‹
       </button>
       <span class="text-xs text-base-content/60 tabular-nums"> {{ page }} / {{ totalPages }} </span>
       <button
         class="btn btn-sm btn-ghost"
         :disabled="page >= totalPages || isFetching"
+        :aria-label="t('common.next')"
         @click="page++"
       >
         ›

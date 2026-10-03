@@ -160,10 +160,9 @@ JWT_PASSPHRASE=your_jwt_passphrase
 - `POST /api/auth/gate` – Authenticate with gate password
 
 ### Manga
-- `GET /api/manga?q=<query>` – Search your library
-- `GET /api/manga/:id` – Get manga details
-- `POST /api/manga` – Add new manga
-- `POST /api/manga/:id/volumes` – Add volumes
+- `POST /api/manga` – Type a series by hand (with its volumes when the total is known)
+- `PATCH /api/manga/:id` – Correct a series (title, publisher, special edition, cover)
+- `PATCH /api/manga/:id/volumes/:volumeId` – Correct a volume (cover, release date, price, ISBN)
 
 ### Catalogue (French editions)
 - `GET /api/catalogue/search?q=<query>&mode=title|author|isbn` – Find series (work × publisher × special edition)
@@ -186,8 +185,7 @@ JWT_PASSPHRASE=your_jwt_passphrase
 - `GET /api/stats` – Collection analytics (totalOwned, totalRead, totalWishlist, collectionValue, genreBreakdown)
 
 ### Notifications
-- `GET /api/notifications` – List notifications
-- `PATCH /api/notifications/:id/read` – Mark as read
+- `GET /api/notifications` – Unread notifications of the account
 
 ---
 

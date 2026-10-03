@@ -17,9 +17,4 @@ interface ExternalApiClientInterface
      * @return ExternalMangaDto[]
      */
     public function searchByTitle(string $query, string $type = 'manga', int $page = 1): array;
-
-    /**
-     * Fetch full manga details including volumes from the external API.
-     */
-    public function getMangaById(string $externalId): ?ExternalMangaDto;
 }

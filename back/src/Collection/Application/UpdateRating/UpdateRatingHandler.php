@@ -6,6 +6,8 @@ namespace App\Collection\Application\UpdateRating;
 
 use App\Collection\Domain\CollectionRepositoryInterface;
 use App\Collection\Domain\Exception\InvalidRatingException;
+use App\Collection\Shared\Event\UpdateRatingFailedEvent;
+use App\Collection\Shared\Event\UpdateRatingStartedEvent;
 use App\Collection\Shared\Event\UpdateRatingSucceededEvent;
 use App\Shared\Application\Bus\EventBusInterface;
 use App\Shared\Domain\Exception\NotFoundException;
@@ -23,6 +25,12 @@ final readonly class UpdateRatingHandler
 
     public function __invoke(UpdateRatingCommand $command): void
     {
+        $started = new UpdateRatingStartedEvent(
+            collectionEntryId: $command->id,
+            rating: $command->rating,
+        );
+        $this->eventBus->publish($started);
+
         try {
             if ($command->rating < 0 || $command->rating > 10) {
                 throw new InvalidRatingException($command->rating);
@@ -38,11 +46,19 @@ final readonly class UpdateRatingHandler
             $this->repository->save($entry);
 
             $this->eventBus->publish(new UpdateRatingSucceededEvent(
+                correlationId: $started->correlationId,
                 collectionEntryId: $entry->id,
                 rating: $command->rating,
             ));
-        } catch (Throwable $e) {
-            throw $e;
+        } catch (Throwable $exception) {
+            $this->eventBus->publish(new UpdateRatingFailedEvent(
+                correlationId: $started->correlationId,
+                collectionEntryId: $command->id,
+                rating: $command->rating,
+                error: $exception->getMessage(),
+                exceptionClass: $exception::class,
+            ));
+            throw $exception;
         }
     }
 }

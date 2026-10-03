@@ -17,10 +17,15 @@ function formatDate(iso: string): string {
 </script>
 
 <template>
+  <!-- Expands its details on click, Enter or Space (keyboard focus shows the ring). -->
   <tr
-    class="hover:bg-base-200/50 cursor-pointer transition-colors"
+    class="focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary hover:bg-base-200/50 cursor-pointer transition-colors"
     :class="{ 'bg-error/5': log.status === 'error' }"
+    tabindex="0"
+    :aria-expanded="expanded"
     @click="expanded = !expanded"
+    @keydown.enter.self.prevent="expanded = !expanded"
+    @keydown.space.self.prevent="expanded = !expanded"
   >
     <td class="w-6 pr-0">
       <ChevronRight

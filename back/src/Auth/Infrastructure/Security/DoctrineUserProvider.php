@@ -6,6 +6,7 @@ namespace App\Auth\Infrastructure\Security;
 
 use App\Auth\Domain\User;
 use App\Auth\Domain\UserRepositoryInterface;
+use App\Auth\Infrastructure\Token\JwtSessionTokenIssuer;
 use Lexik\Bundle\JWTAuthenticationBundle\Security\User\PayloadAwareUserProviderInterface;
 use Symfony\Component\Security\Core\Exception\UnsupportedUserException;
 use Symfony\Component\Security\Core\Exception\UserNotFoundException;
@@ -51,7 +52,7 @@ final readonly class DoctrineUserProvider implements PayloadAwareUserProviderInt
             throw new UserNotFoundException(sprintf('User "%s" not found.', $identifier));
         }
 
-        if (($payload['adminUnlocked'] ?? false) === true) {
+        if (($payload[JwtSessionTokenIssuer::ADMIN_UNLOCKED_CLAIM] ?? false) === true) {
             $user->markAdminUnlocked();
         }
 

@@ -1,7 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { effectScope } from 'vue'
+
+vi.mock('@/api/manga', () => ({
+  createScanSession: vi.fn(),
+}))
+
+import { createScanSession } from '@/api/manga'
 import { useScanSession } from '../useScanSession'
 import type { ScanSessionResponse } from '@/api/manga'
+
+const mockCreateScanSession = vi.mocked(createScanSession)
 
 interface MockEventSourceInstance {
   onmessage: ((event: MessageEvent) => void) | null
@@ -107,5 +115,55 @@ describe('useScanSession', () => {
     expect(capturedUrl).toContain(encodeURIComponent('https://ziggytheque.app/cover-batch/test-session-id'))
 
     scope.stop()
+  })
+
+  it('opens a session for one tome and listens to it', async () => {
+    mockCreateScanSession.mockResolvedValueOnce(mockPayload)
+    const scope = effectScope()
+    const onResult = vi.fn()
+    let opened: ScanSessionResponse | undefined
+
+    await scope.run(async () => {
+      const { open } = useScanSession()
+      opened = await open({ mangaId: 'manga-1', volumeId: 'volume-1' }, { onResult })
+    })
+
+    expect(mockCreateScanSession).toHaveBeenCalledWith({ mangaId: 'manga-1', volumeId: 'volume-1' })
+    expect(opened).toEqual(mockPayload)
+    instances[0].onmessage!(new MessageEvent('message', { data: JSON.stringify({ isbn: '9782811645632' }) }))
+    expect(onResult).toHaveBeenCalledWith('9782811645632')
+
+    scope.stop()
+  })
+
+  it('opens a shelf session without a target', async () => {
+    mockCreateScanSession.mockResolvedValueOnce(mockPayload)
+    const scope = effectScope()
+
+    await scope.run(async () => {
+      const { open } = useScanSession()
+      await open(null, {})
+    })
+
+    expect(mockCreateScanSession).toHaveBeenCalledWith()
+    expect(instances).toHaveLength(1)
+    scope.stop()
+  })
+
+  it('never listens when the scope is gone before the session is created', async () => {
+    let resolveSession: (session: ScanSessionResponse) => void = () => {}
+    mockCreateScanSession.mockReturnValueOnce(new Promise((resolve) => { resolveSession = resolve }))
+    const scope = effectScope()
+    let opening: Promise<ScanSessionResponse> | undefined
+
+    scope.run(() => {
+      const { open } = useScanSession()
+      opening = open(null, {})
+    })
+    scope.stop()
+    resolveSession(mockPayload)
+    await opening
+
+    expect(instances).toHaveLength(0)
   })
 })

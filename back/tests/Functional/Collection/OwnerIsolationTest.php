@@ -56,8 +56,7 @@ final class OwnerIsolationTest extends AbstractApiTestCase
         yield 'set every price' => ['PATCH', '/api/collection/{entry}/batch-price', ['price' => 99]];
         yield 'sync the tomes' => ['POST', '/api/collection/{entry}/sync-volumes', ['upToVolume' => 5]];
         yield 'wish the missing tomes' => ['POST', '/api/collection/{entry}/add-to-wishlist', []];
-        yield 'buy a tome' => ['POST', '/api/collection/{entry}/volumes/{volume}/purchase', []];
-        yield 'wish the rest (wishlist route)' => ['POST', '/api/wishlist/{entry}/add-remaining', []];
+        yield 'buy a tome' => ['POST', '/api/wishlist/{entry}/volumes/{volume}/purchase', []];
         yield 'clear the wishlist' => ['DELETE', '/api/wishlist/{entry}', []];
         yield 'remove the series' => ['DELETE', '/api/collection/{entry}', []];
     }

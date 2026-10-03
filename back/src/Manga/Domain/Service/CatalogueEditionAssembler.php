@@ -8,7 +8,7 @@ use App\Manga\Domain\Catalogue\CatalogueEdition;
 use App\Manga\Domain\Catalogue\CatalogueRecord;
 use App\Manga\Domain\Catalogue\CatalogueVolume;
 use App\Manga\Domain\EditionIdentity;
-use App\Manga\Domain\TextFold;
+use App\Shared\Domain\Text\TextFold;
 
 /**
  * Rebuilds series from individual volume records: one edition per (work, publisher,

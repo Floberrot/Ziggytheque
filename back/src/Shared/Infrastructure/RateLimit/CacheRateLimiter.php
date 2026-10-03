@@ -5,19 +5,22 @@ declare(strict_types=1);
 namespace App\Shared\Infrastructure\RateLimit;
 
 use App\Shared\Domain\Exception\RateLimitExceededException;
-use Psr\Cache\CacheItemPoolInterface;
 use Throwable;
 
 /**
- * Fixed-window rate limiter backed by the shared cache pool — no extra dependency.
- * Used to cap expensive fan-out endpoints (edition discovery) per client so a spamming
- * client (or leaked token) cannot trigger hundreds of outbound catalogue requests.
+ * Fixed-window rate limiter — no extra dependency. Caps expensive or sensitive endpoints
+ * per client (account, IP, email) so a spamming client (or a leaked token) cannot trigger
+ * hundreds of outbound requests or guess passwords.
  *
- * Fails OPEN: if the cache is unavailable, it never blocks legitimate traffic.
+ * The counters live in PostgreSQL ({@see DoctrineRateLimitCounterStore}): every call is
+ * counted atomically, so a burst of concurrent requests cannot slip past the limit, and
+ * the web container and the worker share them.
+ *
+ * Fails OPEN: if the database is unavailable, it never blocks legitimate traffic.
  */
 final readonly class CacheRateLimiter
 {
-    public function __construct(private CacheItemPoolInterface $pool)
+    public function __construct(private RateLimitCounterStoreInterface $counterStore)
     {
     }
 
@@ -28,35 +31,14 @@ final readonly class CacheRateLimiter
     public function consume(string $key, int $limit, int $windowSeconds): void
     {
         try {
-            $now    = time();
-            $item   = $this->pool->getItem('ratelimit.' . sha1($key));
-            $cached = $item->isHit() ? $item->get() : null;
-
-            if (
-                is_array($cached)
-                && isset($cached['count'], $cached['reset'])
-                && is_int($cached['count'])
-                && is_int($cached['reset'])
-                && $cached['reset'] > $now
-            ) {
-                $count = $cached['count'];
-                $reset = $cached['reset'];
-            } else {
-                $count = 0;
-                $reset = $now + $windowSeconds;
-            }
-
-            if ($count >= $limit) {
-                throw new RateLimitExceededException('Trop de requêtes — réessayez dans un instant.');
-            }
-
-            $item->set(['count' => $count + 1, 'reset' => $reset]);
-            $item->expiresAfter(max(1, $reset - $now));
-            $this->pool->save($item);
-        } catch (RateLimitExceededException $exception) {
-            throw $exception;
+            $calls = $this->counterStore->hit($key, $windowSeconds);
         } catch (Throwable) {
-            // Cache unavailable → fail open.
+            // Storage unavailable → fail open.
+            return;
+        }
+
+        if ($calls > $limit) {
+            throw new RateLimitExceededException('Trop de requêtes — réessayez dans un instant.');
         }
     }
 
@@ -64,9 +46,9 @@ final readonly class CacheRateLimiter
     public function reset(string $key): void
     {
         try {
-            $this->pool->deleteItem('ratelimit.' . sha1($key));
+            $this->counterStore->forget($key);
         } catch (Throwable) {
-            // Cache unavailable: nothing was blocking anyway (fail open).
+            // Storage unavailable: nothing was blocking anyway (fail open).
         }
     }
 }

@@ -50,12 +50,15 @@ const { data, isPending } = useQuery({
 
 const totalPages = computed(() => Math.max(1, Math.ceil((data.value?.total ?? 0) / limit)))
 
-const STATUS_LABELS: Record<User['status'], string> = {
-  pending_email_verification: 'Email à vérifier',
-  pending_admin_approval: 'À approuver',
-  active: 'Actif',
-  disabled: 'Désactivé',
+// i18n key of each account status — the filter, the badges and the edit form share them.
+const STATUS_LABEL_KEYS: Record<User['status'], string> = {
+  pending_email_verification: 'admin.status.pending_email_verification',
+  pending_admin_approval: 'admin.status.pending_admin_approval',
+  active: 'admin.status.active',
+  disabled: 'admin.status.disabled',
 }
+
+const STATUSES = Object.keys(STATUS_LABEL_KEYS) as User['status'][]
 
 const STATUS_BADGES: Record<User['status'], string> = {
   pending_email_verification: 'badge-warning',
@@ -91,11 +94,11 @@ async function saveEdit(): Promise<void> {
   saving.value = true
   try {
     await patchUser(editing.value.id, editForm.value)
-    ui.addToast('Utilisateur mis à jour.', 'success')
+    ui.addToast(t('admin.updated'), 'success')
     await queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
     closeEdit()
   } catch {
-    ui.addToast('La mise à jour a échoué.', 'error')
+    ui.addToast(t('admin.updateFailed'), 'error')
   } finally {
     saving.value = false
   }
@@ -106,23 +109,23 @@ async function saveEdit(): Promise<void> {
 async function approve(user: User): Promise<void> {
   try {
     await approveUser(user.id)
-    ui.addToast(`${user.displayName} approuvé.`, 'success')
+    ui.addToast(t('admin.approved', { name: user.displayName }), 'success')
     await queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
   } catch {
-    ui.addToast('L\'approbation a échoué.', 'error')
+    ui.addToast(t('admin.approveFailed'), 'error')
   }
 }
 
 async function remove(user: User): Promise<void> {
-  if (!confirm(`Supprimer ${user.displayName} (${user.email}) ? Toutes ses données seront perdues.`)) {
+  if (!confirm(t('admin.deleteConfirm', { name: user.displayName, email: user.email }))) {
     return
   }
   try {
     await deleteUser(user.id)
-    ui.addToast('Utilisateur supprimé.', 'success')
+    ui.addToast(t('admin.deleted'), 'success')
     await queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
   } catch {
-    ui.addToast('La suppression a échoué.', 'error')
+    ui.addToast(t('admin.deleteFailed'), 'error')
   }
 }
 
@@ -130,9 +133,9 @@ async function copyResetLink(user: User): Promise<void> {
   try {
     const { resetLink } = await generateResetLink(user.id)
     await navigator.clipboard.writeText(resetLink)
-    ui.addToast(`Lien copié pour ${user.displayName}.`, 'success')
+    ui.addToast(t('admin.linkCopied', { name: user.displayName }), 'success')
   } catch {
-    ui.addToast('La génération du lien a échoué.', 'error')
+    ui.addToast(t('admin.linkFailed'), 'error')
   }
 }
 </script>
@@ -140,9 +143,9 @@ async function copyResetLink(user: User): Promise<void> {
 <template>
   <div class="p-4 sm:p-6 space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <h1 class="text-2xl font-bold">Utilisateurs</h1>
+      <h1 class="text-2xl font-bold">{{ t('admin.title') }}</h1>
       <div class="text-sm text-base-content/60">
-        {{ data?.total ?? 0 }} compte{{ (data?.total ?? 0) > 1 ? 's' : '' }}
+        {{ t('admin.accountCount', { count: data?.total ?? 0 }, data?.total ?? 0) }}
       </div>
     </div>
 
@@ -151,15 +154,13 @@ async function copyResetLink(user: User): Promise<void> {
       <input
         v-model="search"
         type="search"
-        placeholder="Rechercher email ou nom…"
+        :placeholder="t('admin.searchPlaceholder')"
+        :aria-label="t('admin.searchPlaceholder')"
         class="input input-bordered input-sm w-64"
       />
-      <select v-model="statusFilter" class="select select-bordered select-sm">
-        <option value="">Tous les statuts</option>
-        <option value="pending_email_verification">Email à vérifier</option>
-        <option value="pending_admin_approval">À approuver</option>
-        <option value="active">Actif</option>
-        <option value="disabled">Désactivé</option>
+      <select v-model="statusFilter" class="select select-bordered select-sm" :aria-label="t('admin.columns.status')">
+        <option value="">{{ t('admin.allStatuses') }}</option>
+        <option v-for="status in STATUSES" :key="status" :value="status">{{ t(STATUS_LABEL_KEYS[status]) }}</option>
       </select>
     </div>
 
@@ -167,7 +168,7 @@ async function copyResetLink(user: User): Promise<void> {
     <BaseLoader v-if="isPending" variant="section" />
 
     <div v-else-if="(data?.items.length ?? 0) === 0" class="text-center py-12 text-base-content/60">
-      Aucun utilisateur trouvé.
+      {{ t('admin.empty') }}
     </div>
 
     <!-- Mobile: stacked cards (the 6-column table is unusable on a phone) -->
@@ -194,10 +195,10 @@ async function copyResetLink(user: User): Promise<void> {
             class="badge badge-sm"
             :class="user.role === 'ROLE_ADMIN' ? 'badge-primary' : 'badge-ghost'"
           >
-            {{ user.role === 'ROLE_ADMIN' ? 'Admin' : 'Utilisateur' }}
+            {{ user.role === 'ROLE_ADMIN' ? t('admin.roleAdmin') : t('admin.roleUser') }}
           </span>
           <span class="badge badge-sm" :class="STATUS_BADGES[user.status]">
-            {{ STATUS_LABELS[user.status] }}
+            {{ t(STATUS_LABEL_KEYS[user.status]) }}
           </span>
           <span class="badge badge-sm badge-ghost capitalize">
             {{ user.notificationChannel }}<template v-if="user.notificationConfigured === false"> · {{ t('admin.notConfigured') }}</template>
@@ -230,12 +231,12 @@ async function copyResetLink(user: User): Promise<void> {
       <table class="table table-zebra">
         <thead>
           <tr>
-            <th>Utilisateur</th>
-            <th>Email</th>
-            <th>Rôle</th>
-            <th>Statut</th>
-            <th>Notifications</th>
-            <th class="text-right">Actions</th>
+            <th>{{ t('admin.columns.user') }}</th>
+            <th>{{ t('admin.columns.email') }}</th>
+            <th>{{ t('admin.columns.role') }}</th>
+            <th>{{ t('admin.columns.status') }}</th>
+            <th>{{ t('admin.columns.notifications') }}</th>
+            <th class="text-right">{{ t('admin.columns.actions') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -247,12 +248,12 @@ async function copyResetLink(user: User): Promise<void> {
                 class="badge badge-sm"
                 :class="user.role === 'ROLE_ADMIN' ? 'badge-primary' : 'badge-ghost'"
               >
-                {{ user.role === 'ROLE_ADMIN' ? 'Admin' : 'Utilisateur' }}
+                {{ user.role === 'ROLE_ADMIN' ? t('admin.roleAdmin') : t('admin.roleUser') }}
               </span>
             </td>
             <td>
               <span class="badge badge-sm" :class="STATUS_BADGES[user.status]">
-                {{ STATUS_LABELS[user.status] }}
+                {{ t(STATUS_LABEL_KEYS[user.status]) }}
               </span>
             </td>
             <td class="text-sm">
@@ -260,7 +261,7 @@ async function copyResetLink(user: User): Promise<void> {
               <span
                 v-if="user.notificationConfigured === false"
                 class="ml-1 text-xs text-base-content/40"
-              >(non configuré)</span>
+              >({{ t('admin.notConfigured') }})</span>
             </td>
             <td class="text-right">
               <div class="flex justify-end gap-1">
@@ -269,16 +270,16 @@ async function copyResetLink(user: User): Promise<void> {
                   class="btn btn-success btn-xs"
                   @click="approve(user)"
                 >
-                  Approuver
+                  {{ t('admin.approve') }}
                 </button>
                 <button class="btn btn-ghost btn-xs" @click="openEdit(user)">
-                  Modifier
+                  {{ t('common.edit') }}
                 </button>
                 <button class="btn btn-ghost btn-xs" @click="copyResetLink(user)">
-                  Reset link
+                  {{ t('admin.resetLinkShort') }}
                 </button>
                 <button class="btn btn-error btn-outline btn-xs" @click="remove(user)">
-                  Supprimer
+                  {{ t('common.delete') }}
                 </button>
               </div>
             </td>
@@ -294,17 +295,17 @@ async function copyResetLink(user: User): Promise<void> {
         :disabled="page === 1"
         @click="page--"
       >
-        Précédent
+        {{ t('common.previous') }}
       </button>
       <span class="text-sm text-base-content/60">
-        Page {{ page }} / {{ totalPages }}
+        {{ t('common.pageOf', { page, total: totalPages }) }}
       </span>
       <button
         class="btn btn-sm btn-ghost"
         :disabled="page >= totalPages"
         @click="page++"
       >
-        Suivant
+        {{ t('common.next') }}
       </button>
     </div>
 
@@ -326,7 +327,7 @@ async function copyResetLink(user: User): Promise<void> {
             <h3 class="font-semibold leading-tight truncate">{{ editing.displayName }}</h3>
             <p class="text-xs text-base-content/50 truncate">{{ editing.email }}</p>
           </div>
-          <button class="btn btn-sm btn-circle btn-ghost" :disabled="saving" @click="closeEdit">
+          <button class="btn btn-sm btn-circle btn-ghost" :disabled="saving" :aria-label="t('common.close')" @click="closeEdit">
             <X class="w-4 h-4" />
           </button>
         </div>
@@ -334,42 +335,40 @@ async function copyResetLink(user: User): Promise<void> {
         <!-- Body -->
         <div class="px-5 py-4 space-y-4 overflow-y-auto">
           <div>
-            <label class="text-sm font-medium">Nom d'affichage</label>
+            <label for="admin-edit-display-name" class="text-sm font-medium">{{ t('admin.displayName') }}</label>
             <input
+              id="admin-edit-display-name"
               v-model="editForm.displayName"
               type="text"
               class="input w-full mt-1.5"
-              placeholder="Nom d'affichage"
+              :placeholder="t('admin.displayName')"
             />
           </div>
 
           <div>
-            <label class="text-sm font-medium">Statut</label>
-            <select v-model="editForm.status" class="select w-full mt-1.5">
-              <option value="pending_email_verification">Email à vérifier</option>
-              <option value="pending_admin_approval">À approuver</option>
-              <option value="active">Actif</option>
-              <option value="disabled">Désactivé</option>
+            <label for="admin-edit-status" class="text-sm font-medium">{{ t('admin.columns.status') }}</label>
+            <select id="admin-edit-status" v-model="editForm.status" class="select w-full mt-1.5">
+              <option v-for="status in STATUSES" :key="status" :value="status">{{ t(STATUS_LABEL_KEYS[status]) }}</option>
             </select>
           </div>
 
           <div>
-            <label class="text-sm font-medium">Canal de notification</label>
-            <select v-model="editForm.notificationChannel" class="select w-full mt-1.5">
-              <option value="email">Email</option>
-              <option value="discord">Discord</option>
+            <label for="admin-edit-channel" class="text-sm font-medium">{{ t('admin.channel') }}</label>
+            <select id="admin-edit-channel" v-model="editForm.notificationChannel" class="select w-full mt-1.5">
+              <option value="email">{{ t('admin.channelEmail') }}</option>
+              <option value="discord">{{ t('admin.channelDiscord') }}</option>
             </select>
             <p class="mt-1.5 text-xs text-base-content/50">
-              L'adresse email et l'URL du webhook sont gérées par l'utilisateur depuis son onglet Notifications et ne sont jamais visibles ici.
+              {{ t('admin.channelHelp') }}
             </p>
           </div>
         </div>
 
         <!-- Footer -->
         <div class="flex justify-end gap-2 px-5 py-4 border-t border-base-200 bg-base-200/40">
-          <button class="btn btn-ghost btn-sm" :disabled="saving" @click="closeEdit">Annuler</button>
+          <button class="btn btn-ghost btn-sm" :disabled="saving" @click="closeEdit">{{ t('common.cancel') }}</button>
           <BaseButton class="btn btn-primary btn-sm" :loading="saving" @click="saveEdit">
-            Enregistrer
+            {{ t('common.save') }}
           </BaseButton>
         </div>
       </template>

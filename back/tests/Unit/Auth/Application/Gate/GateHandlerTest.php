@@ -8,15 +8,25 @@ use App\Auth\Application\Gate\GateCommand;
 use App\Auth\Application\Gate\GateHandler;
 use App\Auth\Domain\Exception\GateDisabledException;
 use App\Auth\Domain\Exception\InvalidGatePasswordException;
+use App\Auth\Domain\Service\SessionTokenIssuerInterface;
 use App\Auth\Domain\User;
 use App\Auth\Domain\UserRoleEnum;
 use App\Auth\Domain\UserStatusEnum;
-use App\Shared\Application\Bus\EventBusInterface;
-use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
+use App\Auth\Shared\Event\GateFailedEvent;
+use App\Auth\Shared\Event\GateStartedEvent;
+use App\Auth\Shared\Event\GateSucceededEvent;
+use App\Tests\Doubles\Shared\RecordingEventBus;
 use PHPUnit\Framework\TestCase;
 
 final class GateHandlerTest extends TestCase
 {
+    private RecordingEventBus $eventBus;
+
+    protected function setUp(): void
+    {
+        $this->eventBus = new RecordingEventBus();
+    }
+
     private function admin(): User
     {
         return new User(
@@ -29,26 +39,42 @@ final class GateHandlerTest extends TestCase
         );
     }
 
-    private function handler(string $gatePassword): GateHandler
+    private function handler(string $gatePassword, ?SessionTokenIssuerInterface $sessionTokenIssuer = null): GateHandler
     {
-        $tokenManager = $this->createStub(JWTTokenManagerInterface::class);
-        $tokenManager->method('createFromPayload')->willReturn('unlocked-token');
+        if ($sessionTokenIssuer === null) {
+            $sessionTokenIssuer = $this->createStub(SessionTokenIssuerInterface::class);
+            $sessionTokenIssuer->method('issueAdminUnlocked')->willReturn('unlocked-token');
+        }
 
-        return new GateHandler($gatePassword, $tokenManager, $this->createStub(EventBusInterface::class));
+        return new GateHandler($gatePassword, $sessionTokenIssuer, $this->eventBus);
     }
 
     public function testTheRightPasswordUnlocksTheAdminArea(): void
     {
-        $token = ($this->handler('a-strong-gate-password'))(new GateCommand('a-strong-gate-password', $this->admin()));
+        $admin = $this->admin();
+        $sessionTokenIssuer = $this->createMock(SessionTokenIssuerInterface::class);
+        $sessionTokenIssuer->expects($this->once())->method('issueAdminUnlocked')->with($admin)->willReturn('unlocked-token');
+        $sessionTokenIssuer->expects($this->never())->method('issue');
+
+        $token = ($this->handler('a-strong-gate-password', $sessionTokenIssuer))(
+            new GateCommand('a-strong-gate-password', $admin),
+        );
 
         $this->assertSame('unlocked-token', $token);
+        $this->assertSame([GateStartedEvent::class, GateSucceededEvent::class], $this->eventBus->eventClasses());
+        $this->assertSame('admin-1', $this->eventBus->first(GateSucceededEvent::class)->userId);
     }
 
     public function testAWrongPasswordIsRefused(): void
     {
-        $this->expectException(InvalidGatePasswordException::class);
+        try {
+            ($this->handler('a-strong-gate-password'))(new GateCommand('guess', $this->admin()));
+            $this->fail('A wrong gate password must be refused.');
+        } catch (InvalidGatePasswordException) {
+        }
 
-        ($this->handler('a-strong-gate-password'))(new GateCommand('guess', $this->admin()));
+        $this->assertSame([GateStartedEvent::class, GateFailedEvent::class], $this->eventBus->eventClasses());
+        $this->assertSame(InvalidGatePasswordException::class, $this->eventBus->first(GateFailedEvent::class)->exceptionClass);
     }
 
     /** Even typing the placeholder itself must not unlock anything. */

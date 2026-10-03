@@ -4,37 +4,51 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Notification;
 
+use App\Auth\Domain\User;
 use App\Auth\Domain\UserRepositoryInterface;
 use App\Notification\Domain\Notification;
 use App\Tests\Functional\AbstractApiTestCase;
+use App\Tests\Functional\Fixtures\UserFixtureFactory;
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Uid\Uuid;
 
 final class NotificationControllerTest extends AbstractApiTestCase
 {
-    private EntityManagerInterface $em;
+    private function createNotification(
+        string $message = 'Test notification',
+        bool $isRead = false,
+        ?User $owner = null,
+        ?DateTimeImmutable $createdAt = null,
+    ): string {
+        $container = static::getContainer();
+        /** @var UserRepositoryInterface $users */
+        $users = $container->get(UserRepositoryInterface::class);
+        /** @var EntityManagerInterface $entityManager */
+        $entityManager = $container->get(EntityManagerInterface::class);
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-        /** @var EntityManagerInterface $em */
-        $em       = static::getContainer()->get(EntityManagerInterface::class);
-        $this->em = $em;
+        $notification = new Notification(
+            id: Uuid::v4()->toRfc4122(),
+            type: 'info',
+            message: $message,
+            owner: $owner ?? $users->findByEmail('admin@test.local'),
+            isRead: $isRead,
+        );
+        if ($createdAt !== null) {
+            $notification->createdAt = $createdAt;
+        }
+        $entityManager->persist($notification);
+        $entityManager->flush();
+
+        return $notification->id;
     }
 
-    private function createNotification(string $type = 'info', string $message = 'Test notification'): string
+    /** @return list<string> */
+    private function listedIds(): array
     {
-        /** @var UserRepositoryInterface $users */
-        $users = static::getContainer()->get(UserRepositoryInterface::class);
+        $data = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/notifications'));
 
-        $n = new Notification(
-            id: 'notif-' . uniqid(),
-            type: $type,
-            message: $message,
-            owner: $users->findByEmail('admin@test.local'),
-        );
-        $this->em->persist($n);
-        $this->em->flush();
-        return $n->id;
+        return array_column($data, 'id');
     }
 
     // ── GET /api/notifications ───────────────────────────────────────────────
@@ -45,59 +59,42 @@ final class NotificationControllerTest extends AbstractApiTestCase
         $this->assertSame(401, $response->getStatusCode());
     }
 
-    public function testListReturnsArray(): void
+    public function testListIsEmptyWithoutNotifications(): void
     {
-        $response = $this->jsonRequest('GET', '/api/notifications');
-        $data     = $this->assertJsonStatus(200, $response);
-        $this->assertIsArray($data);
+        $this->assertSame([], $this->listedIds());
     }
 
-    public function testListReturnsUnreadNotifications(): void
+    public function testListReturnsUnreadNotificationsNewestFirst(): void
     {
-        $id = $this->createNotification(message: 'Unread message');
+        $older = $this->createNotification('Older', createdAt: new DateTimeImmutable('-2 hours'));
+        $newer = $this->createNotification('Newer', createdAt: new DateTimeImmutable('-1 hour'));
 
-        $response = $this->jsonRequest('GET', '/api/notifications');
-        $data     = $this->assertJsonStatus(200, $response);
+        $data = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/notifications'));
 
-        $ids = array_column($data, 'id');
-        $this->assertContains($id, $ids);
+        $this->assertSame([$newer, $older], array_column($data, 'id'));
+        $this->assertSame('Newer', $data[0]['message']);
+        $this->assertFalse($data[0]['isRead']);
+        $this->assertArrayHasKey('createdAt', $data[0]);
     }
 
     public function testListExcludesReadNotifications(): void
     {
-        $id = $this->createNotification(message: 'Read message');
+        $unread = $this->createNotification('Unread');
+        $read   = $this->createNotification('Read', isRead: true);
 
-        // Mark it as read
-        $this->jsonRequest('PATCH', '/api/notifications/' . $id . '/read');
+        $ids = $this->listedIds();
 
-        $response = $this->jsonRequest('GET', '/api/notifications');
-        $data     = $this->assertJsonStatus(200, $response);
-
-        $ids = array_column($data, 'id');
-        $this->assertNotContains($id, $ids);
+        $this->assertContains($unread, $ids);
+        $this->assertNotContains($read, $ids);
     }
 
-    // ── PATCH /api/notifications/{id}/read ──────────────────────────────────
-
-    public function testMarkRead(): void
+    public function testListNeverShowsAnotherAccountsNotifications(): void
     {
-        $id = $this->createNotification();
+        $someoneElse = UserFixtureFactory::createActiveUser(static::getContainer(), email: 'other@test.local');
+        $theirs      = $this->createNotification('Theirs', owner: $someoneElse);
+        $mine        = $this->createNotification('Mine');
 
-        $response = $this->jsonRequest('PATCH', '/api/notifications/' . $id . '/read');
-        $this->assertSame(204, $response->getStatusCode());
-    }
-
-    public function testMarkReadNotFoundReturns404(): void
-    {
-        $response = $this->jsonRequest('PATCH', '/api/notifications/nonexistent/read');
-        $this->assertJsonStatus(404, $response);
-    }
-
-    public function testMarkReadRequiresAuth(): void
-    {
-        $id = $this->createNotification();
-
-        $response = $this->jsonRequest('PATCH', '/api/notifications/' . $id . '/read', auth: false);
-        $this->assertSame(401, $response->getStatusCode());
+        $this->assertSame([$mine], $this->listedIds());
+        $this->assertNotContains($theirs, $this->listedIds());
     }
 }

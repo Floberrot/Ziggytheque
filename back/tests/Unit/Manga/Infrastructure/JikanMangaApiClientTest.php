@@ -136,27 +136,4 @@ final class JikanMangaApiClientTest extends TestCase
 
         $this->assertSame([], $results);
     }
-
-    public function testGetMangaByIdReturnsDtoForSafeContent(): void
-    {
-        $httpClient = new MockHttpClient([
-            new MockResponse((string) json_encode(['data' => $this->safeItem()])),
-        ]);
-
-        $result = $this->makeClient($httpClient)->getMangaById('1');
-
-        $this->assertInstanceOf(ExternalMangaDto::class, $result);
-        $this->assertSame('One Piece', $result->title);
-    }
-
-    public function testGetMangaByIdReturnsNullForAdultContent(): void
-    {
-        $httpClient = new MockHttpClient([
-            new MockResponse((string) json_encode(['data' => $this->adultItem()])),
-        ]);
-
-        $result = $this->makeClient($httpClient)->getMangaById('666');
-
-        $this->assertNull($result);
-    }
 }

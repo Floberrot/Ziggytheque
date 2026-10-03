@@ -83,6 +83,7 @@ const { t } = useI18n()
           v-if="item.status === 'added' && item.volumeEntryId"
           class="btn btn-ghost btn-xs gap-1"
           :title="t('scanBatch.undo')"
+          :aria-label="t('scanBatch.undo')"
           @click="emit('undo', item)"
         >
           <Undo2 class="h-3.5 w-3.5" />

@@ -7,7 +7,7 @@ namespace App\Manga\Domain\Service;
 use App\Manga\Domain\ExternalMangaDto;
 use App\Manga\Domain\GenreEnum;
 use App\Manga\Domain\Manga;
-use App\Manga\Domain\TextFold;
+use App\Shared\Domain\Text\TextFold;
 
 /**
  * Fills what a series is missing (genre, summary, author) from an external match —

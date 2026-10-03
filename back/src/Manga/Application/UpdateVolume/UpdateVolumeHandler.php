@@ -7,11 +7,14 @@ namespace App\Manga\Application\UpdateVolume;
 use App\Manga\Domain\Isbn;
 use App\Manga\Domain\MangaRepositoryInterface;
 use App\Manga\Domain\Volume;
+use App\Manga\Shared\Event\UpdateVolumeFailedEvent;
+use App\Manga\Shared\Event\UpdateVolumeStartedEvent;
 use App\Manga\Shared\Event\UpdateVolumeSucceededEvent;
 use App\Shared\Application\Bus\EventBusInterface;
 use App\Shared\Domain\Exception\NotFoundException;
 use DateTimeImmutable;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Throwable;
 
 #[AsMessageHandler(bus: 'command.bus')]
 final readonly class UpdateVolumeHandler
@@ -24,41 +27,61 @@ final readonly class UpdateVolumeHandler
 
     public function __invoke(UpdateVolumeCommand $command): void
     {
-        $manga = $this->mangaRepository->findById($command->mangaId);
+        $started = new UpdateVolumeStartedEvent(
+            mangaId: $command->mangaId,
+            volumeId: $command->volumeId,
+        );
+        $this->eventBus->publish($started);
 
-        if ($manga === null) {
-            throw new NotFoundException('Manga', $command->mangaId);
+        try {
+            $manga = $this->mangaRepository->findById($command->mangaId);
+
+            if ($manga === null) {
+                throw new NotFoundException('Manga', $command->mangaId);
+            }
+
+            $volume = $manga->volumes
+                ->filter(fn (Volume $volume) => $volume->id === $command->volumeId)
+                ->first();
+
+            if ($volume === false) {
+                throw new NotFoundException('Volume', $command->volumeId);
+            }
+
+            if ($command->coverUrl !== null) {
+                $volume->coverUrl = $command->coverUrl;
+            }
+
+            if ($command->releaseDate !== null) {
+                $volume->releaseDate = new DateTimeImmutable($command->releaseDate);
+            }
+
+            if ($command->price !== null) {
+                $volume->price = $command->price;
+            }
+
+            if ($command->isbn !== null) {
+                $volume->isbn = Isbn::fromString($command->isbn);
+            }
+
+            $this->mangaRepository->save($manga);
+
+            $this->eventBus->publish(new UpdateVolumeSucceededEvent(
+                correlationId: $started->correlationId,
+                mangaId: $manga->id,
+                volumeId: $volume->id,
+                mangaTitle: $manga->title,
+                number: $volume->number,
+            ));
+        } catch (Throwable $exception) {
+            $this->eventBus->publish(new UpdateVolumeFailedEvent(
+                correlationId: $started->correlationId,
+                mangaId: $command->mangaId,
+                volumeId: $command->volumeId,
+                error: $exception->getMessage(),
+                exceptionClass: $exception::class,
+            ));
+            throw $exception;
         }
-
-        $volume = $manga->volumes
-            ->filter(fn (Volume $volume) => $volume->id === $command->volumeId)
-            ->first();
-
-        if ($volume === false) {
-            throw new NotFoundException('Volume', $command->volumeId);
-        }
-
-        if ($command->coverUrl !== null) {
-            $volume->coverUrl = $command->coverUrl;
-        }
-
-        if ($command->releaseDate !== null) {
-            $volume->releaseDate = new DateTimeImmutable($command->releaseDate);
-        }
-
-        if ($command->price !== null) {
-            $volume->price = $command->price;
-        }
-
-        if ($command->isbn !== null) {
-            $volume->isbn = Isbn::fromString($command->isbn);
-        }
-
-        $this->mangaRepository->save($manga);
-
-        $this->eventBus->publish(new UpdateVolumeSucceededEvent(
-            mangaId: $manga->id,
-            volumeId: $volume->id,
-        ));
     }
 }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { FRENCH_EDITIONS } from '@/data/editions'
 
 const props = defineProps<{
@@ -14,6 +15,8 @@ const emit = defineEmits<{
   'confirm': []
   'cancel': []
 }>()
+
+const { t } = useI18n()
 
 const inputValue = ref(props.modelValue ?? '')
 const showDropdown = ref(false)
@@ -51,7 +54,8 @@ function onBlur() {
       v-model="inputValue"
       type="text"
       :class="inputClass ?? 'input input-bordered w-full'"
-      :placeholder="placeholder ?? 'Pika, Glénat, Kana…'"
+      :placeholder="placeholder ?? t('editionSelector.placeholder')"
+      :aria-label="t('catalogue.publisher')"
       autocomplete="off"
       :autofocus="autofocus"
       @input="onInput"
@@ -69,7 +73,7 @@ function onBlur() {
         class="px-3 py-2 cursor-pointer hover:bg-error/10 hover:text-error transition-colors text-xs text-base-content/50 border-b border-base-200"
         @mousedown.prevent="select(null)"
       >
-        × Effacer l'édition
+        × {{ t('editionSelector.clear') }}
       </li>
       <li
         v-for="ed in filtered"

@@ -8,6 +8,7 @@ use App\Auth\Application\Register\RegisterUserCommand;
 use App\Auth\Application\Register\RegisterUserHandler;
 use App\Auth\Domain\AuthTokenRepositoryInterface;
 use App\Auth\Domain\Exception\EmailAlreadyTakenException;
+use App\Auth\Domain\Service\PasswordHasherInterface;
 use App\Auth\Domain\Service\TokenGeneratorInterface;
 use App\Auth\Domain\User;
 use App\Auth\Domain\UserRepositoryInterface;
@@ -17,7 +18,6 @@ use App\Auth\Shared\Event\RegistrationOnExistingAccountEvent;
 use App\Auth\Shared\Event\UserRegisteredEvent;
 use App\Shared\Application\Bus\EventBusInterface;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 final class RegisterUserHandlerTest extends TestCase
 {
@@ -55,8 +55,8 @@ final class RegisterUserHandlerTest extends TestCase
         $tokenRepository = $this->createMock(AuthTokenRepositoryInterface::class);
         $tokenRepository->expects($this->never())->method('save');
         // The same hashing work as a real registration: the timing tells nothing.
-        $passwordHasher = $this->createMock(UserPasswordHasherInterface::class);
-        $passwordHasher->expects($this->once())->method('hashPassword')->willReturn('wasted-hash');
+        $passwordHasher = $this->createMock(PasswordHasherInterface::class);
+        $passwordHasher->expects($this->once())->method('hash')->with('Password1!')->willReturn('wasted-hash');
 
         $handler = new RegisterUserHandler(
             $userRepository,
@@ -96,8 +96,8 @@ final class RegisterUserHandlerTest extends TestCase
                 && $user->status === UserStatusEnum::PendingEmailVerification
                 && $user->passwordHash === 'new-hash',
         ));
-        $passwordHasher = $this->createStub(UserPasswordHasherInterface::class);
-        $passwordHasher->method('hashPassword')->willReturn('new-hash');
+        $passwordHasher = $this->createStub(PasswordHasherInterface::class);
+        $passwordHasher->method('hash')->willReturn('new-hash');
         $tokenGenerator = $this->createStub(TokenGeneratorInterface::class);
         $tokenGenerator->method('generate')->willReturn('plain-token');
         $tokenGenerator->method('hash')->willReturn('token-hash');

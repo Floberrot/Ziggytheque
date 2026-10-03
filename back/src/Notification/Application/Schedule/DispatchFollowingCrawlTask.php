@@ -9,6 +9,7 @@ use App\Notification\Application\Fetch\FetchJikanNewsMessage;
 use App\Notification\Application\Fetch\FetchRssFeedMessage;
 use App\Notification\Domain\CrawlJobRepositoryInterface;
 use App\Notification\Domain\CrawlRunRepositoryInterface;
+use App\Notification\Domain\Service\CrawlPlanner;
 use App\Notification\Shared\Event\SchedulerFiredEvent;
 use App\Shared\Application\Bus\EventBusInterface;
 use DateTimeImmutable;
@@ -18,7 +19,8 @@ use Symfony\Component\Uid\Uuid;
 
 /**
  * Runs once a day at 06:00 UTC (= 07:00 CET / 08:00 CEST).
- * Dispatches async crawl jobs (one per source per followed manga).
+ * Dispatches async crawl jobs, each source downloaded once: one per RSS feed (matched
+ * against every followed series) and one per MyAnimeList series that is followed.
  */
 #[AsCronTask('0 6 * * *')]
 final readonly class DispatchFollowingCrawlTask
@@ -27,6 +29,7 @@ final readonly class DispatchFollowingCrawlTask
         private CollectionRepositoryInterface $collectionRepository,
         private CrawlRunRepositoryInterface $crawlRunRepository,
         private CrawlJobRepositoryInterface $crawlJobRepository,
+        private CrawlPlanner $crawlPlanner,
         private MessageBusInterface $messageBus,
         private EventBusInterface $eventBus,
         /** @var array<int, array{name: string, url: string}> */
@@ -36,38 +39,34 @@ final readonly class DispatchFollowingCrawlTask
 
     public function __invoke(): void
     {
-        $followed = $this->collectionRepository->findFollowed();
+        $followed       = $this->collectionRepository->findFollowed();
+        $followedSeries = $this->crawlPlanner->followedSeries($followed);
 
-        /** @var array<int, FetchRssFeedMessage|FetchJikanNewsMessage> $jobs */
-        $jobs   = [];
-        $runId  = Uuid::v4()->toRfc4122();
-        $jobIds = [];
+        if ($followedSeries === []) {
+            return;
+        }
 
-        foreach ($followed as $entry) {
-            foreach ($this->rssFeeds as $feed) {
-                $jobId    = Uuid::v4()->toRfc4122();
-                $jobIds[] = $jobId;
-                $jobs[]   = new FetchRssFeedMessage(
-                    collectionEntryId: $entry->id,
-                    mangaTitle: $entry->manga->title,
-                    feedName: $feed['name'],
-                    feedUrl: $feed['url'],
-                    crawlJobId: $jobId,
-                    crawlRunId: $runId,
-                );
-            }
+        /** @var list<FetchRssFeedMessage|FetchJikanNewsMessage> $jobs */
+        $jobs  = [];
+        $runId = Uuid::v4()->toRfc4122();
 
-            if ($entry->manga->externalId !== null) {
-                $jobId    = Uuid::v4()->toRfc4122();
-                $jobIds[] = $jobId;
-                $jobs[]   = new FetchJikanNewsMessage(
-                    collectionEntryId: $entry->id,
-                    mangaTitle: $entry->manga->title,
-                    malId: $entry->manga->externalId,
-                    crawlJobId: $jobId,
-                    crawlRunId: $runId,
-                );
-            }
+        foreach ($this->rssFeeds as $feed) {
+            $jobs[] = new FetchRssFeedMessage(
+                feedName: $feed['name'],
+                feedUrl: $feed['url'],
+                followedSeries: $followedSeries,
+                crawlJobId: Uuid::v4()->toRfc4122(),
+                crawlRunId: $runId,
+            );
+        }
+
+        foreach ($this->crawlPlanner->followedSeriesByMalId($followed) as $malSeries) {
+            $jobs[] = new FetchJikanNewsMessage(
+                malId: $malSeries['malId'],
+                followedSeries: $malSeries['followedSeries'],
+                crawlJobId: Uuid::v4()->toRfc4122(),
+                crawlRunId: $runId,
+            );
         }
 
         if ($jobs === []) {
@@ -75,7 +74,10 @@ final readonly class DispatchFollowingCrawlTask
         }
 
         $this->crawlRunRepository->create($runId, new DateTimeImmutable());
-        $this->crawlJobRepository->createBatch($runId, $jobIds);
+        $this->crawlJobRepository->createBatch(
+            $runId,
+            array_map(static fn (FetchRssFeedMessage|FetchJikanNewsMessage $job): string => $job->crawlJobId, $jobs),
+        );
 
         foreach ($jobs as $message) {
             $this->messageBus->dispatch($message);

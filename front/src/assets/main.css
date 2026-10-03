@@ -89,7 +89,6 @@
 
 @layer base {
   :root {
-    --transition-speed: 200ms;
     /* iOS safe areas (PWA standalone, viewport-fit=cover) — 0px elsewhere */
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -150,15 +149,4 @@
 }
 .manga-card:hover {
   @apply -translate-y-1 shadow-xl;
-}
-
-/* Volume grid states */
-.volume-owned {
-  @apply opacity-100;
-}
-.volume-wished {
-  @apply opacity-60 saturate-50;
-}
-.volume-missing {
-  @apply opacity-30 grayscale;
 }

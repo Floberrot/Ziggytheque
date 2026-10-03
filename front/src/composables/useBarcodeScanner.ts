@@ -26,19 +26,20 @@ interface NativeBarcodeDetectorConstructor {
 
 interface ScanControls { stop(): void }
 
-function cameraErrorMessage(err: unknown): string {
+/** The i18n key explaining why the camera could not start (translated by the caller). */
+function cameraErrorKey(err: unknown): string {
   if (err instanceof DOMException) {
     if (err.name === 'NotAllowedError') {
-      return 'Accès caméra refusé. Vérifiez les permissions et que la page est en HTTPS.'
+      return 'scanner.cameraDenied'
     }
     if (err.name === 'NotFoundError' || err.name === 'OverconstrainedError') {
-      return 'Aucune caméra disponible sur cet appareil.'
+      return 'scanner.noCamera'
     }
     if (err.name === 'NotReadableError') {
-      return 'La caméra est déjà utilisée par une autre application.'
+      return 'scanner.cameraBusy'
     }
   }
-  return 'Impossible de démarrer le scanner caméra.'
+  return 'scanner.cameraFailed'
 }
 
 /** The browser's own detector: much faster and steadier than decoding in JS. */
@@ -128,7 +129,8 @@ function videoTrack(video: HTMLVideoElement): MediaStreamTrack | undefined {
 
 export function useBarcodeScanner() {
   const isScanning = ref(false)
-  const errorMessage = ref<string | null>(null)
+  /** i18n key of the camera error, or null — the caller translates it. */
+  const errorKey = ref<string | null>(null)
   /** The camera has a light the user can switch on (dim shelves, glossy covers). */
   const torchAvailable = ref(false)
   const torchOn = ref(false)
@@ -140,7 +142,7 @@ export function useBarcodeScanner() {
   async function open(video: HTMLVideoElement, onCode: (code: string) => void): Promise<void> {
     stop()
     const current = ++generation
-    errorMessage.value = null
+    errorKey.value = null
     isScanning.value = true
 
     try {
@@ -158,7 +160,7 @@ export function useBarcodeScanner() {
     } catch (err) {
       if (current !== generation) return
       isScanning.value = false
-      errorMessage.value = cameraErrorMessage(err)
+      errorKey.value = cameraErrorKey(err)
     }
   }
 
@@ -222,5 +224,5 @@ export function useBarcodeScanner() {
 
   onScopeDispose(stop)
 
-  return { isScanning, errorMessage, torchAvailable, torchOn, start, startContinuous, toggleTorch, stop }
+  return { isScanning, errorKey, torchAvailable, torchOn, start, startContinuous, toggleTorch, stop }
 }

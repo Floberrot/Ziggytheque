@@ -21,7 +21,9 @@
     "themeDark": "Dark",
     "themeLight": "Light",
     "switchToDark": "Switch to dark theme",
-    "switchToLight": "Switch to light theme"
+    "switchToLight": "Switch to light theme",
+    "languageFrench": "Français",
+    "languageEnglish": "English"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -48,23 +50,38 @@
   "collection": {
     "title": "My Collection",
     "add": "Add a manga",
-    "addToCollection": "Manage Collection",
     "added": "Series added to collection",
     "removed": "Removed from collection",
     "empty": "Your collection is empty",
     "volumes": "Volumes",
-    "owned": "owned",
     "batchSetPrice": "Apply to all",
-    "worksEditions": "{count} editions"
+    "worksEditions": "{count} editions",
+    "followedWorks": "{count} work followed | {count} works followed",
+    "noFilterResults": "No results for these filters",
+    "cardLabel": "{title} — {owned}/{total} volumes owned",
+    "stackLabel": "{title} — {count} editions"
   },
   "wishlist": {
     "title": "Wishlist",
-    "addToWishlist": "Add all to wishlist",
     "allAdded": "All volumes added to wishlist",
-    "added": "Added to wishlist",
     "purchased": "Volume purchased and added to collection",
-    "purchase": "Purchased",
-    "empty": "Your wishlist is empty"
+    "empty": "Your wishlist is empty",
+    "batchPurchased": "{count} volume marked as bought | {count} volumes marked as bought",
+    "removed": "Removed from the wishlist",
+    "seriesCount": "{count} series | {count} series",
+    "wishedCount": "{count} wished volume | {count} wished volumes",
+    "selectAllVolumes": "All the volumes",
+    "noResults": "No results for “{query}”",
+    "clearSearch": "Clear the search",
+    "emptyHint": "From the collection, mark volumes as wished or use the \"Add to the list\" button",
+    "removeTitle": "Remove from the wishlist",
+    "ofVolumes": "/ {count} volumes",
+    "volumeSelect": "Volume {number} — Select",
+    "volumePurchase": "Volume {number} — Mark as bought",
+    "seeAll": "see all",
+    "hintSelect": "Tap the volumes to select them",
+    "hintPurchase": "Tap a volume to mark it as bought",
+    "markPurchased": "Mark as bought | Mark as bought"
   },
   "add": {
     "title": "Add a manga",
@@ -151,12 +168,8 @@
   },
   "manga": {
     "title": "Title",
-    "edition": "Publisher",
-    "language": "Language",
     "author": "Author",
-    "genre": "Genre",
     "coverUrl": "Cover URL",
-    "summary": "Summary",
     "totalVolumes": "Total volumes",
     "translate": "Translate to French",
     "showOriginal": "Show original",
@@ -173,19 +186,65 @@
     "moreOptionsTitle": "More options",
     "detailsAction": "Volume details",
     "specialEdition": "Special edition",
-    "addSpecialEdition": "+ special edition"
+    "addSpecialEdition": "+ special edition",
+    "addVolumes": "Add volumes",
+    "editCoverTooltip": "Edit the cover (URL)",
+    "renameTooltip": "Rename the series",
+    "editPublisherTooltip": "Click to change the publisher (Kurokawa, Glénat, Pika, …)",
+    "editPublisher": "Change the publisher",
+    "unknownPublisher": "Unknown publisher",
+    "meterOwned": "owned | owned",
+    "meterRead": "read | read",
+    "meterWished": "wished | wished",
+    "followTooltip": "Follow the releases of new volumes",
+    "followingTooltip": "Followed — you will be told about releases. Click to stop.",
+    "wishMissing": "Wish for the {count} missing volume | Wish for the {count} missing volumes",
+    "autoFillCovers": "Fill in the covers",
+    "setBatchPrice": "Set the price (in bulk)",
+    "removeSeries": "Remove the series",
+    "syncIntro": "This series currently has {count}. Type the number of the {last} volume to create: the missing volumes will be added without a status (to fill in later).",
+    "syncIntroLast": "last",
+    "tomeCount": "{count} volumes | {count} volume | {count} volumes",
+    "syncUpTo": "Up to volume",
+    "syncPlaceholder": "e.g. {number}",
+    "syncCreateRange": "Create volumes {from} to {to}",
+    "syncMinimum": "The number must be greater than {number}",
+    "syncCreate": "Create the volumes",
+    "batchPriceTitle": "Unit price (in bulk)",
+    "batchPriceHelp": "Sets the same price on every volume of the series in one go. You can still adjust the price of a single volume.",
+    "batchPriceScope": "Applies to every volume ({count})",
+    "batchPriceMissing": "Type a price to enable",
+    "batchPriceApplyEach": "Apply {price} € to each volume",
+    "batchPriceApplied": "Price applied to every volume",
+    "missingWished": "Missing volumes added to the wishlist",
+    "volumesSynced": "Volumes updated",
+    "updated": "Details updated",
+    "updateError": "The update failed",
+    "removeConfirmTitle": "Remove from the collection?",
+    "removeConfirmBody": "{title} and all its volumes will be removed from your library. This cannot be undone.",
+    "details": "Details",
+    "autoFill": {
+      "starting": "Starting…",
+      "queued": "{total} volume(s) to process…",
+      "resolved": "Volume {number} — found · {resolved} ok · {failed} missed ({active}/{total})",
+      "failed": "Volume {number} — not found · {resolved} ok · {failed} missed ({active}/{total})",
+      "processed": "{active}/{total} processed",
+      "found": "{count} found",
+      "notFound": "{count} not found",
+      "skipped": "{count} skipped",
+      "done": "Done",
+      "synced": "Covers updated",
+      "error": "Filling in the covers failed"
+    }
   },
   "volume": {
-    "price": "Price (€)",
-    "announced": "Announced",
-    "wished": "Wished",
     "untracked": "Untracked",
     "batchUpdated": "No volume updated | 1 volume updated | {count} volumes updated",
-    "batchFailed": "Failed after {done} of {total} volume(s) — try again."
+    "batchFailed": "Failed after {done} of {total} volume(s) — try again.",
+    "wishlist": "Wishlist"
   },
   "notifications": {
     "title": "News Feed",
-    "subtitle": "Articles and news found for your followed works",
     "empty": "No articles found yet",
     "filterBy": "Filter by",
     "allMangas": "All",
@@ -196,14 +255,11 @@
     "following": "Following ✓",
     "followOn": "You're following this series — we'll let you know about new releases.",
     "followOff": "You're no longer following this series.",
-    "markRead": "Mark as read",
     "systemTitle": "System notifications",
     "settings": {
       "title": "My notification preferences",
       "description": "Pick how you want to be notified about new articles. You can send a test to make sure it works.",
-      "channel": "Channel",
       "channelEmail": "Email",
-      "channelDiscord": "Discord (webhook)",
       "email": "Email address",
       "discord": "Discord webhook URL",
       "save": "Save",
@@ -211,11 +267,15 @@
       "savedToast": "Preferences saved.",
       "saveErrorToast": "Save failed.",
       "testDispatchedToast": "Test sent. You'll get an alert here if it fails.",
-      "testErrorToast": "Could not send the test."
-    }
+      "testErrorToast": "Could not send the test.",
+      "emailExample": "address{'@'}example.com",
+      "discordName": "Discord",
+      "webhookCaption": "Webhook"
+    },
+    "byAuthor": "by {author}"
   },
   "status": {
-    "not_started": "Not started",
+    "not_started": "To read",
     "in_progress": "In progress",
     "completed": "Completed",
     "on_hold": "On hold",
@@ -226,7 +286,12 @@
     "title": "Your rating",
     "confirm": "Confirm",
     "saved": "Rating saved",
-    "error": "Failed to save rating"
+    "error": "Failed to save rating",
+    "editTooltip": "Click a half heart to change your rating",
+    "rateTooltip": "Rate this series",
+    "valueLabel": "Rating: {value}/5",
+    "unrated": "Not rated",
+    "option": "{value} out of 5"
   },
   "journal": {
     "title": "Activity Journal",
@@ -280,7 +345,6 @@
   "filter": {
     "searchPlaceholder": "Search by title...",
     "allGenres": "All genres",
-    "allStatus": "All statuses",
     "allSorts": "By work (A → Z)",
     "editionPlaceholder": "Publisher or edition…",
     "sortRatingDesc": "Best rating",
@@ -290,26 +354,24 @@
     "owned": "Owned",
     "read": "Read",
     "wished": "Wishlist",
-    "quick": "Quick access",
     "advanced": "Refine",
     "resultsSingular": "result",
     "resultsPlural": "results",
     "reset": "Reset",
-    "loadingMore": "Loading...",
     "sortAddedDesc": "Recently added"
   },
   "common": {
-    "search": "Search...",
     "save": "Save",
     "cancel": "Cancel",
     "edit": "Edit",
     "delete": "Delete",
-    "remove": "Remove",
     "next": "Next",
     "close": "Close",
     "noData": "No data",
     "loading": "Loading…",
-    "actionFailed": "Could not do that — try again."
+    "actionFailed": "Could not do that — try again.",
+    "previous": "Previous",
+    "pageOf": "Page {page} / {total}"
   },
   "share": {
     "button": "Share",
@@ -363,12 +425,8 @@
     "isbnSearchError": "Cover search failed — try again.",
     "isbnFromPhone": "ISBN received from phone: {isbn}",
     "searchByTitle": "Search by title",
-    "cameraError": "Camera unavailable. Check permissions and ensure the page uses HTTPS.",
-    "applyThisCover": "Apply this cover",
-    "applying": "Applying…",
     "scanLinkTitle": "Open on phone",
     "scanExpired": "Session expired — regenerate the QR code on your computer.",
-    "scanSuccess": "Barcode sent!",
     "statusTitle": "This volume’s status",
     "statusHelp": "Help",
     "statusUpdateError": "Could not update the status — please retry.",
@@ -381,7 +439,15 @@
     "statusAnnouncedLabel": "Announced",
     "statusAnnouncedDesc": "Not released yet, publication is scheduled.",
     "statusHintOwned": "“Read” counts toward your reading progress.",
-    "statusHintNotOwned": "Switch it to “Owned” once you have it: it will leave the wishlist automatically."
+    "statusHintNotOwned": "Switch it to “Owned” once you have it: it will leave the wishlist automatically.",
+    "coverUpdated": "Cover updated",
+    "zoomCover": "Zoom in on the cover",
+    "refreshSearch": "Search again",
+    "searchEmptyHint": "Cover suggestions — tap a cover to apply it",
+    "scrollForMore": "Scroll for more",
+    "searchError": "Search failed — try again",
+    "pasteUrl": "Or paste a URL",
+    "applyUrl": "Apply"
   },
   "scan": {
     "title": "Scan an ISBN",
@@ -390,8 +456,9 @@
     "scanAnother": "Scan another",
     "expired": "This link has expired. Regenerate the QR code from your computer.",
     "invalidCode": "Barcode not recognized (invalid ISBN).",
-    "cameraError": "Cannot access camera. Check permissions and ensure the page uses HTTPS.",
-    "batchSent": "No volume sent | 1 volume sent to the computer | {count} volumes sent to the computer"
+    "batchSent": "No volume sent | 1 volume sent to the computer | {count} volumes sent to the computer",
+    "searching": "Looking for the barcode…",
+    "qrCode": "QR code"
   },
   "guide": {
     "title": "Guide & help",
@@ -532,12 +599,50 @@
     "viewOn": "View on {merchant}",
     "merchantLive": "Live offer",
     "publisherReference": "Publisher price",
-    "selectVolume": "Select a volume to see prices."
+    "selectVolume": "Select a volume to see prices.",
+    "unavailable": "Prices unavailable",
+    "volumePrices": "Prices of volume {number}"
   },
   "admin": {
     "approve": "Approve",
     "resetLink": "Reset link",
-    "notConfigured": "not configured"
+    "notConfigured": "not configured",
+    "title": "Users",
+    "accountCount": "{count} accounts | {count} account | {count} accounts",
+    "searchPlaceholder": "Search an email or a name…",
+    "allStatuses": "All statuses",
+    "status": {
+      "pending_email_verification": "Email to verify",
+      "pending_admin_approval": "To approve",
+      "active": "Active",
+      "disabled": "Disabled"
+    },
+    "empty": "No user found.",
+    "roleAdmin": "Admin",
+    "roleUser": "User",
+    "columns": {
+      "user": "User",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "notifications": "Notifications",
+      "actions": "Actions"
+    },
+    "resetLinkShort": "Reset link",
+    "displayName": "Display name",
+    "channel": "Notification channel",
+    "channelEmail": "Email",
+    "channelDiscord": "Discord",
+    "channelHelp": "The email address and the webhook URL are managed by the user from their Notifications tab and are never shown here.",
+    "updated": "User updated.",
+    "updateFailed": "The update failed.",
+    "approved": "{name} approved.",
+    "approveFailed": "The approval failed.",
+    "deleteConfirm": "Delete {name} ({email})? All their data will be lost.",
+    "deleted": "User deleted.",
+    "deleteFailed": "The deletion failed.",
+    "linkCopied": "Link copied for {name}.",
+    "linkFailed": "Generating the link failed."
   },
   "quickActions": {
     "open": "Open the series",
@@ -552,5 +657,125 @@
     "unfollowed": "You no longer follow this series.",
     "rated": "Rating saved",
     "error": "Could not do that — try again."
+  },
+  "scanner": {
+    "cameraDenied": "Camera access denied. Check the permissions and that the page uses HTTPS.",
+    "noCamera": "No camera available on this device.",
+    "cameraBusy": "The camera is already in use by another app.",
+    "cameraFailed": "Could not start the camera scanner."
+  },
+  "pageTitle": {
+    "login": "Sign in",
+    "register": "Sign up",
+    "verifyEmail": "Email verification",
+    "forgotPassword": "Forgotten password",
+    "resetPassword": "Reset password",
+    "gate": "Admin access",
+    "dashboard": "Dashboard",
+    "collection": "Collection",
+    "series": "Series",
+    "wishlist": "Wishlist",
+    "add": "Add a series",
+    "notifications": "News",
+    "notificationPreferences": "Notification preferences",
+    "journal": "Journal",
+    "adminUsers": "Users",
+    "scan": "Scan an ISBN",
+    "share": "Shared library"
+  },
+  "volumeGrid": {
+    "batchDone": "Done",
+    "batchSelect": "Select",
+    "selectLabel": "Select:",
+    "selectAll": "All",
+    "selectOwned": "Owned",
+    "selectUnread": "Unread",
+    "selectAnnounced": "Announced",
+    "clearSelection": "Clear",
+    "empty": "No volume yet. Use \"Add volumes\" to create some.",
+    "hintDesktop": "Left click to manage · Right click for quick actions · Select for bulk changes",
+    "hintMobile": "Tap a volume to manage it"
+  },
+  "volumeBatch": {
+    "toolbar": "Actions on the selection",
+    "count": "{count} volume | {count} volumes",
+    "markRead": "Mark read",
+    "markUnread": "Mark unread",
+    "markOwned": "Mark owned",
+    "announce": "Mark announced",
+    "unannounce": "Unmark announced"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm the password",
+    "showPassword": "Show the password",
+    "hidePassword": "Hide the password",
+    "passwordsMismatch": "The passwords do not match.",
+    "backToLogin": "Back to sign in",
+    "goToLogin": "Go to sign in",
+    "login": {
+      "subtitle": "Sign in to Ziggytheque",
+      "submit": "Sign in",
+      "noAccount": "No account yet? Sign up",
+      "forgotPassword": "Forgot your password?",
+      "inactive": "Your account is not active yet. Check your email or wait for an admin's approval.",
+      "tooManyAttempts": "Too many attempts. Try again in a few minutes.",
+      "invalid": "Invalid email or password."
+    },
+    "register": {
+      "sentTitle": "Sign-up sent!",
+      "sentBody": "A verification email has been sent to you. Click its link to activate your account. An administrator will then have to approve your request before you can sign in.",
+      "subtitle": "Create your account",
+      "displayName": "Display name",
+      "passwordHint": "Password (8 characters min)",
+      "strength": "Strength: {level}",
+      "strengthWeak": "Weak",
+      "strengthFair": "Fair",
+      "strengthGood": "Good",
+      "strengthStrong": "Strong",
+      "strengthVeryStrong": "Very strong",
+      "submit": "Sign up",
+      "haveAccount": "Already registered? Sign in",
+      "invalid": "Invalid email or password too short (8 characters min).",
+      "tooManyAttempts": "Too many attempts. Try again in a moment.",
+      "failed": "Sign-up failed. Try again later."
+    },
+    "forgot": {
+      "sentTitle": "Email sent",
+      "sentBody": "If an account exists for this address, a reset link has just been sent.",
+      "title": "Forgot your password?",
+      "intro": "Enter your email to receive a reset link.",
+      "submit": "Send the link"
+    },
+    "reset": {
+      "tooShort": "The password must be at least 8 characters long.",
+      "invalidLink": "Invalid link.",
+      "expired": "This link is invalid or has expired.",
+      "failed": "The reset failed.",
+      "doneTitle": "Password changed!",
+      "doneBody": "You can now sign in with your new password.",
+      "title": "New password",
+      "newPassword": "New password",
+      "submit": "Reset"
+    },
+    "verify": {
+      "checking": "Checking your email…",
+      "doneTitle": "Email verified!",
+      "doneBody": "Your account is waiting for an administrator to approve it. You will get an email as soon as your access is approved.",
+      "failedTitle": "Invalid link",
+      "failedBody": "This verification link is invalid or has expired."
+    },
+    "gate": {
+      "title": "Administrator access",
+      "intro": "Enter the access password to unlock this section.",
+      "password": "Access password",
+      "invalid": "Invalid access password.",
+      "submit": "Unlock"
+    }
+  },
+  "editionSelector": {
+    "placeholder": "Pika, Glénat, Kana…",
+    "clear": "Clear the publisher"
   }
 }

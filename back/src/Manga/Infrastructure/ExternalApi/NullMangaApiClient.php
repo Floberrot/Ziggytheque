@@ -15,9 +15,4 @@ final readonly class NullMangaApiClient implements ExternalApiClientInterface
     {
         return [];
     }
-
-    public function getMangaById(string $externalId): ?ExternalMangaDto
-    {
-        return null;
-    }
 }

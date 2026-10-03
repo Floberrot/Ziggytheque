@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, defineAsyncComponent } from 'vue'
+import { ref, computed, watch, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
-import {
-  ArrowLeft, Star, BookOpen, Check, CheckSquare, Pencil, Trash2, Eye, Tag, Megaphone, Package, Info, Bell, BellOff, Plus, Sparkles, HelpCircle, Languages, MoreHorizontal, ChevronDown, X,
-} from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
+import { ArrowLeft, Bell, Languages, Plus } from 'lucide-vue-next'
 import {
   getCollectionEntry,
   removeFromCollection,
@@ -16,59 +15,76 @@ import {
   updateCollectionRating,
   toggleFollow,
 } from '@/api/collection'
-import { updateManga, autoFillCovers, translateSummary } from '@/api/manga'
+import { updateManga, updateVolume, autoFillCovers, translateSummary, type MangaUpdatePayload } from '@/api/manga'
 import { searchCatalogue, type CatalogueEdition } from '@/api/catalogue'
-import { useCoverBatchProgress } from '@/composables/useCoverBatchProgress'
+import { useCoverBatchProgress, type CoverBatchProgress } from '@/composables/useCoverBatchProgress'
+import { useIsMobile } from '@/composables/useMediaQuery'
+import { useVolumeToggle } from '@/composables/useVolumeToggle'
 import { useUiStore } from '@/stores/useUiStore'
-import { useI18n } from 'vue-i18n'
-import CatalogueEditionCard from '@/components/organisms/CatalogueEditionCard.vue'
+import type { ReadingStatus, VolumeEntry, VolumeToggleField } from '@/types'
+import { coverUrl } from '@/utils/coverUrl'
+import type { ScreenPoint } from '@/utils/pointer'
+import { VOLUME_BATCH_RULES, batchTargets, type VolumeBatchAction } from '@/utils/volumeBatch'
 import BaseButton from '@/components/atoms/BaseButton.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
+import BatchPricePanel from '@/components/molecules/BatchPricePanel.vue'
+import ReadingStatusMenu from '@/components/molecules/ReadingStatusMenu.vue'
+import RemoveSeriesDialog from '@/components/molecules/RemoveSeriesDialog.vue'
+import SeriesMoreMenu from '@/components/molecules/SeriesMoreMenu.vue'
+import SeriesProgressMeters from '@/components/molecules/SeriesProgressMeters.vue'
+import SyncVolumesPanel from '@/components/molecules/SyncVolumesPanel.vue'
 import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
-import BaseHeartRating from '@/components/atoms/BaseHeartRating.vue'
-import { FRENCH_EDITIONS } from '@/data/editions'
-import BaseEditionSelector from '@/components/atoms/BaseEditionSelector.vue'
-import BaseLazyImage from '@/components/atoms/BaseLazyImage.vue'
-import BaseCover from '@/components/atoms/BaseCover.vue'
-import BaseModal from '@/components/atoms/BaseModal.vue'
-import { useIsMobile } from '@/composables/useMediaQuery'
-import type { CollectionEntryDetail, ReadingStatus, VolumeEntry, VolumeToggleField } from '@/types'
-import { coverUrl } from '@/utils/coverUrl'
-import { VOLUME_BATCH_RULES, batchTargets, type VolumeBatchAction } from '@/utils/volumeBatch'
+import SeriesCoverEditor from '@/components/organisms/SeriesCoverEditor.vue'
+import SeriesEditionsList from '@/components/organisms/SeriesEditionsList.vue'
+import SeriesIdentityEditor from '@/components/organisms/SeriesIdentityEditor.vue'
+import VolumeActionSheet from '@/components/organisms/VolumeActionSheet.vue'
+import VolumeBatchBar from '@/components/organisms/VolumeBatchBar.vue'
+import VolumeContextMenu from '@/components/organisms/VolumeContextMenu.vue'
+import VolumeGrid from '@/components/organisms/VolumeGrid.vue'
+import VolumePriceGrid from '@/components/organisms/VolumePriceGrid.vue'
 
 // The cover / ISBN / scan / price tool (and its QR code library) is fetched once the
 // page is up, not with it; it handles being mounted already open.
 const EnrichVolumeModal = defineAsyncComponent(() => import('@/components/organisms/EnrichVolumeModal.vue'))
 
+type DetailTab = 'volumes' | 'editions' | 'prix'
+type EnrichMode = 'search' | 'isbn' | 'scan' | 'prix'
+
 const route = useRoute()
 const router = useRouter()
-const qc = useQueryClient()
+const queryClient = useQueryClient()
 const ui = useUiStore()
 const { t } = useI18n()
 
-const id = route.params.id as string
+const collectionEntryId = route.params.id as string
 
-// Below `sm`, every anchored popover of this page turns into a bottom sheet.
+// Below `sm`, the tome quick actions open as a bottom sheet instead of a context menu.
 const isMobile = useIsMobile()
 
-// ── Tab navigation ──
-const tabParam = computed<'volumes' | 'editions' | 'prix'>(() => {
+// ── Tab navigation (the URL keeps the historical "prix") ──
+const TABS: readonly DetailTab[] = ['volumes', 'editions', 'prix']
+const TAB_LABEL_KEYS: Record<DetailTab, string> = {
+  volumes: 'manga.tabs.volumes',
+  editions: 'manga.tabs.editions',
+  prix: 'manga.tabs.prices',
+}
+
+const tabParam = computed<DetailTab>(() => {
   const tab = route.query.tab as string | undefined
   if (tab === 'editions' || tab === 'prix') return tab
   return 'volumes'
 })
 
-function setTab(tab: 'volumes' | 'editions' | 'prix'): void {
+function setTab(tab: DetailTab): void {
   router.replace({ query: { ...route.query, tab: tab === 'volumes' ? undefined : tab } })
 }
-
 
 // ── Guide / help modal ──
 const showGuide = ref(false)
 
 const { data: entry, isPending } = useQuery({
-  queryKey: ['collection', id],
-  queryFn: () => getCollectionEntry(id),
+  queryKey: ['collection', collectionEntryId],
+  queryFn: () => getCollectionEntry(collectionEntryId),
 })
 
 watch(entry, (mangaEntry) => {
@@ -90,7 +106,7 @@ const {
 
 function openCatalogueEdition(edition: CatalogueEdition): void {
   if (edition.collection) {
-    if (edition.collection.entryId !== id) {
+    if (edition.collection.entryId !== collectionEntryId) {
       router.push({ name: 'collection-detail', params: { id: edition.collection.entryId } })
     }
     return
@@ -102,10 +118,10 @@ function openCatalogueEdition(edition: CatalogueEdition): void {
 }
 
 const sortedVolumes = computed<VolumeEntry[]>(() =>
-  [...(entry.value?.volumes ?? [])].sort((a, b) => a.number - b.number),
+  [...(entry.value?.volumes ?? [])].sort((left, right) => left.number - right.number),
 )
 
-const missingVolumes = computed(() => sortedVolumes.value.filter((v) => !v.isOwned && !v.isWished))
+const missingVolumes = computed(() => sortedVolumes.value.filter((volume) => !volume.isOwned && !volume.isWished))
 
 // ── Summary translation (EN → FR, on demand) ──
 const showTranslation = ref(false)
@@ -126,7 +142,7 @@ const displayedSummary = computed(() =>
     : entry.value?.manga.summary ?? '',
 )
 
-function toggleTranslation() {
+function toggleTranslation(): void {
   if (showTranslation.value) {
     showTranslation.value = false
     return
@@ -139,161 +155,64 @@ function toggleTranslation() {
   if (summary) translateMutation.mutate(summary)
 }
 
-// ── Modal state ──
+// ── Tome modal (cover / ISBN / scan / prices) ──
 const modalVolumeId = ref<string | null>(null)
-const modalInitialMode = ref<'search' | 'isbn' | 'scan' | 'prix'>('search')
+const modalInitialMode = ref<EnrichMode>('search')
 const modalOpen = computed(() => modalVolumeId.value !== null)
-const modalVolume = computed(() => sortedVolumes.value.find((v) => v.id === modalVolumeId.value) ?? null)
+const modalVolume = computed(() => sortedVolumes.value.find((volume) => volume.id === modalVolumeId.value) ?? null)
 
-function openVolumeModal(ve: VolumeEntry) {
-  modalInitialMode.value = 'search'
-  modalVolumeId.value = ve.id
+function openVolumeModal(volume: VolumeEntry, mode: EnrichMode = 'search'): void {
+  modalInitialMode.value = mode
+  modalVolumeId.value = volume.id
 }
 
-function openVolumeModalForPrice(ve: VolumeEntry) {
-  modalInitialMode.value = 'prix'
-  modalVolumeId.value = ve.id
-}
-
-function closeModal() {
+function closeModal(): void {
   modalVolumeId.value = null
   modalInitialMode.value = 'search'
 }
 
-// ── Inline title/edition/cover edit ──
+// ── Inline edits of the series (title, publisher, special edition, cover) ──
 const editingTitle = ref(false)
 const editingEdition = ref(false)
 const editingSpecialEdition = ref(false)
 const editingCover = ref(false)
-const editTitleValue = ref('')
-const editEditionValue = ref<string | null>(null)
-const editSpecialEditionValue = ref('')
-const editCoverValue = ref('')
 
-function startEditTitle() {
-  editTitleValue.value = entry.value?.manga.title ?? ''
-  editingTitle.value = true
-}
-function startEditEdition() {
-  editEditionValue.value = entry.value?.manga.edition ?? null
-  editingEdition.value = true
-}
-function cancelEditTitle() { editingTitle.value = false }
-function cancelEditEdition() { editingEdition.value = false }
-function startEditSpecialEdition() {
-  editSpecialEditionValue.value = entry.value?.manga.specialEdition ?? ''
-  editingSpecialEdition.value = true
-}
-function cancelEditSpecialEdition() { editingSpecialEdition.value = false }
-function saveSpecialEdition() {
-  updateMangaMutation.mutate({ specialEdition: editSpecialEditionValue.value.trim() })
-}
-
-const editionLogo = computed(() =>
-  FRENCH_EDITIONS.find((e) => e.name === entry.value?.manga.edition)?.logo ?? null,
-)
-
-function startEditCover() {
-  editCoverValue.value = entry.value?.manga.coverUrl ?? ''
-  editingCover.value = true
-}
-function cancelEditCover() { editingCover.value = false }
-function saveCover() {
-  updateMangaMutation.mutate({ coverUrl: editCoverValue.value })
+function saveCover(newCoverUrl: string): void {
+  updateMangaMutation.mutate({ coverUrl: newCoverUrl })
   editingCover.value = false
 }
 
-// ── Reading status config ──
-const STATUS_OPTIONS = [
-  {
-    value: 'not_started' as ReadingStatus,
-    label: 'À lire',
-    dot: 'bg-base-content/40',
-    activeClass: 'bg-base-content/15 text-base-content border-base-content/20',
-    hoverClass: 'hover:bg-base-content/10',
-  },
-  {
-    value: 'in_progress' as ReadingStatus,
-    label: 'En cours',
-    dot: 'bg-primary',
-    activeClass: 'bg-primary text-primary-content border-primary',
-    hoverClass: 'hover:bg-primary/10 hover:text-primary hover:border-primary/40',
-  },
-  {
-    value: 'on_hold' as ReadingStatus,
-    label: 'Pause',
-    dot: 'bg-warning',
-    activeClass: 'bg-warning text-warning-content border-warning',
-    hoverClass: 'hover:bg-warning/10 hover:text-warning hover:border-warning/40',
-  },
-  {
-    value: 'completed' as ReadingStatus,
-    label: 'Terminé',
-    dot: 'bg-success',
-    activeClass: 'bg-success text-success-content border-success',
-    hoverClass: 'hover:bg-success/10 hover:text-success hover:border-success/40',
-  },
-  {
-    value: 'dropped' as ReadingStatus,
-    label: 'Abandonné',
-    dot: 'bg-error',
-    activeClass: 'bg-error text-error-content border-error',
-    hoverClass: 'hover:bg-error/10 hover:text-error hover:border-error/40',
-  },
-] as const
-
-const currentStatusOption = computed(
-  () => STATUS_OPTIONS.find((s) => s.value === entry.value?.readingStatus) ?? STATUS_OPTIONS[0],
-)
-
-// ── Action bar : progressive-disclosure menus & on-demand price ──
+// ── Action bar: progressive-disclosure menus & on-demand price ──
 const statusMenuOpen = ref(false)
 const moreMenuOpen = ref(false)
 const showPrice = ref(false)
 
-function closeActionMenus() {
+function closeActionMenus(): void {
   statusMenuOpen.value = false
   moreMenuOpen.value = false
 }
 
-function pickStatus(status: ReadingStatus) {
+function toggleStatusMenu(): void {
+  statusMenuOpen.value = !statusMenuOpen.value
+  moreMenuOpen.value = false
+}
+
+function toggleMoreMenu(): void {
+  moreMenuOpen.value = !moreMenuOpen.value
+  statusMenuOpen.value = false
+}
+
+function pickStatus(status: ReadingStatus): void {
   if (entry.value && entry.value.readingStatus !== status) statusMutation.mutate(status)
   statusMenuOpen.value = false
 }
 
-// ── Batch price ──
-// v-model.number yields the raw string ('') when the input is empty or
-// non-numeric, so the model can hold number | string | null. batchPriceValue
-// normalises it to a usable number (or null) for guards and the mutation.
+// ── Batch price (the panel normalises the typed value) ──
 const batchPrice = ref<number | string | null>(null)
-const batchPriceValue = computed<number | null>(() =>
-  typeof batchPrice.value === 'number' && !Number.isNaN(batchPrice.value)
-    ? batchPrice.value
-    : null,
-)
 
-const batchPriceMutation = useMutation({
-  mutationFn: (price: number) => batchSetVolumePrice(id, price),
-  onSuccess: () => {
-    qc.invalidateQueries({ queryKey: ['collection', id] })
-    qc.invalidateQueries({ queryKey: ['stats'] })
-    batchPrice.value = null
-    ui.addToast('Prix appliqué à tous les tomes', 'success')
-  },
-})
-
-// ── Sync panel state ──
+// ── "Add tomes" panel ──
 const showSyncPanel = ref(false)
 const syncTarget = ref<number | ''>('')
-const syncPlaceholder = computed(() => {
-  const total = entry.value?.totalVolumes ?? 0
-  return `ex: ${total + 5}`
-})
-const syncMin = computed(() => (entry.value?.totalVolumes ?? 0) + 1)
-const isSyncTargetValid = computed(() => {
-  if (syncTarget.value === '') return false
-  return Number(syncTarget.value) >= syncMin.value
-})
 
 // ── Delete confirm ──
 const showDeleteConfirm = ref(false)
@@ -303,225 +222,162 @@ const batchMode = ref(false)
 const selectedIds = ref<Set<string>>(new Set())
 
 const selectedVolumes = computed(() =>
-  sortedVolumes.value.filter((v) => selectedIds.value.has(v.id)),
+  sortedVolumes.value.filter((volume) => selectedIds.value.has(volume.id)),
 )
 
-function toggleBatchMode() {
+function toggleBatchMode(): void {
   batchMode.value = !batchMode.value
   if (!batchMode.value) selectedIds.value = new Set()
 }
 
-function toggleSelection(veId: string) {
+function toggleSelection(volumeEntryId: string): void {
   const next = new Set(selectedIds.value)
-  if (next.has(veId)) next.delete(veId)
-  else next.add(veId)
+  if (next.has(volumeEntryId)) next.delete(volumeEntryId)
+  else next.add(volumeEntryId)
   selectedIds.value = next
 }
 
-function handleVolumeClick(ve: VolumeEntry) {
-  if (batchMode.value) toggleSelection(ve.id)
-  else openVolumeModal(ve)
+function onVolumeActivate(volume: VolumeEntry): void {
+  if (batchMode.value) toggleSelection(volume.id)
+  else openVolumeModal(volume)
 }
 
-function selectAll() {
-  selectedIds.value = new Set(sortedVolumes.value.map((v) => v.id))
-}
-function selectOwned() {
-  selectedIds.value = new Set(sortedVolumes.value.filter((v) => v.isOwned).map((v) => v.id))
-}
-function selectUnread() {
-  selectedIds.value = new Set(sortedVolumes.value.filter((v) => v.isOwned && !v.isRead).map((v) => v.id))
-}
-function selectAnnounced() {
-  selectedIds.value = new Set(sortedVolumes.value.filter((v) => v.isAnnounced && !v.isOwned).map((v) => v.id))
-}
-
-// ── Volume quick actions ──
-// Desktop: right-click context menu (teleported, clamped to the viewport by
-// measuring the rendered menu). Mobile: bottom sheet, opened either by the
-// visible "⋯" button on each tile or by a long-press (contextmenu event).
-const contextMenu = ref<{ ve: VolumeEntry; x: number; y: number } | null>(null)
-const contextMenuRef = ref<HTMLElement | null>(null)
-const actionSheetVeId = ref<string | null>(null)
+// ── Tome quick actions ──
+// Desktop: right-click (or Menu key) context menu. Mobile: bottom sheet, opened either
+// by the visible "⋯" button of each tile or by a long press (contextmenu event).
+const contextMenu = ref<{ volume: VolumeEntry; point: ScreenPoint } | null>(null)
+const actionSheetVolumeId = ref<string | null>(null)
 
 // Derived from the query cache so optimistic toggles refresh the open sheet.
 const actionSheetVolume = computed(() =>
-  sortedVolumes.value.find((volumeEntry) => volumeEntry.id === actionSheetVeId.value) ?? null,
+  sortedVolumes.value.find((volume) => volume.id === actionSheetVolumeId.value) ?? null,
 )
 
-function openVolumeActions(ve: VolumeEntry) {
-  actionSheetVeId.value = ve.id
+function openVolumeActions(volume: VolumeEntry): void {
+  actionSheetVolumeId.value = volume.id
 }
 
-async function openContextMenu(event: MouseEvent, ve: VolumeEntry) {
+function openContextMenu(volume: VolumeEntry, point: ScreenPoint): void {
   if (isMobile.value) {
-    openVolumeActions(ve)
+    openVolumeActions(volume)
     return
   }
-  contextMenu.value = { ve, x: event.clientX, y: event.clientY }
-  // Clamp against the real rendered size instead of magic constants.
-  await nextTick()
-  const menuElement = contextMenuRef.value
-  if (!menuElement || !contextMenu.value) return
-  const menuRect = menuElement.getBoundingClientRect()
-  contextMenu.value = {
-    ve,
-    x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuRect.width - 8)),
-    y: Math.max(8, Math.min(event.clientY, window.innerHeight - menuRect.height - 8)),
-  }
+  contextMenu.value = { volume, point }
 }
 
-function closeContextMenu() {
+function closeContextMenu(): void {
   contextMenu.value = null
 }
 
-function closeActionSheet() {
-  actionSheetVeId.value = null
+function closeActionSheet(): void {
+  actionSheetVolumeId.value = null
 }
 
-function openModalFromContext() {
+function openModalFromContext(): void {
   if (contextMenu.value) {
-    openVolumeModal(contextMenu.value.ve)
+    openVolumeModal(contextMenu.value.volume)
     closeContextMenu()
   }
 }
 
-function openModalFromActionSheet() {
-  if (actionSheetVolume.value) {
-    const ve = actionSheetVolume.value
+function openModalFromActionSheet(): void {
+  const volume = actionSheetVolume.value
+  if (volume) {
     closeActionSheet()
-    openVolumeModal(ve)
+    openVolumeModal(volume)
   }
 }
 
 // ── Mutations ──
 const removeMutation = useMutation({
-  mutationFn: () => removeFromCollection(id),
+  mutationFn: () => removeFromCollection(collectionEntryId),
   onSuccess: () => {
-    qc.invalidateQueries({ queryKey: ['collection'] })
+    queryClient.invalidateQueries({ queryKey: ['collection'] })
     ui.addToast(t('collection.removed'), 'success')
     router.push({ name: 'collection' })
   },
 })
 
 const statusMutation = useMutation({
-  mutationFn: (status: ReadingStatus) => updateReadingStatus(id, status),
-  onSuccess: () => qc.invalidateQueries({ queryKey: ['collection', id] }),
+  mutationFn: (status: ReadingStatus) => updateReadingStatus(collectionEntryId, status),
+  onSuccess: () => queryClient.invalidateQueries({ queryKey: ['collection', collectionEntryId] }),
 })
 
-// Mirrors the backend ToggleVolumeHandler rules so the optimistic cache update
-// matches exactly what the server persists (no flicker once the refetch settles).
-function applyToggleField(volume: VolumeEntry, field: VolumeToggleField): VolumeEntry {
-  const next = { ...volume }
-  if (field === 'isOwned') {
-    next.isOwned = !volume.isOwned
-    if (next.isOwned) {
-      next.isWished = false
-      next.isAnnounced = false
-    }
-  } else if (field === 'isRead') {
-    next.isRead = !volume.isRead
-  } else if (field === 'isWished') {
-    next.isWished = !volume.isWished
-  } else {
-    next.isAnnounced = !volume.isAnnounced
-  }
-  return next
+// Optimistic flag toggle of a tome — from the context menu, the sheet or the tome modal.
+const toggleMutation = useVolumeToggle(collectionEntryId, { onMutate: closeContextMenu })
+
+function toggleVolumeField(volume: VolumeEntry | null | undefined, field: VolumeToggleField): void {
+  if (volume) toggleMutation.mutate({ volumeEntryId: volume.id, field })
 }
 
-function recomputeDetailCounts(volumes: VolumeEntry[]) {
-  return {
-    ownedCount:  volumes.filter((v) => v.isOwned).length,
-    readCount:   volumes.filter((v) => v.isRead).length,
-    wishedCount: volumes.filter((v) => v.isWished && !v.isOwned).length,
-    ownedValue:  volumes.reduce((sum, v) => sum + (v.isOwned ? (v.price ?? 0) : 0), 0),
-  }
+function toggleFromContext(field: VolumeToggleField): void {
+  toggleVolumeField(contextMenu.value?.volume, field)
 }
 
-const TOGGLE_MUTATION_KEY = ['toggle-volume', id]
+function toggleFromActionSheet(field: VolumeToggleField): void {
+  toggleVolumeField(actionSheetVolume.value, field)
+}
 
-const toggleMutation = useMutation({
-  mutationKey: TOGGLE_MUTATION_KEY,
-  mutationFn: ({ veId, field }: { veId: string; field: VolumeToggleField }) =>
-    toggleVolume(id, veId, field),
-  // Optimistic update so the volume reacts instantly, even on a slow request —
-  // the previous behaviour only refetched on success, so a click could feel dead.
-  onMutate: async ({ veId, field }: { veId: string; field: VolumeToggleField }) => {
-    const key = ['collection', id]
-    await qc.cancelQueries({ queryKey: key })
-    const previous = qc.getQueryData<CollectionEntryDetail>(key)
-    qc.setQueryData<CollectionEntryDetail>(key, (old) => {
-      if (!old) return old
-      const volumes = old.volumes.map((v) => (v.id === veId ? applyToggleField(v, field) : v))
-      return { ...old, volumes, ...recomputeDetailCounts(volumes) }
-    })
-    closeContextMenu()
-    return { previous, key }
-  },
-  onError: (_error, _vars, context) => {
-    if (context?.previous) qc.setQueryData(context.key, context.previous)
-    ui.addToast(t('enrich.statusUpdateError'), 'error')
-  },
-  onSettled: () => {
-    // Only refetch once the last rapid toggle has settled — an in-flight refetch
-    // from an earlier toggle would otherwise clobber the newer optimistic state.
-    if (qc.isMutating({ mutationKey: TOGGLE_MUTATION_KEY }) === 1) {
-      qc.invalidateQueries({ queryKey: ['collection', id] })
-      qc.invalidateQueries({ queryKey: ['collection'] })
-      qc.invalidateQueries({ queryKey: ['wishlist'] })
-      qc.invalidateQueries({ queryKey: ['stats'] })
-    }
-  },
-})
+function toggleFromModal(field: VolumeToggleField): void {
+  toggleVolumeField(modalVolume.value, field)
+}
 
 const addToWishlistMutation = useMutation({
-  mutationFn: () => addRemainingToWishlist(id),
+  mutationFn: () => addRemainingToWishlist(collectionEntryId),
   onSuccess: () => {
-    qc.invalidateQueries({ queryKey: ['collection', id] })
-    qc.invalidateQueries({ queryKey: ['wishlist'] })
-    qc.invalidateQueries({ queryKey: ['stats'] })
-    ui.addToast('Tomes manquants ajoutés à la liste de souhaits', 'success')
+    queryClient.invalidateQueries({ queryKey: ['collection', collectionEntryId] })
+    queryClient.invalidateQueries({ queryKey: ['wishlist'] })
+    queryClient.invalidateQueries({ queryKey: ['stats'] })
+    ui.addToast(t('manga.missingWished'), 'success')
   },
 })
 
-
 const syncMutation = useMutation({
-  mutationFn: () => syncVolumes(id, syncTarget.value !== '' ? Number(syncTarget.value) : undefined),
+  mutationFn: () => syncVolumes(collectionEntryId, syncTarget.value !== '' ? Number(syncTarget.value) : undefined),
   onSuccess: () => {
-    qc.invalidateQueries({ queryKey: ['collection', id] })
-    qc.invalidateQueries({ queryKey: ['collection'] })
+    queryClient.invalidateQueries({ queryKey: ['collection', collectionEntryId] })
+    queryClient.invalidateQueries({ queryKey: ['collection'] })
     showSyncPanel.value = false
     syncTarget.value = ''
-    ui.addToast('Tomes mis à jour', 'success')
+    ui.addToast(t('manga.volumesSynced'), 'success')
+  },
+})
+
+const batchPriceMutation = useMutation({
+  mutationFn: (price: number) => batchSetVolumePrice(collectionEntryId, price),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['collection', collectionEntryId] })
+    queryClient.invalidateQueries({ queryKey: ['stats'] })
+    batchPrice.value = null
+    ui.addToast(t('manga.batchPriceApplied'), 'success')
   },
 })
 
 const updateMangaMutation = useMutation({
-  mutationFn: (payload: { title?: string; edition?: string; specialEdition?: string; coverUrl?: string }) =>
-    updateManga(entry.value!.manga.id, payload),
+  mutationFn: (payload: MangaUpdatePayload) => updateManga(entry.value!.manga.id, payload),
   onSuccess: () => {
-    qc.invalidateQueries({ queryKey: ['collection', id] })
-    qc.invalidateQueries({ queryKey: ['collection'] })
+    queryClient.invalidateQueries({ queryKey: ['collection', collectionEntryId] })
+    queryClient.invalidateQueries({ queryKey: ['collection'] })
     editingTitle.value = false
     editingEdition.value = false
     editingSpecialEdition.value = false
-    ui.addToast('Informations mises à jour', 'success')
+    ui.addToast(t('manga.updated'), 'success')
   },
-  onError: () => ui.addToast('Erreur lors de la mise à jour', 'error'),
+  onError: () => ui.addToast(t('manga.updateError'), 'error'),
 })
 
 // Bell wiggles on every click; the animation is keyed so rapid clicks restart it.
 const bellRinging = ref(false)
-function onFollowClick() {
+function onFollowClick(): void {
   bellRinging.value = true
   followMutation.mutate()
 }
 
 const followMutation = useMutation({
-  mutationFn: () => toggleFollow(id),
+  mutationFn: () => toggleFollow(collectionEntryId),
   onSuccess: (data) => {
-    qc.invalidateQueries({ queryKey: ['collection'] })
-    qc.invalidateQueries({ queryKey: ['collection', id] })
+    queryClient.invalidateQueries({ queryKey: ['collection'] })
+    queryClient.invalidateQueries({ queryKey: ['collection', collectionEntryId] })
     ui.addToast(
       data.notificationsEnabled ? t('notifications.followOn') : t('notifications.followOff'),
       data.notificationsEnabled ? 'success' : 'info',
@@ -530,58 +386,105 @@ const followMutation = useMutation({
 })
 
 const ratingMutation = useMutation({
-  mutationFn: (rating: number) => updateCollectionRating(id, rating),
+  mutationFn: (rating: number) => updateCollectionRating(collectionEntryId, rating),
   onSuccess: () => {
-    qc.invalidateQueries({ queryKey: ['collection', id] })
+    queryClient.invalidateQueries({ queryKey: ['collection', collectionEntryId] })
     ui.addToast(t('rating.saved'), 'success')
   },
   onError: () => ui.addToast(t('rating.error'), 'error'),
 })
 
+// ── Tome modal writes: the modal emits, the page saves ──
+const isbnSaveMutation = useMutation({
+  mutationFn: ({ volumeId, isbn }: { volumeId: string; isbn: string }) =>
+    updateVolume(entry.value!.manga.id, volumeId, { isbn }),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['collection', collectionEntryId] })
+    ui.addToast(t('enrich.isbnSaved'), 'success')
+  },
+  onError: () => {
+    ui.addToast(t('enrich.isbnSaveError'), 'error')
+  },
+})
+
+function saveModalVolumeIsbn(isbn: string): void {
+  const volume = modalVolume.value
+  if (volume) isbnSaveMutation.mutate({ volumeId: volume.volumeId, isbn })
+}
+
+const applyCoverMutation = useMutation({
+  mutationFn: ({ volumeId, coverUrl: newCoverUrl, isbn }: { volumeId: string; coverUrl: string; isbn?: string }) =>
+    updateVolume(entry.value!.manga.id, volumeId, { coverUrl: newCoverUrl, isbn }),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['collection', collectionEntryId] })
+    ui.addToast(t('enrich.coverUpdated'), 'success')
+    closeModal()
+  },
+})
+
+function applyModalVolumeCover(cover: { coverUrl: string; isbn?: string }): void {
+  const volume = modalVolume.value
+  if (volume) applyCoverMutation.mutate({ volumeId: volume.volumeId, ...cover })
+}
+
+// ── Automatic covers of every tome (progress streamed in a toast) ──
 const batchProgress = useCoverBatchProgress()
+
+const autoFillBusy = computed(
+  () => autoFillMutation.isPending.value
+    || (batchProgress.progress.value !== null && !batchProgress.progress.value.done),
+)
+
+function autoFillProgressLine(progress: CoverBatchProgress): string {
+  const active = progress.resolved + progress.failed
+  const counts = { resolved: progress.resolved, failed: progress.failed, active, total: progress.total }
+  if (progress.lastType === 'batch_started') {
+    return t('manga.autoFill.queued', { total: progress.total })
+  }
+  if (progress.lastType === 'volume_resolved') {
+    return t('manga.autoFill.resolved', { number: progress.volumeNumber ?? '', ...counts })
+  }
+  if (progress.lastType === 'volume_failed') {
+    return t('manga.autoFill.failed', { number: progress.volumeNumber ?? '', ...counts })
+  }
+  return t('manga.autoFill.processed', { active, total: progress.total })
+}
+
+function autoFillSummary(progress: CoverBatchProgress): string {
+  const parts: string[] = []
+  if (progress.resolved > 0) parts.push(t('manga.autoFill.found', { count: progress.resolved }))
+  if (progress.failed > 0) parts.push(t('manga.autoFill.notFound', { count: progress.failed }))
+  if (progress.skipped > 0) parts.push(t('manga.autoFill.skipped', { count: progress.skipped }))
+  return parts.length > 0 ? parts.join(' · ') : t('manga.autoFill.done')
+}
 
 const autoFillMutation = useMutation({
   mutationFn: () => autoFillCovers(entry.value!.manga.id),
   onSuccess: (response) => {
-    const toastId = ui.addProgressToast('Démarrage…', 0)
+    const toastId = ui.addProgressToast(t('manga.autoFill.starting'), 0)
     batchProgress.start(response, {
-      onUpdate: (p) => {
-        const active = p.resolved + p.failed
-        let line: string
-        if (p.lastType === 'batch_started') {
-          line = `${p.total} tome(s) à traiter…`
-        } else if (p.lastType === 'volume_resolved') {
-          line = `Tome ${p.volumeNumber} — trouvée · ${p.resolved} ok · ${p.failed} raté(s) (${active}/${p.total})`
-        } else if (p.lastType === 'volume_failed') {
-          line = `Tome ${p.volumeNumber} — introuvable · ${p.resolved} ok · ${p.failed} raté(s) (${active}/${p.total})`
-        } else {
-          line = `${active}/${p.total} traité(s)`
-        }
-        ui.updateProgressToast(toastId, line, active, p.total)
+      onUpdate: (progress) => {
+        ui.updateProgressToast(toastId, autoFillProgressLine(progress), progress.resolved + progress.failed, progress.total)
       },
-      onDone: (p) => {
-        const parts: string[] = []
-        if (p.resolved > 0) parts.push(`${p.resolved} trouvée(s)`)
-        if (p.failed > 0) parts.push(`${p.failed} introuvable(s)`)
-        if (p.skipped > 0) parts.push(`${p.skipped} ignorée(s)`)
+      onDone: (progress) => {
         ui.closeProgressToast(
           toastId,
-          parts.length > 0 ? parts.join(' · ') : 'Terminé',
-          p.failed > 0 && p.resolved === 0 ? 'error' : 'success',
+          autoFillSummary(progress),
+          progress.failed > 0 && progress.resolved === 0 ? 'error' : 'success',
         )
-        qc.invalidateQueries({ queryKey: ['collection', id] })
-        qc.invalidateQueries({ queryKey: ['collection'] })
+        queryClient.invalidateQueries({ queryKey: ['collection', collectionEntryId] })
+        queryClient.invalidateQueries({ queryKey: ['collection'] })
       },
       onError: () => {
         // The SSE stream died or never completed — the covers were still filled
         // server-side, so resync silently instead of leaving the toast hanging.
-        ui.closeProgressToast(toastId, 'Couvertures mises à jour', 'info')
-        qc.invalidateQueries({ queryKey: ['collection', id] })
-        qc.invalidateQueries({ queryKey: ['collection'] })
+        ui.closeProgressToast(toastId, t('manga.autoFill.synced'), 'info')
+        queryClient.invalidateQueries({ queryKey: ['collection', collectionEntryId] })
+        queryClient.invalidateQueries({ queryKey: ['collection'] })
       },
     })
   },
-  onError: () => ui.addToast('Erreur lors de la complétion automatique des couvertures', 'error'),
+  onError: () => ui.addToast(t('manga.autoFill.error'), 'error'),
 })
 
 // ── Batch operations ──
@@ -592,7 +495,7 @@ const isBatchProcessing = ref(false)
  * state (`batchTargets`). Sent one after the other: concurrent toggles of the same
  * series would race on its reading status.
  */
-async function batchApply(action: VolumeBatchAction) {
+async function batchApply(action: VolumeBatchAction): Promise<void> {
   const targets = batchTargets(selectedVolumes.value, action)
   if (targets.length === 0) return
   const { field } = VOLUME_BATCH_RULES[action]
@@ -600,7 +503,7 @@ async function batchApply(action: VolumeBatchAction) {
   let updated = 0
   try {
     for (const volume of targets) {
-      await toggleVolume(id, volume.id, field)
+      await toggleVolume(collectionEntryId, volume.id, field)
       updated++
     }
     selectedIds.value = new Set()
@@ -609,32 +512,16 @@ async function batchApply(action: VolumeBatchAction) {
     ui.addToast(t('volume.batchFailed', { done: updated, total: targets.length }), 'error')
   } finally {
     isBatchProcessing.value = false
-    await qc.invalidateQueries({ queryKey: ['collection', id] })
-    await qc.invalidateQueries({ queryKey: ['collection'] })
-    await qc.invalidateQueries({ queryKey: ['wishlist'] })
-    await qc.invalidateQueries({ queryKey: ['stats'] })
+    await queryClient.invalidateQueries({ queryKey: ['collection', collectionEntryId] })
+    await queryClient.invalidateQueries({ queryKey: ['collection'] })
+    await queryClient.invalidateQueries({ queryKey: ['wishlist'] })
+    await queryClient.invalidateQueries({ queryKey: ['stats'] })
   }
-}
-
-function volumeRingClass(ve: VolumeEntry): string {
-  if (batchMode.value && selectedIds.value.has(ve.id)) return 'ring-primary'
-  if (ve.isOwned && ve.isRead) return 'ring-info/80'
-  if (ve.isOwned) return 'ring-success/70'
-  if (ve.isWished) return 'ring-warning/60'
-  if (ve.isAnnounced && !ve.isOwned) return 'ring-secondary/60'
-  return 'ring-base-300/30'
-}
-
-function volumeOpacityClass(ve: VolumeEntry): string {
-  if (ve.isOwned) return 'opacity-100'
-  if (ve.isWished) return 'opacity-65'
-  if (ve.isAnnounced && !ve.isOwned) return 'opacity-60'
-  return 'opacity-25 grayscale'
 }
 </script>
 
 <template>
-  <div class="min-h-screen" @click="closeContextMenu(); cancelEditCover(); closeActionMenus()">
+  <div class="min-h-screen" @click="closeContextMenu(); editingCover = false; closeActionMenus()">
     <BaseLoader v-if="isPending" variant="page" />
 
     <template v-else-if="entry">
@@ -656,221 +543,36 @@ function volumeOpacityClass(ve: VolumeEntry): string {
             class="md:hidden inline-flex items-center gap-1.5 text-sm text-base-content/50 hover:text-base-content mb-4 transition-colors"
           >
             <ArrowLeft class="h-4 w-4" />
-            Collection
+            {{ t('nav.collection') }}
           </RouterLink>
           <div class="flex flex-col sm:flex-row gap-5 sm:gap-6">
-            <!-- Cover -->
-            <div class="shrink-0 group/cover relative flex justify-center sm:block">
-              <div
-                class="tooltip tooltip-right w-40 sm:w-28 md:w-36 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl ring-2 ring-base-content/10 cursor-pointer"
-                data-tip="Modifier la couverture (URL)"
-                @click.stop="startEditCover"
-              >
-                <BaseCover :src="entry.manga.coverUrl" :alt="entry.manga.title" class="w-full h-full" eager icon-class="h-10 w-10" />
-                <!-- Edit overlay -->
-                <div class="absolute inset-0 bg-black/50 opacity-0 group-hover/cover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl pointer-events-none">
-                  <Pencil class="h-7 w-7 text-white" />
-                </div>
-              </div>
-              <!-- Cover URL edit — anchored popover on desktop only -->
-              <div
-                v-if="editingCover && !isMobile"
-                class="absolute top-full left-0 mt-2 z-30 bg-base-100 border border-base-300 rounded-xl shadow-2xl p-3 w-[min(16rem,calc(100vw-2rem))]"
-                @click.stop
-              >
-                <p class="text-xs text-base-content/50 mb-1.5 font-medium">{{ t('manga.coverUrlTitle') }}</p>
-                <input
-                  v-model="editCoverValue"
-                  type="url"
-                  inputmode="url"
-                  class="input input-bordered input-xs w-full font-mono text-[11px]"
-                  placeholder="https://..."
-                  autofocus
-                  @keydown.enter="saveCover"
-                  @keydown.escape="cancelEditCover"
-                />
-                <div class="flex gap-1.5 mt-2">
-                  <button class="btn btn-primary btn-xs flex-1" @click="saveCover">{{ t('common.save') }}</button>
-                  <button class="btn btn-ghost btn-xs" @click="cancelEditCover">{{ t('common.cancel') }}</button>
-                </div>
-              </div>
-
-              <!-- Cover URL edit — bottom sheet on mobile (the cover is centered,
-                   an anchored popover would overflow the viewport) -->
-              <BaseModal
-                :open="editingCover && isMobile"
-                max-width-class="sm:max-w-sm"
-                z-class="z-[80]"
-                @close="cancelEditCover"
-              >
-                <div class="p-5" @click.stop>
-                  <p class="text-sm font-semibold mb-2">{{ t('manga.coverUrlTitle') }}</p>
-                  <input
-                    v-model="editCoverValue"
-                    type="url"
-                    inputmode="url"
-                    class="input input-bordered w-full font-mono text-xs"
-                    placeholder="https://..."
-                    @keydown.enter="saveCover"
-                  />
-                  <div class="flex gap-2 mt-3">
-                    <button class="btn btn-primary flex-1" @click="saveCover">{{ t('common.save') }}</button>
-                    <button class="btn btn-ghost" @click="cancelEditCover">{{ t('common.cancel') }}</button>
-                  </div>
-                </div>
-              </BaseModal>
-            </div>
+            <SeriesCoverEditor
+              :cover-url="entry.manga.coverUrl"
+              :title="entry.manga.title"
+              :editing="editingCover"
+              @edit="editingCover = true"
+              @save="saveCover"
+              @cancel="editingCover = false"
+            />
 
             <div class="flex-1 min-w-0 space-y-3">
-              <div>
-                <!-- Inline title edit -->
-                <div v-if="editingTitle" class="flex items-center gap-2">
-                  <input
-                    v-model="editTitleValue"
-                    class="input input-bordered input-sm text-2xl md:text-3xl font-extrabold leading-tight w-full"
-                    autofocus
-                    @keydown.enter="updateMangaMutation.mutate({ title: editTitleValue })"
-                    @keydown.escape="cancelEditTitle"
-                  />
-                  <button class="btn btn-primary btn-sm" @click="updateMangaMutation.mutate({ title: editTitleValue })">✓</button>
-                  <button class="btn btn-ghost btn-sm" @click="cancelEditTitle">✕</button>
-                </div>
-                <div v-else class="group/title flex items-center gap-2">
-                  <h1 class="text-2xl md:text-3xl font-extrabold leading-tight">{{ entry.manga.title }}</h1>
-                  <div class="tooltip tooltip-right" data-tip="Renommer la série">
-                    <button
-                      class="btn btn-ghost btn-xs opacity-0 group-hover/title:opacity-60 transition-opacity"
-                      @click="startEditTitle"
-                    >
-                      <Pencil class="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
+              <SeriesIdentityEditor
+                v-model:editing-title="editingTitle"
+                v-model:editing-edition="editingEdition"
+                v-model:editing-special-edition="editingSpecialEdition"
+                :manga="entry.manga"
+                :rating="entry.rating"
+                @save="updateMangaMutation.mutate($event)"
+                @rate="ratingMutation.mutate($event)"
+              />
 
-                <!-- Inline edition edit -->
-                <div class="flex flex-wrap gap-1.5 mt-2">
-                  <div v-if="editingEdition" class="flex items-center gap-1.5">
-                    <BaseEditionSelector
-                      :model-value="editEditionValue"
-                      input-class="input input-bordered input-xs font-medium w-40"
-                      :autofocus="true"
-                      @update:model-value="editEditionValue = $event"
-                      @confirm="updateMangaMutation.mutate({ edition: editEditionValue ?? '' })"
-                      @cancel="cancelEditEdition"
-                    />
-                    <button class="btn btn-primary btn-xs" @click="updateMangaMutation.mutate({ edition: editEditionValue ?? '' })">✓</button>
-                    <button class="btn btn-ghost btn-xs" @click="cancelEditEdition">✕</button>
-                  </div>
-                  <div v-else class="group/edition flex items-center gap-1">
-                    <div class="tooltip tooltip-bottom" data-tip="Cliquer pour changer l'éditeur (Kurokawa, Glénat, Pika, …)">
-                      <span
-                        class="badge cursor-pointer gap-1.5"
-                        :class="entry.manga.edition ? 'badge-primary' : 'badge-ghost'"
-                        @click="startEditEdition"
-                      >
-                        <img
-                          v-if="editionLogo"
-                          :src="editionLogo"
-                          :alt="entry.manga.edition!"
-                          class="w-3.5 h-3.5 rounded-sm object-contain"
-                        />
-                        {{ entry.manga.edition ?? 'Éditeur inconnu' }}
-                      </span>
-                    </div>
-                    <button
-                      class="btn btn-ghost btn-xs opacity-0 group-hover/edition:opacity-60 transition-opacity p-0 min-h-0 h-auto"
-                      @click="startEditEdition"
-                    >
-                      <Pencil class="h-3 w-3" />
-                    </button>
-                  </div>
-
-                  <!-- Special edition: free text, as the catalogue (or the user) names it -->
-                  <div v-if="editingSpecialEdition" class="flex items-center gap-1.5">
-                    <input
-                      v-model="editSpecialEditionValue"
-                      class="input input-bordered input-xs font-medium w-44"
-                      maxlength="150"
-                      :placeholder="t('catalogue.standardEdition')"
-                      autofocus
-                      @keydown.enter="saveSpecialEdition"
-                      @keydown.escape="cancelEditSpecialEdition"
-                    />
-                    <button class="btn btn-primary btn-xs" @click="saveSpecialEdition">✓</button>
-                    <button class="btn btn-ghost btn-xs" @click="cancelEditSpecialEdition">✕</button>
-                  </div>
-                  <button
-                    v-else-if="entry.manga.specialEdition"
-                    class="badge badge-warning gap-1 cursor-pointer"
-                    :title="t('manga.specialEdition')"
-                    @click="startEditSpecialEdition"
-                  >
-                    <Sparkles class="h-3 w-3" />
-                    {{ entry.manga.specialEdition }}
-                  </button>
-                  <button
-                    v-else
-                    class="badge badge-ghost cursor-pointer text-base-content/50"
-                    @click="startEditSpecialEdition"
-                  >
-                    {{ t('manga.addSpecialEdition') }}
-                  </button>
-                  <span class="badge badge-outline">{{ entry.manga.language.toUpperCase() }}</span>
-                  <span v-if="entry.manga.genre" class="badge badge-outline capitalize">{{ entry.manga.genre }}</span>
-
-                  <!-- Rating : à droite du genre -->
-                  <div class="tooltip tooltip-top ml-1" :data-tip="entry.rating !== null ? 'Cliquer une demi-coeur pour modifier ta note' : 'Donne une note à cette série'">
-                    <BaseHeartRating
-                      :model-value="entry.rating"
-                      @update:model-value="ratingMutation.mutate($event)"
-                    />
-                  </div>
-                </div>
-                <p v-if="entry.manga.author" class="text-sm text-base-content/60 mt-1.5 font-medium">{{ entry.manga.author }}</p>
-              </div>
-
-              <!-- Stats — progress meters (possédés / lus, + souhaités when relevant) -->
-              <div class="flex flex-wrap gap-x-8 gap-y-4">
-                <div class="flex-1 min-w-[150px]">
-                  <div class="flex items-baseline gap-1.5 mb-2 whitespace-nowrap">
-                    <b class="text-success font-extrabold text-lg leading-none">{{ entry.ownedCount }}</b>
-                    <span class="text-sm text-base-content/70 font-semibold">possédé{{ entry.ownedCount !== 1 ? 's' : '' }}</span>
-                    <span class="text-xs text-base-content/40 font-bold">/ {{ entry.totalVolumes }}</span>
-                  </div>
-                  <div class="h-1.5 rounded-full bg-base-content/10 overflow-hidden">
-                    <div
-                      class="h-full rounded-full bg-success/80 transition-[width] duration-500"
-                      :style="{ width: (entry.totalVolumes ? Math.round((entry.ownedCount / entry.totalVolumes) * 100) : 0) + '%' }"
-                    />
-                  </div>
-                </div>
-                <div class="flex-1 min-w-[150px]">
-                  <div class="flex items-baseline gap-1.5 mb-2 whitespace-nowrap">
-                    <b class="text-info font-extrabold text-lg leading-none">{{ entry.readCount }}</b>
-                    <span class="text-sm text-base-content/70 font-semibold">lu{{ entry.readCount !== 1 ? 's' : '' }}</span>
-                    <span class="text-xs text-base-content/40 font-bold">/ {{ entry.totalVolumes }}</span>
-                  </div>
-                  <div class="h-1.5 rounded-full bg-base-content/10 overflow-hidden">
-                    <div
-                      class="h-full rounded-full bg-info/80 transition-[width] duration-500"
-                      :style="{ width: (entry.totalVolumes ? Math.round((entry.readCount / entry.totalVolumes) * 100) : 0) + '%' }"
-                    />
-                  </div>
-                </div>
-                <div v-if="entry.wishedCount > 0" class="flex-1 min-w-[150px]">
-                  <div class="flex items-baseline gap-1.5 mb-2 whitespace-nowrap">
-                    <b class="text-warning font-extrabold text-lg leading-none">{{ entry.wishedCount }}</b>
-                    <span class="text-sm text-base-content/70 font-semibold">souhaité{{ entry.wishedCount !== 1 ? 's' : '' }}</span>
-                    <span class="text-xs text-base-content/40 font-bold">/ {{ entry.totalVolumes }}</span>
-                  </div>
-                  <div class="h-1.5 rounded-full bg-base-content/10 overflow-hidden">
-                    <div
-                      class="h-full rounded-full bg-warning/80 transition-[width] duration-500"
-                      :style="{ width: (entry.totalVolumes ? Math.round((entry.wishedCount / entry.totalVolumes) * 100) : 0) + '%' }"
-                    />
-                  </div>
-                </div>
-              </div>
+              <!-- Stats — progress meters (owned / read, + wished when relevant) -->
+              <SeriesProgressMeters
+                :owned-count="entry.ownedCount"
+                :read-count="entry.readCount"
+                :wished-count="entry.wishedCount"
+                :total-volumes="entry.totalVolumes"
+              />
 
               <!-- Action bar — progressive disclosure: primary action + status menu + follow + overflow -->
               <div class="flex flex-wrap items-center gap-2.5">
@@ -878,98 +580,36 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                 <button
                   class="btn btn-sm gap-1.5"
                   :class="showSyncPanel ? 'btn-primary' : 'btn-outline btn-primary'"
+                  :aria-expanded="showSyncPanel"
                   @click="showSyncPanel = !showSyncPanel"
                 >
                   <Plus class="h-4 w-4" stroke-width="2.4" />
-                  Ajouter des tomes
+                  {{ t('manga.addVolumes') }}
                 </button>
 
-                <!-- Reading status dropdown -->
-                <div class="relative" @click.stop>
-                  <button
-                    class="inline-flex items-center gap-2 h-9 pl-3 pr-2.5 rounded-full border bg-base-100/60 text-sm font-bold transition-colors"
-                    :class="statusMenuOpen ? 'border-primary' : 'border-base-content/15 hover:border-base-content/30'"
-                    :disabled="statusMutation.isPending.value"
-                    aria-haspopup="menu"
-                    :aria-expanded="statusMenuOpen"
-                    @click="statusMenuOpen = !statusMenuOpen; moreMenuOpen = false"
-                  >
-                    <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="currentStatusOption.dot" />
-                    <span>{{ currentStatusOption.label }}</span>
-                    <BaseLoader v-if="statusMutation.isPending.value" size="xs" />
-                    <ChevronDown v-else class="h-3.5 w-3.5 text-base-content/40 transition-transform" :class="statusMenuOpen ? 'rotate-180' : ''" />
-                  </button>
-                  <Transition name="menu-pop">
-                    <div
-                      v-if="statusMenuOpen && !isMobile"
-                      class="absolute left-0 top-[calc(100%+6px)] z-30 min-w-[230px] rounded-2xl border border-base-300 bg-base-100 shadow-2xl p-1.5"
-                      role="menu"
-                    >
-                      <div class="px-2.5 py-2 text-[10px] font-bold uppercase tracking-widest text-base-content/40 flex items-center justify-between">
-                        {{ t('manga.readingStatusTitle') }}
-                        <button class="text-base-content/35 hover:text-primary" :aria-label="t('guide.openTooltip')" @click="statusMenuOpen = false; showGuide = true">
-                          <HelpCircle class="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                      <button
-                        v-for="s in STATUS_OPTIONS"
-                        :key="s.value"
-                        class="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200"
-                        :class="entry.readingStatus === s.value ? 'text-base-content' : 'text-base-content/70'"
-                        role="menuitem"
-                        @click="pickStatus(s.value)"
-                      >
-                        <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="s.dot" />
-                        {{ s.label }}
-                        <Check v-if="entry.readingStatus === s.value" class="h-4 w-4 ml-auto text-primary" />
-                      </button>
-                    </div>
-                  </Transition>
-
-                  <!-- Mobile: reading status as a bottom sheet -->
-                  <BaseModal
-                    :open="statusMenuOpen && isMobile"
-                    max-width-class="sm:max-w-sm"
-                    z-class="z-[80]"
-                    @close="statusMenuOpen = false"
-                  >
-                    <div class="p-3 pt-4">
-                      <div class="px-2 pb-2 text-[10px] font-bold uppercase tracking-widest text-base-content/40 flex items-center justify-between">
-                        {{ t('manga.readingStatusTitle') }}
-                        <button class="text-base-content/35 hover:text-primary" :aria-label="t('guide.openTooltip')" @click="statusMenuOpen = false; showGuide = true">
-                          <HelpCircle class="h-4 w-4" />
-                        </button>
-                      </div>
-                      <button
-                        v-for="s in STATUS_OPTIONS"
-                        :key="s.value"
-                        class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200"
-                        :class="entry.readingStatus === s.value ? 'text-base-content' : 'text-base-content/70'"
-                        role="menuitem"
-                        @click="pickStatus(s.value)"
-                      >
-                        <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="s.dot" />
-                        {{ s.label }}
-                        <Check v-if="entry.readingStatus === s.value" class="h-4 w-4 ml-auto text-primary" />
-                      </button>
-                    </div>
-                  </BaseModal>
-                </div>
+                <ReadingStatusMenu
+                  :status="entry.readingStatus"
+                  :open="statusMenuOpen"
+                  :pending="statusMutation.isPending.value"
+                  @toggle="toggleStatusMenu"
+                  @close="statusMenuOpen = false"
+                  @pick="pickStatus"
+                  @open-guide="statusMenuOpen = false; showGuide = true"
+                />
 
                 <div class="flex-1 min-w-2" />
 
                 <!-- Follow / unfollow (icon button) -->
                 <div
                   class="tooltip tooltip-top"
-                  :data-tip="entry.notificationsEnabled
-                    ? 'Suivi — tu seras notifié des sorties. Cliquer pour arrêter.'
-                    : 'Suivre les sorties de nouveaux tomes'"
+                  :data-tip="entry.notificationsEnabled ? t('manga.followingTooltip') : t('manga.followTooltip')"
                 >
                   <button
                     class="btn btn-circle btn-sm w-9 h-9"
                     :class="entry.notificationsEnabled ? 'btn-secondary' : 'btn-ghost border border-base-content/15'"
                     :disabled="followMutation.isPending.value"
                     :aria-label="entry.notificationsEnabled ? t('notifications.following') : t('notifications.follow')"
+                    :aria-pressed="entry.notificationsEnabled"
                     @click="onFollowClick()"
                   >
                     <Bell
@@ -982,235 +622,42 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                 </div>
 
                 <!-- Overflow menu : secondary actions tucked away -->
-                <div class="relative" @click.stop>
-                  <div class="tooltip tooltip-top" data-tip="Plus d'options">
-                    <button
-                      class="btn btn-circle btn-sm w-9 h-9"
-                      :class="moreMenuOpen ? 'btn-active border border-base-content/30' : 'btn-ghost border border-base-content/15'"
-                      aria-haspopup="menu"
-                      :aria-expanded="moreMenuOpen"
-                      aria-label="Plus d'options"
-                      @click="moreMenuOpen = !moreMenuOpen; statusMenuOpen = false"
-                    >
-                      <MoreHorizontal class="h-5 w-5" />
-                    </button>
-                  </div>
-                  <Transition name="menu-pop">
-                    <div
-                      v-if="moreMenuOpen && !isMobile"
-                      class="absolute right-0 top-[calc(100%+6px)] z-30 min-w-[250px] rounded-2xl border border-base-300 bg-base-100 shadow-2xl p-1.5"
-                      role="menu"
-                    >
-                      <button
-                        v-if="missingVolumes.length > 0"
-                        class="flex items-center gap-3 w-full px-2.5 py-2.5 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200"
-                        role="menuitem"
-                        @click="moreMenuOpen = false; addToWishlistMutation.mutate()"
-                      >
-                        <Star class="h-[18px] w-[18px] text-base-content/50" />
-                        Souhaiter les {{ missingVolumes.length }} manquant{{ missingVolumes.length > 1 ? 's' : '' }}
-                      </button>
-                      <button
-                        class="flex items-center gap-3 w-full px-2.5 py-2.5 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200 disabled:opacity-50"
-                        role="menuitem"
-                        :disabled="autoFillMutation.isPending.value || (batchProgress.progress.value !== null && !batchProgress.progress.value.done)"
-                        @click="moreMenuOpen = false; autoFillMutation.mutate()"
-                      >
-                        <Sparkles class="h-[18px] w-[18px] text-base-content/50" />
-                        Compléter les couvertures
-                      </button>
-                      <button
-                        class="flex items-center gap-3 w-full px-2.5 py-2.5 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200"
-                        role="menuitem"
-                        @click="moreMenuOpen = false; showPrice = true"
-                      >
-                        <Tag class="h-[18px] w-[18px] text-base-content/50" />
-                        Définir le prix (en lot)
-                      </button>
-                      <div class="h-px bg-base-200 my-1 mx-2" />
-                      <button
-                        class="flex items-center gap-3 w-full px-2.5 py-2.5 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200"
-                        role="menuitem"
-                        @click="moreMenuOpen = false; showGuide = true"
-                      >
-                        <HelpCircle class="h-[18px] w-[18px] text-base-content/50" />
-                        {{ t('guide.openLabel') }}
-                      </button>
-                      <button
-                        class="flex items-center gap-3 w-full px-2.5 py-2.5 rounded-xl text-sm font-semibold text-left transition-colors text-error hover:bg-error/10"
-                        role="menuitem"
-                        @click="moreMenuOpen = false; showDeleteConfirm = true"
-                      >
-                        <Trash2 class="h-[17px] w-[17px]" />
-                        Retirer la série
-                      </button>
-                    </div>
-                  </Transition>
-
-                  <!-- Mobile: secondary actions as a bottom sheet -->
-                  <BaseModal
-                    :open="moreMenuOpen && isMobile"
-                    max-width-class="sm:max-w-sm"
-                    z-class="z-[80]"
-                    @close="moreMenuOpen = false"
-                  >
-                    <div class="p-3 pt-4">
-                      <div class="px-2 pb-2 text-[10px] font-bold uppercase tracking-widest text-base-content/40">
-                        {{ t('manga.moreOptionsTitle') }}
-                      </div>
-                      <button
-                        v-if="missingVolumes.length > 0"
-                        class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200"
-                        role="menuitem"
-                        @click="moreMenuOpen = false; addToWishlistMutation.mutate()"
-                      >
-                        <Star class="h-[18px] w-[18px] text-base-content/50" />
-                        Souhaiter les {{ missingVolumes.length }} manquant{{ missingVolumes.length > 1 ? 's' : '' }}
-                      </button>
-                      <button
-                        class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200 disabled:opacity-50"
-                        role="menuitem"
-                        :disabled="autoFillMutation.isPending.value || (batchProgress.progress.value !== null && !batchProgress.progress.value.done)"
-                        @click="moreMenuOpen = false; autoFillMutation.mutate()"
-                      >
-                        <Sparkles class="h-[18px] w-[18px] text-base-content/50" />
-                        Compléter les couvertures
-                      </button>
-                      <button
-                        class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200"
-                        role="menuitem"
-                        @click="moreMenuOpen = false; showPrice = true"
-                      >
-                        <Tag class="h-[18px] w-[18px] text-base-content/50" />
-                        Définir le prix (en lot)
-                      </button>
-                      <div class="h-px bg-base-200 my-1 mx-2" />
-                      <button
-                        class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200"
-                        role="menuitem"
-                        @click="moreMenuOpen = false; showGuide = true"
-                      >
-                        <HelpCircle class="h-[18px] w-[18px] text-base-content/50" />
-                        {{ t('guide.openLabel') }}
-                      </button>
-                      <button
-                        class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors text-error hover:bg-error/10"
-                        role="menuitem"
-                        @click="moreMenuOpen = false; showDeleteConfirm = true"
-                      >
-                        <Trash2 class="h-[17px] w-[17px]" />
-                        Retirer la série
-                      </button>
-                    </div>
-                  </BaseModal>
-                </div>
+                <SeriesMoreMenu
+                  :open="moreMenuOpen"
+                  :missing-count="missingVolumes.length"
+                  :auto-fill-disabled="autoFillBusy"
+                  @toggle="toggleMoreMenu"
+                  @close="moreMenuOpen = false"
+                  @wish-missing="moreMenuOpen = false; addToWishlistMutation.mutate()"
+                  @auto-fill="moreMenuOpen = false; autoFillMutation.mutate()"
+                  @show-price="moreMenuOpen = false; showPrice = true"
+                  @open-guide="moreMenuOpen = false; showGuide = true"
+                  @remove="moreMenuOpen = false; showDeleteConfirm = true"
+                />
               </div>
 
-              <!-- Sync panel (Ajouter des tomes) -->
+              <!-- "Add tomes" panel -->
               <Transition name="panel-fade">
-                <div
+                <SyncVolumesPanel
                   v-if="showSyncPanel"
-                  class="rounded-xl bg-primary/5 border border-primary/20 p-3.5 space-y-2.5"
-                  @click.stop
-                >
-                  <div class="flex items-start gap-2 text-xs text-base-content/65 leading-relaxed">
-                    <Info class="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
-                    <p>
-                      Cette série compte actuellement
-                      <strong class="text-base-content">{{ entry.totalVolumes }} tome{{ entry.totalVolumes > 1 ? 's' : '' }}</strong>.
-                      Saisis le numéro du <strong>dernier</strong> tome à créer : les tomes manquants seront ajoutés sans statut (à compléter plus tard).
-                    </p>
-                  </div>
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <label for="sync-target" class="text-sm font-medium text-base-content/80 shrink-0">
-                      Aller jusqu'au tome
-                    </label>
-                    <input
-                      id="sync-target"
-                      v-model="syncTarget"
-                      type="number"
-                      :min="syncMin"
-                      max="9999"
-                      class="input input-sm input-bordered w-24 tabular-nums"
-                      :placeholder="syncPlaceholder"
-                      @keydown.enter="isSyncTargetValid && syncMutation.mutate()"
-                    />
-                    <div
-                      class="tooltip tooltip-top"
-                      :data-tip="isSyncTargetValid
-                        ? `Créer les tomes ${syncMin} à ${syncTarget}`
-                        : `Le numéro doit être supérieur à ${entry.totalVolumes}`"
-                    >
-                      <BaseButton
-                        class="btn btn-primary btn-sm gap-1.5"
-                        :loading="syncMutation.isPending.value"
-                        :disabled="!isSyncTargetValid"
-                        @click="syncMutation.mutate()"
-                      >
-                        <template #icon><Plus class="h-3.5 w-3.5" /></template>
-                        Créer les tomes
-                      </BaseButton>
-                    </div>
-                    <button class="btn btn-ghost btn-sm" @click="showSyncPanel = false">
-                      Annuler
-                    </button>
-                  </div>
-                </div>
+                  v-model:target="syncTarget"
+                  :total-volumes="entry.totalVolumes"
+                  :pending="syncMutation.isPending.value"
+                  @submit="syncMutation.mutate()"
+                  @cancel="showSyncPanel = false"
+                />
               </Transition>
 
               <!-- Batch price : revealed on demand via the overflow menu -->
               <Transition name="panel-fade">
-                <div v-if="showPrice" class="rounded-xl bg-base-200/40 border border-base-content/8 p-3 flex flex-wrap items-center gap-3">
-                  <div class="flex items-center gap-2.5 min-w-0">
-                    <div class="w-8 h-8 rounded-lg bg-secondary/15 text-secondary flex items-center justify-center shrink-0">
-                      <Tag class="h-4 w-4" />
-                    </div>
-                    <div class="min-w-0">
-                      <div class="text-sm font-semibold leading-tight flex items-center gap-1.5">
-                        Prix unitaire (en lot)
-                        <div class="tooltip tooltip-top" data-tip="Définit le même prix pour tous les tomes de la série en une seule action. Tu peux toujours ajuster le prix d'un tome individuellement.">
-                          <HelpCircle class="h-3.5 w-3.5 text-base-content/35 cursor-help" />
-                        </div>
-                      </div>
-                      <div class="text-[11px] text-base-content/50 leading-tight mt-0.5">
-                        S'applique à tous les tomes ({{ entry.totalVolumes }})
-                      </div>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-2 ml-auto">
-                    <div class="relative">
-                      <input
-                        v-model.number="batchPrice"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        class="input input-sm input-bordered w-28 pr-7 tabular-nums font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
-                        placeholder="0.00"
-                        @keydown.enter="batchPriceValue !== null && batchPriceMutation.mutate(batchPriceValue)"
-                      />
-                      <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-base-content/40 pointer-events-none font-medium">€</span>
-                    </div>
-                    <div
-                      class="tooltip tooltip-top tooltip-secondary"
-                      :data-tip="batchPriceValue === null
-                        ? 'Saisis un prix pour activer'
-                        : `Appliquer ${batchPriceValue.toFixed(2)} € à chaque tome`"
-                    >
-                      <BaseButton
-                        class="btn btn-secondary btn-sm gap-1.5"
-                        :loading="batchPriceMutation.isPending.value"
-                        :disabled="batchPriceValue === null"
-                        @click="batchPriceValue !== null && batchPriceMutation.mutate(batchPriceValue)"
-                      >
-                        <template #icon><Check class="h-3.5 w-3.5" stroke-width="3" /></template>
-                        Appliquer à tous
-                      </BaseButton>
-                    </div>
-                    <button class="btn btn-ghost btn-sm btn-circle" aria-label="Fermer" @click="showPrice = false">
-                      <X class="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
+                <BatchPricePanel
+                  v-if="showPrice"
+                  v-model:price="batchPrice"
+                  :total-volumes="entry.totalVolumes"
+                  :pending="batchPriceMutation.isPending.value"
+                  @apply="batchPriceMutation.mutate($event)"
+                  @close="showPrice = false"
+                />
               </Transition>
             </div>
           </div>
@@ -1233,261 +680,74 @@ function volumeOpacityClass(ve: VolumeEntry): string {
 
       <!-- Tab bar -->
       <div class="max-w-5xl mx-auto px-4 sm:px-6 pt-4 pb-0">
-        <div class="flex gap-0 border-b border-base-300">
+        <div class="flex gap-0 border-b border-base-300" role="tablist">
           <button
-            v-for="tab in (['volumes', 'editions', 'prix'] as const)"
+            v-for="tab in TABS"
             :key="tab"
+            role="tab"
+            :aria-selected="tabParam === tab"
             class="px-4 py-2 text-sm font-semibold border-b-2 transition-colors"
             :class="tabParam === tab
               ? 'border-primary text-primary'
               : 'border-transparent text-base-content/50 hover:text-base-content hover:border-base-content/20'"
             @click="setTab(tab)"
           >
-            {{ t(`manga.tabs.${tab === 'prix' ? 'prices' : tab}`) }}
+            {{ t(TAB_LABEL_KEYS[tab]) }}
           </button>
         </div>
       </div>
 
       <!-- Volume grid -->
-      <div v-if="tabParam === 'volumes'" class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-        <!-- Grid header -->
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="text-xs font-semibold uppercase tracking-widest text-base-content/40">
-            {{ t('collection.volumes') }} — {{ entry.ownedCount }}/{{ entry.totalVolumes }}
-          </h2>
-          <div class="flex items-center gap-3">
-            <div class="hidden sm:flex gap-3 text-xs text-base-content/40">
-              <span class="flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-sm bg-info ring-1 ring-info inline-block" />Lu
-              </span>
-              <span class="flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-sm bg-success ring-1 ring-success inline-block" />Possédé
-              </span>
-              <span class="flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-sm bg-warning ring-1 ring-warning inline-block" />Souhaité
-              </span>
-              <span class="flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-sm bg-secondary ring-1 ring-secondary inline-block" />Annoncé
-              </span>
-            </div>
-            <button
-              class="btn btn-xs gap-1"
-              :class="batchMode ? 'btn-primary' : 'btn-ghost'"
-              @click="toggleBatchMode"
-            >
-              <CheckSquare class="w-3 h-3" />
-              {{ batchMode ? 'Terminer' : 'Sélectionner' }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Batch quick-select row -->
-        <div v-if="batchMode" class="flex flex-wrap gap-1.5 mb-3">
-          <span class="text-xs text-base-content/40 self-center mr-1">Sélectionner :</span>
-          <button class="btn btn-xs btn-ghost" @click="selectAll">Tout</button>
-          <button class="btn btn-xs btn-ghost" @click="selectOwned">Possédés</button>
-          <button class="btn btn-xs btn-ghost" @click="selectUnread">Non lus</button>
-          <button class="btn btn-xs btn-ghost" @click="selectAnnounced">Annoncés</button>
-          <button class="btn btn-xs btn-ghost text-base-content/30" @click="selectedIds = new Set()">Vider</button>
-        </div>
-
-        <div v-if="sortedVolumes.length" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-3">
-          <div
-            v-for="ve in sortedVolumes"
-            :key="ve.id"
-            class="group relative cursor-pointer select-none"
-            @click="handleVolumeClick(ve)"
-            @contextmenu.prevent="openContextMenu($event, ve)"
-          >
-            <!-- Selection indicator (batch mode) -->
-            <div
-              v-if="batchMode"
-              class="absolute top-1 left-1 z-20 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all duration-150 pointer-events-none shadow-sm"
-              :class="selectedIds.has(ve.id)
-                ? 'bg-primary border-primary text-primary-content'
-                : 'bg-base-100/80 border-base-content/30'"
-            >
-              <svg v-if="selectedIds.has(ve.id)" class="w-2.5 h-2.5" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-              </svg>
-            </div>
-
-            <!-- Cover card -->
-            <div
-              class="aspect-[2/3] rounded-xl overflow-hidden ring-2 transition-all duration-200 relative shadow-sm"
-              :class="[
-                volumeRingClass(ve),
-                volumeOpacityClass(ve),
-                batchMode && selectedIds.has(ve.id)
-                  ? 'ring-offset-2 ring-offset-base-100 scale-105 shadow-lg shadow-primary/20'
-                  : 'group-hover:scale-105 group-hover:shadow-lg group-hover:z-10',
-              ]"
-            >
-              <BaseLazyImage
-                v-if="ve.coverUrl"
-                :src="coverUrl(ve.coverUrl)!"
-                :alt="`Tome ${ve.number}`"
-              >
-                <template #fallback>
-                  <div class="w-full h-full flex items-center justify-center bg-base-200">
-                    <span
-                      class="font-bold text-xl"
-                      :class="ve.isOwned ? 'text-base-content/50' : ve.isWished ? 'text-warning/60' : ve.isAnnounced ? 'text-secondary/50' : 'text-base-content/15'"
-                    >
-                      {{ ve.number }}
-                    </span>
-                  </div>
-                </template>
-              </BaseLazyImage>
-              <div
-                v-else
-                class="w-full h-full flex items-center justify-center bg-base-200"
-              >
-                <span
-                  class="font-bold text-xl"
-                  :class="ve.isOwned ? 'text-base-content/50' : ve.isWished ? 'text-warning/60' : ve.isAnnounced ? 'text-secondary/50' : 'text-base-content/15'"
-                >
-                  {{ ve.number }}
-                </span>
-              </div>
-
-              <!-- Read indicator band at bottom -->
-              <div
-                v-if="ve.isRead"
-                class="absolute bottom-0 left-0 right-0 bg-info/90 backdrop-blur-sm text-info-content text-[7px] font-black tracking-widest text-center py-[3px] leading-none uppercase"
-              >
-                Lu
-              </div>
-
-              <!-- Hover overlay (non-batch mode) -->
-              <div
-                v-if="!batchMode"
-                class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-              >
-                <div class="bg-white/80 rounded-full p-1 shadow">
-                  <Eye class="h-4 w-4 text-primary" />
-                </div>
-              </div>
-
-              <!-- Mobile quick actions — visible "⋯" trigger (long-press via
-                   @contextmenu is unreliable on iOS Safari) -->
-              <button
-                v-if="!batchMode"
-                class="sm:hidden absolute bottom-1 right-1 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-base-100/90 text-base-content/70 shadow ring-1 ring-base-300"
-                :aria-label="t('manga.volumeMenuLabel', { number: ve.number })"
-                @click.stop="openVolumeActions(ve)"
-              >
-                <MoreHorizontal class="h-4 w-4" />
-              </button>
-            </div>
-
-            <!-- Announced badge (top-left) -->
-            <div
-              v-if="ve.isAnnounced && !ve.isOwned"
-              class="absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full bg-secondary flex items-center justify-center z-10 pointer-events-none shadow-sm"
-            >
-              <Megaphone class="w-2 h-2 text-secondary-content" />
-            </div>
-
-            <!-- Wished badge (top-right) -->
-            <div
-              v-if="ve.isWished && !ve.isOwned"
-              class="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-warning flex items-center justify-center z-10 pointer-events-none shadow-sm"
-            >
-              <Star class="w-2 h-2 text-warning-content" fill="currentColor" stroke-width="0" />
-            </div>
-
-            <!-- Number label -->
-            <div
-              class="text-center text-[10px] sm:text-[9px] mt-0.5 tabular-nums font-semibold leading-tight"
-              :class="ve.isOwned ? 'text-base-content/60' : ve.isWished ? 'text-warning/60' : ve.isAnnounced ? 'text-secondary/60' : 'text-base-content/20'"
-            >
-              T{{ ve.number }}
-            </div>
-          </div>
-        </div>
-
-        <p v-else class="text-sm text-base-content/40 italic py-4">
-          Aucun tome enregistré. Utilisez "Ajouter tomes" pour en créer.
-        </p>
-
-        <p v-if="!batchMode" class="mt-5 text-xs text-base-content/30 hidden sm:block">
-          Clic gauche pour gérer · Clic droit pour actions rapides · Sélectionner pour modifications en lot
-        </p>
-        <p v-if="!batchMode" class="mt-5 text-xs text-base-content/30 sm:hidden">
-          Appuyez sur un tome pour le gérer
-        </p>
-      </div>
+      <VolumeGrid
+        v-if="tabParam === 'volumes'"
+        class="max-w-5xl mx-auto px-4 sm:px-6 py-6"
+        :volumes="sortedVolumes"
+        :owned-count="entry.ownedCount"
+        :total-volumes="entry.totalVolumes"
+        :batch-mode="batchMode"
+        :selected-ids="selectedIds"
+        @toggle-batch-mode="toggleBatchMode"
+        @select="selectedIds = $event"
+        @activate="onVolumeActivate"
+        @context-menu="openContextMenu"
+        @open-actions="openVolumeActions"
+      />
 
       <!-- Editions tab -->
-      <div v-if="tabParam === 'editions'" class="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-3">
-        <div>
-          <h2 class="text-sm font-bold">{{ t('catalogue.otherEditionsTitle', { title: entry.manga.title }) }}</h2>
-          <p class="text-xs text-base-content/50">{{ t('catalogue.otherEditionsHint') }}</p>
-        </div>
-        <BaseLoader v-if="editionsLoading" variant="section" />
-        <p v-else-if="editionsFailed" class="text-sm text-error py-4">{{ t('catalogue.searchError') }}</p>
-        <div v-else-if="workEditions?.editions.length" class="flex flex-col gap-2">
-          <div
-            v-for="edition in workEditions.editions"
-            :key="`${edition.workTitle}|${edition.publisher}|${edition.specialEdition}`"
-            class="relative"
-          >
-            <span
-              v-if="edition.collection?.entryId === id"
-              class="absolute -top-2 left-3 z-10 badge badge-primary badge-xs"
-            >
-              {{ t('catalogue.thisSeries') }}
-            </span>
-            <CatalogueEditionCard :edition="edition" @select="openCatalogueEdition" />
-          </div>
-        </div>
-        <p v-else class="text-sm text-base-content/40 italic py-4">{{ t('catalogue.otherEditionsEmpty') }}</p>
-      </div>
+      <SeriesEditionsList
+        v-if="tabParam === 'editions'"
+        class="max-w-3xl mx-auto px-4 sm:px-6 py-6"
+        :work-title="entry.manga.title"
+        :editions="workEditions?.editions ?? []"
+        :loading="editionsLoading"
+        :failed="editionsFailed"
+        :current-entry-id="collectionEntryId"
+        @select="openCatalogueEdition"
+      />
 
-      <!-- Prix tab -->
-      <div v-if="tabParam === 'prix'" class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-        <p class="text-xs text-base-content/50 mb-4">{{ t('prices.selectVolume') }}</p>
-        <!-- 3 columns max on mobile so each tile stays a comfortable tap target -->
-        <div class="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-3 sm:gap-2">
-          <div
-            v-for="ve in sortedVolumes"
-            :key="ve.id"
-            class="group relative cursor-pointer select-none"
-            @click="openVolumeModalForPrice(ve)"
-          >
-            <div
-              class="aspect-[2/3] rounded-lg overflow-hidden ring-2 transition-all duration-200 relative shadow-sm"
-              :class="[volumeRingClass(ve), volumeOpacityClass(ve), 'group-hover:scale-105 group-hover:shadow-lg']"
-            >
-              <BaseLazyImage v-if="ve.coverUrl" :src="coverUrl(ve.coverUrl)!" :alt="`Tome ${ve.number}`">
-                <template #fallback>
-                  <div class="w-full h-full flex items-center justify-center bg-base-200">
-                    <span class="font-bold text-sm" :class="ve.isOwned ? 'text-base-content/50' : 'text-base-content/15'">{{ ve.number }}</span>
-                  </div>
-                </template>
-              </BaseLazyImage>
-              <div v-else class="w-full h-full flex items-center justify-center bg-base-200">
-                <span class="font-bold text-sm" :class="ve.isOwned ? 'text-base-content/50' : 'text-base-content/15'">{{ ve.number }}</span>
-              </div>
-            </div>
-            <div class="text-center text-[9px] mt-0.5 tabular-nums font-semibold" :class="ve.isOwned ? 'text-base-content/60' : 'text-base-content/20'">
-              T{{ ve.number }}
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- Prices tab -->
+      <VolumePriceGrid
+        v-if="tabParam === 'prix'"
+        class="max-w-5xl mx-auto px-4 sm:px-6 py-6"
+        :volumes="sortedVolumes"
+        :selected-ids="selectedIds"
+        @select="openVolumeModal($event, 'prix')"
+      />
 
       <!-- Enrich Volume Modal -->
       <EnrichVolumeModal
         :open="modalOpen"
-        :collection-entry-id="id"
         :manga-id="entry.manga.id"
         :manga-title="entry.manga.title"
         :manga-edition="entry.manga.edition"
         :volume="modalVolume"
         :initial-mode="modalInitialMode"
+        :saving-isbn="isbnSaveMutation.isPending.value"
+        :applying-cover="applyCoverMutation.isPending.value"
         @close="closeModal"
+        @toggle="toggleFromModal"
+        @save-isbn="saveModalVolumeIsbn"
+        @apply-cover="applyModalVolumeCover"
       />
 
       <!-- Guide / help modal -->
@@ -1495,290 +755,40 @@ function volumeOpacityClass(ve: VolumeEntry): string {
     </template>
   </div>
 
-  <!-- ── Context Menu (desktop right-click) ── -->
-  <Teleport to="body">
-    <div v-if="contextMenu" class="fixed inset-0 z-[90]" @click="closeContextMenu">
-      <div
-        ref="contextMenuRef"
-        class="absolute bg-base-100 rounded-xl shadow-2xl border border-base-300 overflow-hidden w-48 py-1"
-        :style="{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }"
-        @click.stop
-      >
-        <div class="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-base-content/40 border-b border-base-200">
-          Tome {{ contextMenu.ve.number }}
-        </div>
-        <ul class="menu menu-xs p-1 gap-0.5">
-          <!-- Annoncé (only when not owned) -->
-          <li v-if="!contextMenu.ve.isOwned">
-            <a
-              class="gap-2 text-sm"
-              :class="[
-                { 'pointer-events-none opacity-50': toggleMutation.isPending.value },
-                contextMenu.ve.isAnnounced ? 'text-base-content font-semibold' : '',
-              ]"
-              @click="toggleMutation.mutate({ veId: contextMenu.ve.id, field: 'isAnnounced' })"
-            >
-              <Megaphone class="h-4 w-4" :class="contextMenu.ve.isAnnounced ? 'text-base-content' : 'text-base-content/50'" />
-              Annoncé
-              <span v-if="contextMenu.ve.isAnnounced" class="ml-auto badge badge-neutral badge-xs">●</span>
-            </a>
-          </li>
-          <!-- Possédé (toggle in both directions) -->
-          <li>
-            <a
-              class="gap-2 text-sm"
-              :class="[
-                { 'pointer-events-none opacity-50': toggleMutation.isPending.value },
-                contextMenu.ve.isOwned ? 'text-success font-semibold' : '',
-              ]"
-              @click="toggleMutation.mutate({ veId: contextMenu.ve.id, field: 'isOwned' })"
-            >
-              <Package class="h-4 w-4" :class="contextMenu.ve.isOwned ? 'text-success' : 'text-base-content/50'" />
-              Possédé
-              <span v-if="contextMenu.ve.isOwned" class="ml-auto badge badge-success badge-xs">●</span>
-            </a>
-          </li>
-          <!-- Lu (only when owned) -->
-          <li v-if="contextMenu.ve.isOwned">
-            <a
-              class="gap-2 text-sm"
-              :class="[
-                { 'pointer-events-none opacity-50': toggleMutation.isPending.value },
-                contextMenu.ve.isRead ? 'text-info font-semibold' : '',
-              ]"
-              @click="toggleMutation.mutate({ veId: contextMenu.ve.id, field: 'isRead' })"
-            >
-              <BookOpen class="h-4 w-4" :class="contextMenu.ve.isRead ? 'text-info' : 'text-base-content/50'" />
-              Lu
-              <span v-if="contextMenu.ve.isRead" class="ml-auto badge badge-info badge-xs">●</span>
-            </a>
-          </li>
-          <!-- Wishlist (only when not owned) -->
-          <li v-if="!contextMenu.ve.isOwned">
-            <a
-              class="gap-2 text-sm"
-              :class="[
-                { 'pointer-events-none opacity-50': toggleMutation.isPending.value },
-                contextMenu.ve.isWished ? 'text-warning font-semibold' : '',
-              ]"
-              @click="toggleMutation.mutate({ veId: contextMenu.ve.id, field: 'isWished' })"
-            >
-              <Star
-                class="h-4 w-4"
-                :class="contextMenu.ve.isWished ? 'text-warning' : 'text-base-content/50'"
-                :fill="contextMenu.ve.isWished ? 'currentColor' : 'none'"
-              />
-              Wishlist
-              <span v-if="contextMenu.ve.isWished" class="ml-auto badge badge-warning badge-xs">●</span>
-            </a>
-          </li>
-          <div class="h-px bg-base-200 my-0.5 mx-2" />
-          <li>
-            <a class="gap-2 text-sm" @click="openModalFromContext">
-              <Info class="h-4 w-4" />
-              Détails
-            </a>
-          </li>
-        </ul>
-      </div>
-    </div>
-  </Teleport>
-
-  <!-- ── Volume quick actions (mobile bottom sheet) ── -->
-  <BaseModal
-    :open="actionSheetVolume !== null"
-    max-width-class="sm:max-w-sm"
-    z-class="z-[90]"
+  <!-- Tome quick actions: context menu (desktop) and bottom sheet (mobile) -->
+  <VolumeContextMenu
+    :request="contextMenu"
+    :pending="toggleMutation.isPending.value"
+    @toggle="toggleFromContext"
+    @details="openModalFromContext"
+    @close="closeContextMenu"
+  />
+  <VolumeActionSheet
+    :volume="actionSheetVolume"
+    :pending="toggleMutation.isPending.value"
+    @toggle="toggleFromActionSheet"
+    @details="openModalFromActionSheet"
     @close="closeActionSheet"
-  >
-    <template v-if="actionSheetVolume">
-      <div class="px-5 pt-4 pb-2 text-[10px] font-bold uppercase tracking-widest text-base-content/40 border-b border-base-200">
-        {{ t('manga.volumeSheetTitle', { number: actionSheetVolume.number }) }}
-      </div>
-      <div class="p-2">
-        <!-- Annoncé (only when not owned) -->
-        <button
-          v-if="!actionSheetVolume.isOwned"
-          class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200 disabled:opacity-50"
-          :disabled="toggleMutation.isPending.value"
-          :class="actionSheetVolume.isAnnounced ? 'text-secondary' : 'text-base-content/80'"
-          @click="toggleMutation.mutate({ veId: actionSheetVolume.id, field: 'isAnnounced' })"
-        >
-          <Megaphone class="h-[18px] w-[18px]" :class="actionSheetVolume.isAnnounced ? 'text-secondary' : 'text-base-content/50'" />
-          {{ t('enrich.statusAnnouncedLabel') }}
-          <Check v-if="actionSheetVolume.isAnnounced" class="h-4 w-4 ml-auto text-secondary" />
-        </button>
-        <!-- Possédé -->
-        <button
-          class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200 disabled:opacity-50"
-          :disabled="toggleMutation.isPending.value"
-          :class="actionSheetVolume.isOwned ? 'text-success' : 'text-base-content/80'"
-          @click="toggleMutation.mutate({ veId: actionSheetVolume.id, field: 'isOwned' })"
-        >
-          <Package class="h-[18px] w-[18px]" :class="actionSheetVolume.isOwned ? 'text-success' : 'text-base-content/50'" />
-          {{ t('enrich.statusOwnedLabel') }}
-          <Check v-if="actionSheetVolume.isOwned" class="h-4 w-4 ml-auto text-success" />
-        </button>
-        <!-- Lu (only when owned) -->
-        <button
-          v-if="actionSheetVolume.isOwned"
-          class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200 disabled:opacity-50"
-          :disabled="toggleMutation.isPending.value"
-          :class="actionSheetVolume.isRead ? 'text-info' : 'text-base-content/80'"
-          @click="toggleMutation.mutate({ veId: actionSheetVolume.id, field: 'isRead' })"
-        >
-          <BookOpen class="h-[18px] w-[18px]" :class="actionSheetVolume.isRead ? 'text-info' : 'text-base-content/50'" />
-          {{ t('enrich.statusReadLabel') }}
-          <Check v-if="actionSheetVolume.isRead" class="h-4 w-4 ml-auto text-info" />
-        </button>
-        <!-- Souhaité (only when not owned) -->
-        <button
-          v-if="!actionSheetVolume.isOwned"
-          class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200 disabled:opacity-50"
-          :disabled="toggleMutation.isPending.value"
-          :class="actionSheetVolume.isWished ? 'text-warning' : 'text-base-content/80'"
-          @click="toggleMutation.mutate({ veId: actionSheetVolume.id, field: 'isWished' })"
-        >
-          <Star
-            class="h-[18px] w-[18px]"
-            :class="actionSheetVolume.isWished ? 'text-warning' : 'text-base-content/50'"
-            :fill="actionSheetVolume.isWished ? 'currentColor' : 'none'"
-          />
-          {{ t('enrich.statusWishedLabel') }}
-          <Check v-if="actionSheetVolume.isWished" class="h-4 w-4 ml-auto text-warning" />
-        </button>
-        <div class="h-px bg-base-200 my-1 mx-2" />
-        <button
-          class="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-semibold text-left transition-colors hover:bg-base-200"
-          @click="openModalFromActionSheet"
-        >
-          <Info class="h-[18px] w-[18px] text-base-content/50" />
-          {{ t('manga.detailsAction') }}
-        </button>
-      </div>
-    </template>
-  </BaseModal>
+  />
 
-  <!-- ── Batch Action Bar ── -->
-  <Teleport to="body">
-    <Transition name="slide-up">
-      <div
-        v-if="batchMode && selectedIds.size > 0"
-        class="fixed bottom-0 left-0 right-0 z-50 bg-base-100/95 backdrop-blur-sm border-t-2 border-primary/40 shadow-2xl safe-bottom"
-      >
-        <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3 flex-wrap">
-          <span class="badge badge-primary badge-lg shrink-0">
-            {{ selectedIds.size }} tome{{ selectedIds.size > 1 ? 's' : '' }}
-          </span>
-          <div class="flex flex-wrap gap-2 flex-1 min-w-0">
-            <button
-              v-if="selectedVolumes.some(VOLUME_BATCH_RULES.markRead.applies)"
-              class="btn btn-info btn-sm gap-1.5"
-              :disabled="isBatchProcessing"
-              @click="batchApply('markRead')"
-            >
-              <BookOpen class="h-4 w-4" />
-              Marquer lus
-            </button>
-            <button
-              v-if="selectedVolumes.some(VOLUME_BATCH_RULES.markUnread.applies)"
-              class="btn btn-info btn-sm btn-outline gap-1.5"
-              :disabled="isBatchProcessing"
-              @click="batchApply('markUnread')"
-            >
-              <BookOpen class="h-4 w-4" />
-              Marquer non lus
-            </button>
-            <button
-              v-if="selectedVolumes.some(VOLUME_BATCH_RULES.markOwned.applies)"
-              class="btn btn-success btn-sm gap-1.5"
-              :disabled="isBatchProcessing"
-              @click="batchApply('markOwned')"
-            >
-              <Package class="h-4 w-4" />
-              Marquer possédés
-            </button>
-            <button
-              v-if="selectedVolumes.some(VOLUME_BATCH_RULES.wish.applies)"
-              class="btn btn-warning btn-sm btn-outline gap-1.5"
-              :disabled="isBatchProcessing"
-              @click="batchApply('wish')"
-            >
-              <Star class="h-4 w-4" />
-              Wishlist
-            </button>
-            <button
-              v-if="selectedVolumes.some(VOLUME_BATCH_RULES.announce.applies)"
-              class="btn btn-secondary btn-sm btn-outline gap-1.5"
-              :disabled="isBatchProcessing"
-              @click="batchApply('announce')"
-            >
-              <Bell class="h-4 w-4" />
-              Marquer annoncés
-            </button>
-            <button
-              v-if="selectedVolumes.some(VOLUME_BATCH_RULES.unannounce.applies)"
-              class="btn btn-secondary btn-sm gap-1.5"
-              :disabled="isBatchProcessing"
-              @click="batchApply('unannounce')"
-            >
-              <BellOff class="h-4 w-4" />
-              Retirer annoncés
-            </button>
-          </div>
-          <button class="btn btn-ghost btn-sm shrink-0" @click="selectedIds = new Set()">
-            Vider
-          </button>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+  <VolumeBatchBar
+    :open="batchMode && selectedIds.size > 0"
+    :selected-volumes="selectedVolumes"
+    :processing="isBatchProcessing"
+    @apply="batchApply"
+    @clear="selectedIds = new Set()"
+  />
 
-  <!-- ── Delete Confirm Dialog ── -->
-  <BaseModal
+  <RemoveSeriesDialog
     :open="showDeleteConfirm"
-    variant="center"
-    max-width-class="sm:max-w-sm"
-    z-class="z-[80]"
+    :title="entry?.manga.title ?? ''"
+    :pending="removeMutation.isPending.value"
+    @confirm="removeMutation.mutate()"
     @close="showDeleteConfirm = false"
-  >
-    <div class="p-6">
-      <div class="flex items-start gap-3 mb-4">
-            <div class="w-10 h-10 rounded-full bg-error/15 flex items-center justify-center shrink-0 text-error">
-              <Trash2 class="h-5 w-5" />
-            </div>
-            <div>
-              <h3 class="font-bold text-lg leading-tight">Retirer de la collection ?</h3>
-              <p class="text-sm text-base-content/60 mt-1 leading-relaxed">
-                <strong class="text-base-content">{{ entry?.manga.title }}</strong> et tous ses tomes seront retirés de votre bibliothèque. Cette action est irréversible.
-              </p>
-            </div>
-          </div>
-      <div class="flex gap-3 justify-end">
-        <button class="btn btn-ghost" @click="showDeleteConfirm = false">Annuler</button>
-        <BaseButton
-          class="btn btn-error gap-2"
-          :loading="removeMutation.isPending.value"
-          @click="removeMutation.mutate()"
-        >
-          Supprimer
-        </BaseButton>
-      </div>
-    </div>
-  </BaseModal>
+  />
 </template>
 
 <style scoped>
-.slide-up-enter-active,
-.slide-up-leave-active {
-  transition: transform 0.25s ease, opacity 0.2s ease;
-}
-.slide-up-enter-from,
-.slide-up-leave-to {
-  transform: translateY(100%);
-  opacity: 0;
-}
-
 .panel-fade-enter-active,
 .panel-fade-leave-active {
   transition: opacity 0.18s ease, transform 0.18s ease, max-height 0.22s ease;
@@ -1790,17 +800,6 @@ function volumeOpacityClass(ve: VolumeEntry): string {
   opacity: 0;
   transform: translateY(-4px);
   max-height: 0;
-}
-
-.menu-pop-enter-active,
-.menu-pop-leave-active {
-  transition: opacity 0.14s ease, transform 0.16s cubic-bezier(0.22, 0.61, 0.36, 1);
-  transform-origin: top;
-}
-.menu-pop-enter-from,
-.menu-pop-leave-to {
-  opacity: 0;
-  transform: translateY(-6px) scale(0.97);
 }
 
 /* Bell wiggle on follow toggle */

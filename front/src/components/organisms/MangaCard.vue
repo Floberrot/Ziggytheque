@@ -9,6 +9,8 @@ import BaseLazyImage from '@/components/atoms/BaseLazyImage.vue'
 import EditionBadge from '@/components/molecules/EditionBadge.vue'
 import { useLongPress, type PressPoint } from '@/composables/useLongPress'
 import { coverUrl } from '@/utils/coverUrl'
+import { contextMenuPoint } from '@/utils/pointer'
+import { READING_STATUS_CHIPS, readingStatusLabelKey } from '@/utils/readingStatus'
 
 const props = defineProps<{
   entry: CollectionEntry
@@ -74,21 +76,23 @@ const ringClass = computed(() => {
   return 'ring-base-300/30'
 })
 
+// Same status vocabulary as the series page and the filters (`status.*`).
 const statusChip = computed(() => {
   if (isStack.value) return null
-  switch (props.entry.readingStatus) {
-    case 'dropped':
-      return { label: 'Abandonné', classes: 'bg-error/20 text-error border border-error/30 backdrop-blur-sm' }
-    case 'on_hold':
-      return { label: 'En pause', classes: 'bg-warning/20 text-warning border border-warning/30 backdrop-blur-sm' }
-    case 'not_started':
-      return { label: 'À lire', classes: 'bg-base-content/8 text-base-content/40 border border-base-content/12 backdrop-blur-sm' }
-    case 'completed':
-      return { label: 'Complet', classes: 'bg-success/20 text-success border border-success/30 backdrop-blur-sm' }
-    default:
-      return null
-  }
+  const classes = READING_STATUS_CHIPS[props.entry.readingStatus]
+  return classes ? { label: t(readingStatusLabelKey(props.entry.readingStatus)), classes } : null
 })
+
+/** What a screen reader announces for the card: the series and how much of it is owned. */
+const accessibleName = computed(() =>
+  isStack.value
+    ? t('collection.stackLabel', { title: props.entry.manga.title, count: props.editions!.length })
+    : t('collection.cardLabel', {
+        title: props.entry.manga.title,
+        owned: summary.value.ownedCount,
+        total: summary.value.totalVolumes,
+      }),
+)
 
 const coverStyle = computed(() =>
   !isStack.value && props.entry.readingStatus === 'dropped'
@@ -108,7 +112,8 @@ const longPress = useLongPress((point) => requestQuickActions(point, 'touch'))
 
 function onContextMenu(event: MouseEvent): void {
   event.preventDefault()
-  const point = { x: event.clientX, y: event.clientY }
+  // From the Menu key (no pointer), the menu opens next to the focused card.
+  const point = contextMenuPoint(event)
   if (longPress.isTouching()) {
     // Android reports the long press as a context menu too: open it once.
     if (longPress.markHandled()) requestQuickActions(point, 'touch')
@@ -128,9 +133,16 @@ function open(): void {
 </script>
 
 <template>
+  <!-- A link to its series (a button opening the editions for a stack), keyboard included:
+       Enter / Space opens it, the Menu key (or Shift+F10) its quick actions. -->
   <div
-    class="manga-card group relative cursor-pointer select-none"
+    class="manga-card group relative cursor-pointer select-none rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+    :role="isStack ? 'button' : 'link'"
+    tabindex="0"
+    :aria-label="accessibleName"
     @click="open"
+    @keydown.enter.prevent="open"
+    @keydown.space.prevent="open"
     @contextmenu="onContextMenu"
     @touchstart.passive="longPress.onTouchStart"
     @touchmove.passive="longPress.onTouchMove"

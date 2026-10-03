@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Manga\Domain;
 
+use App\Shared\Domain\Text\TextFold;
+
 /**
  * The target shops the price screen always reports on — found or honestly "not found".
  * Merchant names scraped or returned by APIs are mapped onto these via
@@ -44,20 +46,9 @@ enum RetailerEnum: string
         };
     }
 
-    /** Deterministic accent folding (iconv//TRANSLIT is locale-dependent, so not used). */
-    private const array ACCENT_MAP = [
-        'à' => 'a', 'á' => 'a', 'â' => 'a', 'ã' => 'a', 'ä' => 'a',
-        'ç' => 'c',
-        'è' => 'e', 'é' => 'e', 'ê' => 'e', 'ë' => 'e',
-        'ì' => 'i', 'í' => 'i', 'î' => 'i', 'ï' => 'i',
-        'ò' => 'o', 'ó' => 'o', 'ô' => 'o', 'õ' => 'o', 'ö' => 'o',
-        'ù' => 'u', 'ú' => 'u', 'û' => 'u', 'ü' => 'u',
-        'ÿ' => 'y', 'ñ' => 'n',
-    ];
-
     private static function normalizeMerchant(string $merchant): string
     {
-        $folded = strtr(mb_strtolower(trim($merchant)), self::ACCENT_MAP);
+        $folded = TextFold::foldAccents($merchant);
 
         // "La Fnac", "the amazon store"… — drop leading articles so the prefix match holds.
         return (string) preg_replace('/^(la|le|les|the)\s+/', '', $folded);

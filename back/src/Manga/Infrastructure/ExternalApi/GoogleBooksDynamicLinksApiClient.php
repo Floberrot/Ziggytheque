@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Manga\Infrastructure\ExternalApi;
 
 use App\Manga\Domain\Isbn;
-use App\Manga\Domain\MangaCoverProviderInterface;
 use App\Manga\Domain\MangaVolumeCoverDto;
+use Closure;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\HttpClient\ResponseInterface;
 use Throwable;
 
 /**
@@ -20,7 +21,7 @@ use Throwable;
  * has a cover for that ISBN — so this avoids the "image not available"
  * placeholder that the raw /books/content endpoint returns for missing covers.
  */
-final readonly class GoogleBooksDynamicLinksApiClient implements MangaCoverProviderInterface
+final readonly class GoogleBooksDynamicLinksApiClient implements DeferredIsbnCoverProviderInterface
 {
     private const string PREFIX_LOGGER = 'GOOGLE_BOOKS_DYNAMIC_LINKS : ';
     private const string CALLBACK = 'gbcb';
@@ -34,6 +35,11 @@ final readonly class GoogleBooksDynamicLinksApiClient implements MangaCoverProvi
 
     public function findByIsbn(Isbn $isbn): ?MangaVolumeCoverDto
     {
+        return $this->requestByIsbn($isbn)();
+    }
+
+    public function requestByIsbn(Isbn $isbn): Closure
+    {
         $bibKey = 'ISBN:' . $isbn->value;
         $url = sprintf(
             '%s/books?bibkeys=%s&jscmd=viewapi&callback=%s',
@@ -46,37 +52,56 @@ final readonly class GoogleBooksDynamicLinksApiClient implements MangaCoverProvi
 
         try {
             $response = $this->httpClient->request('GET', $url);
-
-            if ($response->getStatusCode() !== 200) {
-                $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; NOT FOUND.', [
-                    'isbn' => $isbn->value,
-                    'status' => $response->getStatusCode(),
-                ]);
-                return null;
-            }
-
-            $payload = $this->decodeJsonp($response->getContent());
-            $thumbnailUrl = $payload[$bibKey]['thumbnail_url'] ?? null;
-
-            if (!is_string($thumbnailUrl) || $thumbnailUrl === '') {
-                $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; NO COVER.', ['isbn' => $isbn->value]);
-                return null;
-            }
-
-            $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; FOUND.', ['isbn' => $isbn->value]);
-
-            return new MangaVolumeCoverDto(
-                coverUrl: $this->upgradeThumbnail($thumbnailUrl),
-                isbn: $isbn,
-                source: 'google_books',
-            );
         } catch (Throwable $exception) {
-            $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; ERROR.', [
+            $this->logError($isbn, $exception);
+
+            return static fn (): ?MangaVolumeCoverDto => null;
+        }
+
+        return function () use ($isbn, $bibKey, $response): ?MangaVolumeCoverDto {
+            try {
+                return $this->readCover($isbn, $bibKey, $response);
+            } catch (Throwable $exception) {
+                $this->logError($isbn, $exception);
+
+                return null;
+            }
+        };
+    }
+
+    private function readCover(Isbn $isbn, string $bibKey, ResponseInterface $response): ?MangaVolumeCoverDto
+    {
+        if ($response->getStatusCode() !== 200) {
+            $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; NOT FOUND.', [
                 'isbn' => $isbn->value,
-                'error' => $exception->getMessage(),
+                'status' => $response->getStatusCode(),
             ]);
             return null;
         }
+
+        $payload = $this->decodeJsonp($response->getContent());
+        $thumbnailUrl = $payload[$bibKey]['thumbnail_url'] ?? null;
+
+        if (!is_string($thumbnailUrl) || $thumbnailUrl === '') {
+            $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; NO COVER.', ['isbn' => $isbn->value]);
+            return null;
+        }
+
+        $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; FOUND.', ['isbn' => $isbn->value]);
+
+        return new MangaVolumeCoverDto(
+            coverUrl: $this->upgradeThumbnail($thumbnailUrl),
+            isbn: $isbn,
+            source: 'google_books',
+        );
+    }
+
+    private function logError(Isbn $isbn, Throwable $exception): void
+    {
+        $this->logger->info(self::PREFIX_LOGGER . 'find by ISBN; ERROR.', [
+            'isbn' => $isbn->value,
+            'error' => $exception->getMessage(),
+        ]);
     }
 
     public function findByContext(

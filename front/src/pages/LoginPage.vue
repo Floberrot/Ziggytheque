@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { useThemeStore } from '@/stores/useThemeStore'
@@ -9,9 +10,11 @@ import BaseButton from '@/components/atoms/BaseButton.vue'
 const router = useRouter()
 const auth = useAuthStore()
 const themeStore = useThemeStore()
+const { t } = useI18n()
 
 const email = ref('')
 const password = ref('')
+/** i18n key of the failure, '' when none. */
 const error = ref('')
 const loading = ref(false)
 
@@ -28,11 +31,11 @@ async function submit() {
     await router.push({ name: 'dashboard' })
   } catch (err) {
     if (axios.isAxiosError(err) && err.response?.status === 403) {
-      error.value = 'Votre compte n\'est pas encore actif. Vérifiez votre email ou attendez l\'approbation admin.'
+      error.value = 'auth.login.inactive'
     } else if (axios.isAxiosError(err) && err.response?.status === 429) {
-      error.value = 'Trop de tentatives. Réessayez dans quelques minutes.'
+      error.value = 'auth.login.tooManyAttempts'
     } else {
-      error.value = 'Email ou mot de passe invalide.'
+      error.value = 'auth.login.invalid'
     }
   } finally {
     loading.value = false
@@ -47,7 +50,7 @@ async function submit() {
         <img :src="logoSrc" alt="Ziggytheque" class="h-28 w-auto object-contain" />
 
         <p class="text-base-content/50 text-sm tracking-wide">
-          Connectez-vous à Ziggytheque
+          {{ t('auth.login.subtitle') }}
         </p>
 
         <form class="flex flex-col gap-3 w-full" @submit.prevent="submit">
@@ -55,7 +58,8 @@ async function submit() {
             <input
               v-model="email"
               type="email"
-              placeholder="Email"
+              :placeholder="t('auth.email')"
+              :aria-label="t('auth.email')"
               class="input input-bordered w-full"
               :class="{ 'input-error': error }"
               autocomplete="email"
@@ -67,13 +71,14 @@ async function submit() {
             <input
               v-model="password"
               type="password"
-              placeholder="Mot de passe"
+              :placeholder="t('auth.password')"
+              :aria-label="t('auth.password')"
               class="input input-bordered w-full"
               :class="{ 'input-error': error }"
               autocomplete="current-password"
             />
             <label v-if="error" class="label">
-              <span class="label-text-alt text-error">{{ error }}</span>
+              <span class="label-text-alt text-error">{{ t(error) }}</span>
             </label>
           </div>
 
@@ -82,16 +87,16 @@ async function submit() {
             class="btn btn-primary w-full"
             :loading="loading"
           >
-            Se connecter
+            {{ t('auth.login.submit') }}
           </BaseButton>
         </form>
 
         <div class="flex flex-col items-center gap-1 w-full">
           <router-link to="/register" class="link link-hover text-sm">
-            Pas encore de compte&nbsp;? Inscrivez-vous
+            {{ t('auth.login.noAccount') }}
           </router-link>
           <router-link to="/forgot-password" class="link link-hover text-sm text-base-content/60">
-            Mot de passe oublié&nbsp;?
+            {{ t('auth.login.forgotPassword') }}
           </router-link>
         </div>
       </div>

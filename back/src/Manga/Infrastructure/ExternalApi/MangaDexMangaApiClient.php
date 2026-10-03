@@ -7,14 +7,15 @@ namespace App\Manga\Infrastructure\ExternalApi;
 use App\Manga\Domain\Isbn;
 use App\Manga\Domain\MangaCoverProviderInterface;
 use App\Manga\Domain\MangaVolumeCoverDto;
-use App\Manga\Domain\MultiContextCoverProviderInterface;
+use Closure;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\HttpClient\ResponseInterface;
 use Throwable;
 
 final readonly class MangaDexMangaApiClient implements
     MangaCoverProviderInterface,
-    MultiContextCoverProviderInterface
+    DeferredContextCoverProviderInterface
 {
     private const string PREFIX_LOGGER = 'MANGADEX : ';
     private const string UPLOADS_BASE_URL = 'https://uploads.mangadex.org/covers';
@@ -54,6 +55,16 @@ final readonly class MangaDexMangaApiClient implements
         int $volumeNumber,
         string $language = 'fr',
     ): array {
+        return $this->requestAllByContext($mangaTitle, $edition, $volumeNumber, $language)();
+    }
+
+    /** Sends the series search now; the cover pages are fetched once the series is known. */
+    public function requestAllByContext(
+        string $mangaTitle,
+        ?string $edition,
+        int $volumeNumber,
+        string $language = 'fr',
+    ): Closure {
         $searchTitle = $this->cleanTitle($mangaTitle, $edition);
 
         $this->logger->info(self::PREFIX_LOGGER . 'find by context; BEGIN.', [
@@ -65,34 +76,60 @@ final readonly class MangaDexMangaApiClient implements
         ]);
 
         try {
-            $mangaId = $this->searchMangaId($searchTitle);
+            $searchResponse = $this->sendMangaSearch($searchTitle);
+        } catch (Throwable $exception) {
+            $this->logError($searchTitle, $exception);
 
-            if ($mangaId === null) {
-                $this->logger->info(
-                    self::PREFIX_LOGGER . 'find by context; NO MANGA FOUND.',
-                    ['title' => $searchTitle],
-                );
+            return static fn (): array => [];
+        }
+
+        return function () use ($searchTitle, $searchResponse, $volumeNumber, $language): array {
+            try {
+                return $this->readCovers($searchTitle, $searchResponse, $volumeNumber, $language);
+            } catch (Throwable $exception) {
+                $this->logError($searchTitle, $exception);
+
                 return [];
             }
+        };
+    }
 
-            $covers = $this->findVolumeCovers($mangaId, $volumeNumber, $language);
+    /** @return list<MangaVolumeCoverDto> */
+    private function readCovers(
+        string $searchTitle,
+        ResponseInterface $searchResponse,
+        int $volumeNumber,
+        string $language,
+    ): array {
+        $mangaId = $this->readMangaId($searchTitle, $searchResponse);
 
-            if ($covers === []) {
-                $this->logger->info(self::PREFIX_LOGGER . 'find by context; NO COVER FOUND.', [
-                    'title' => $searchTitle,
-                    'manga_id' => $mangaId,
-                    'volume' => $volumeNumber,
-                ]);
-            }
-
-            return $covers;
-        } catch (Throwable $exception) {
-            $this->logger->info(self::PREFIX_LOGGER . 'find by context; ERROR.', [
-                'title' => $searchTitle,
-                'error' => $exception->getMessage(),
-            ]);
+        if ($mangaId === null) {
+            $this->logger->info(
+                self::PREFIX_LOGGER . 'find by context; NO MANGA FOUND.',
+                ['title' => $searchTitle],
+            );
             return [];
         }
+
+        $covers = $this->findVolumeCovers($mangaId, $volumeNumber, $language);
+
+        if ($covers === []) {
+            $this->logger->info(self::PREFIX_LOGGER . 'find by context; NO COVER FOUND.', [
+                'title' => $searchTitle,
+                'manga_id' => $mangaId,
+                'volume' => $volumeNumber,
+            ]);
+        }
+
+        return $covers;
+    }
+
+    private function logError(string $searchTitle, Throwable $exception): void
+    {
+        $this->logger->info(self::PREFIX_LOGGER . 'find by context; ERROR.', [
+            'title' => $searchTitle,
+            'error' => $exception->getMessage(),
+        ]);
     }
 
     /**
@@ -115,19 +152,22 @@ final readonly class MangaDexMangaApiClient implements
         return $cleaned !== '' ? $cleaned : trim($title);
     }
 
-    private function searchMangaId(string $mangaTitle): ?string
+    private function sendMangaSearch(string $mangaTitle): ResponseInterface
     {
         // No availableTranslatedLanguage filter: we only need the series' cover art,
         // not its scanlations. Filtering by language excludes series whose chapters
         // were removed (e.g. One Piece), even though their cover art is still hosted.
-        $response = $this->httpClient->request('GET', $this->baseUrl . '/manga', [
+        return $this->httpClient->request('GET', $this->baseUrl . '/manga', [
             'query' => [
                 'title' => $mangaTitle,
                 'limit' => self::SEARCH_PAGE_SIZE,
                 'order[relevance]' => 'desc',
             ],
         ]);
+    }
 
+    private function readMangaId(string $mangaTitle, ResponseInterface $response): ?string
+    {
         $data = $response->toArray();
         $results = $data['data'] ?? [];
 

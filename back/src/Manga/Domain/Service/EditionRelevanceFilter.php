@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Manga\Domain\Service;
 
+use App\Shared\Domain\Text\TextFold;
+
 /**
  * Keeps only catalogue records that belong to the searched work, without shrinking the
  * result to "known publishers only". Discovery must be exhaustive per country: classic
@@ -122,7 +124,8 @@ final readonly class EditionRelevanceFilter
             }
         }
 
-        if (preg_match(self::TITLE_DENY_REGEX, $this->fold($recordTitle)) === 1) {
+        // Punctuation kept: the deny regex and the publisher lists spell it out ("blu-ray").
+        if (preg_match(self::TITLE_DENY_REGEX, TextFold::foldAccents($recordTitle)) === 1) {
             return false;
         }
 
@@ -143,8 +146,8 @@ final readonly class EditionRelevanceFilter
      */
     private function titleMatchesWork(string $workTitle, string $recordTitle): bool
     {
-        $foldedWork   = $this->fold($workTitle);
-        $foldedRecord = $this->fold($recordTitle);
+        $foldedWork   = TextFold::foldAccents($workTitle);
+        $foldedRecord = TextFold::foldAccents($recordTitle);
 
         if ($foldedWork === '' || $foldedRecord === '') {
             return false;
@@ -200,19 +203,5 @@ final readonly class EditionRelevanceFilter
         }
 
         return false;
-    }
-
-    private function fold(string $value): string
-    {
-        $lower = mb_strtolower(trim($value));
-
-        return strtr($lower, [
-            'à' => 'a', 'â' => 'a', 'ä' => 'a',
-            'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
-            'î' => 'i', 'ï' => 'i',
-            'ô' => 'o', 'ö' => 'o',
-            'ù' => 'u', 'û' => 'u', 'ü' => 'u',
-            'ç' => 'c',
-        ]);
     }
 }

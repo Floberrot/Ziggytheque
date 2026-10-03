@@ -9,15 +9,16 @@ use App\Manga\Domain\ExternalMangaDto;
 use App\Manga\Domain\Isbn;
 use App\Manga\Domain\MangaCoverProviderInterface;
 use App\Manga\Domain\MangaVolumeCoverDto;
-use App\Manga\Domain\MultiContextCoverProviderInterface;
+use Closure;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\HttpClient\ResponseInterface;
 use Throwable;
 
 final readonly class GoogleBooksMangaApiClient implements
     ExternalApiClientInterface,
     MangaCoverProviderInterface,
-    MultiContextCoverProviderInterface
+    DeferredContextCoverProviderInterface
 {
     private const string BASE_URL = 'https://www.googleapis.com/books/v1';
     private const string PREFIX_LOGGER = 'GOOGLE_BOOKS : ';
@@ -55,6 +56,11 @@ final readonly class GoogleBooksMangaApiClient implements
      */
     public function searchByTitle(string $query, string $type = 'manga', int $page = 1): array
     {
+        return $this->readTitleSearch($this->sendTitleSearch($query, $type, $page), $query, $type, $page);
+    }
+
+    private function sendTitleSearch(string $query, string $type, int $page): ResponseInterface
+    {
         $this->logger->info(self::PREFIX_LOGGER . 'search by title; BEGIN.', [
             'query' => $query,
             'type' => $type,
@@ -64,7 +70,7 @@ final readonly class GoogleBooksMangaApiClient implements
         // The raw query is sent as-is. The caller controls any keyword (e.g. an
         // editable "manga" default surfaced in the search field) — appending
         // "+manga" here was found to silently narrow results.
-        $response = $this->httpClient->request('GET', self::BASE_URL . '/volumes', [
+        return $this->httpClient->request('GET', self::BASE_URL . '/volumes', [
             'query' => $this->withCommonParams([
                 'q' => $query,
                 'printType' => 'books',
@@ -74,7 +80,11 @@ final readonly class GoogleBooksMangaApiClient implements
                 'orderBy' => 'relevance',
             ]),
         ]);
+    }
 
+    /** @return ExternalMangaDto[] */
+    private function readTitleSearch(ResponseInterface $response, string $query, string $type, int $page): array
+    {
         $this->logger->info(self::PREFIX_LOGGER . 'search by title; REQUESTED.', [
             'query' => $query,
             'type' => $type,
@@ -108,24 +118,6 @@ final readonly class GoogleBooksMangaApiClient implements
             fn(array $item) => $this->mapToDto($item),
             $data['items'],
         )));
-    }
-
-    public function getMangaById(string $externalId): ?ExternalMangaDto
-    {
-        $this->logger->info(self::PREFIX_LOGGER . 'manga by id; BEGIN.', [
-            'externalId' => $externalId
-        ]);
-        $response = $this->httpClient->request('GET', self::BASE_URL . '/volumes/' . $externalId, [
-            'query' => $this->withCommonParams([]),
-        ]);
-
-        $this->logger->info(self::PREFIX_LOGGER . 'manga by id; DONE.', [
-            'externalId' => $externalId,
-            'response' => $response
-        ]);
-        $data = $response->toArray();
-
-        return $this->mapToDto($data);
     }
 
     public function findByIsbn(Isbn $isbn): ?MangaVolumeCoverDto
@@ -178,30 +170,55 @@ final readonly class GoogleBooksMangaApiClient implements
         int $volumeNumber,
         string $language = 'fr',
     ): array {
+        return $this->requestAllByContext($mangaTitle, $edition, $volumeNumber, $language)();
+    }
+
+    public function requestAllByContext(
+        string $mangaTitle,
+        ?string $edition,
+        int $volumeNumber,
+        string $language = 'fr',
+    ): Closure {
         $query = sprintf('%s tome %d%s', $mangaTitle, $volumeNumber, $edition ? ' ' . $edition : '');
         $this->logger->info(self::PREFIX_LOGGER . 'find by context; BEGIN.', ['query' => $query]);
 
         try {
-            $covers = [];
-
-            foreach ($this->searchByTitle($query, page: 1) as $dto) {
-                if ($dto->coverUrl !== null) {
-                    $covers[] = new MangaVolumeCoverDto(
-                        coverUrl: $dto->coverUrl,
-                        isbn: null,
-                        source: 'google_books',
-                    );
-                }
-            }
-
-            return $covers;
+            $response = $this->sendTitleSearch($query, 'manga', 1);
         } catch (Throwable $exception) {
-            $this->logger->info(self::PREFIX_LOGGER . 'find by context; ERROR.', [
-                'query' => $query,
-                'error' => $exception->getMessage(),
-            ]);
-            return [];
+            $this->logContextError($query, $exception);
+
+            return static fn (): array => [];
         }
+
+        return function () use ($query, $response): array {
+            try {
+                $covers = [];
+
+                foreach ($this->readTitleSearch($response, $query, 'manga', 1) as $dto) {
+                    if ($dto->coverUrl !== null) {
+                        $covers[] = new MangaVolumeCoverDto(
+                            coverUrl: $dto->coverUrl,
+                            isbn: null,
+                            source: 'google_books',
+                        );
+                    }
+                }
+
+                return $covers;
+            } catch (Throwable $exception) {
+                $this->logContextError($query, $exception);
+
+                return [];
+            }
+        };
+    }
+
+    private function logContextError(string $query, Throwable $exception): void
+    {
+        $this->logger->info(self::PREFIX_LOGGER . 'find by context; ERROR.', [
+            'query' => $query,
+            'error' => $exception->getMessage(),
+        ]);
     }
 
     /**
