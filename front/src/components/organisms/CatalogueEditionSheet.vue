@@ -5,6 +5,7 @@ import { Check, Info, Pencil, X } from 'lucide-vue-next'
 import type { CatalogueEdition } from '@/api/catalogue'
 import type { CatalogueSelection } from '@/types'
 import BaseModal from '@/components/atoms/BaseModal.vue'
+import BaseButton from '@/components/atoms/BaseButton.vue'
 import BaseCover from '@/components/atoms/BaseCover.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
 import EditionBadge from '@/components/molecules/EditionBadge.vue'
@@ -243,14 +244,14 @@ function submit(numbers: number[]): void {
         >
           {{ t('catalogue.followWithoutTomes') }}
         </button>
-        <button
+        <BaseButton
           class="btn btn-primary"
-          :disabled="adding || selected.size === 0"
+          :loading="adding"
+          :disabled="selected.size === 0"
           @click="submit([...selected].sort((left, right) => left - right))"
         >
-          <BaseLoader v-if="adding" size="xs" />
           {{ t('catalogue.addTomes', { count: selected.size }, selected.size) }}
-        </button>
+        </BaseButton>
       </div>
     </template>
   </BaseModal>

@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/useAuthStore'
-import BaseLoader from '@/components/atoms/BaseLoader.vue'
+import BaseButton from '@/components/atoms/BaseButton.vue'
 import BaseModal from '@/components/atoms/BaseModal.vue'
 
 const router = useRouter()
@@ -81,14 +81,13 @@ function cancel() {
           >
             Annuler
           </button>
-          <button
+          <BaseButton
             type="submit"
             class="btn btn-primary"
-            :disabled="loading"
+            :loading="loading"
           >
-            <BaseLoader v-if="loading" size="xs" />
             Débloquer
-          </button>
+          </BaseButton>
         </div>
       </form>
     </div>

@@ -22,6 +22,7 @@ import { useCoverBatchProgress } from '@/composables/useCoverBatchProgress'
 import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
 import CatalogueEditionCard from '@/components/organisms/CatalogueEditionCard.vue'
+import BaseButton from '@/components/atoms/BaseButton.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
 import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
 import BaseHeartRating from '@/components/atoms/BaseHeartRating.vue'
@@ -634,9 +635,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
 
 <template>
   <div class="min-h-screen" @click="closeContextMenu(); cancelEditCover(); closeActionMenus()">
-    <div v-if="isPending" class="flex justify-center py-20">
-      <BaseLoader size="lg" class="text-primary" />
-    </div>
+    <BaseLoader v-if="isPending" variant="page" />
 
     <template v-else-if="entry">
       <!-- Hero header with blurred cover bg -->
@@ -1142,15 +1141,15 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                         ? `Créer les tomes ${syncMin} à ${syncTarget}`
                         : `Le numéro doit être supérieur à ${entry.totalVolumes}`"
                     >
-                      <button
+                      <BaseButton
                         class="btn btn-primary btn-sm gap-1.5"
-                        :disabled="!isSyncTargetValid || syncMutation.isPending.value"
+                        :loading="syncMutation.isPending.value"
+                        :disabled="!isSyncTargetValid"
                         @click="syncMutation.mutate()"
                       >
-                        <BaseLoader v-if="syncMutation.isPending.value" size="xs" />
-                        <Plus v-else class="h-3.5 w-3.5" />
+                        <template #icon><Plus class="h-3.5 w-3.5" /></template>
                         Créer les tomes
-                      </button>
+                      </BaseButton>
                     </div>
                     <button class="btn btn-ghost btn-sm" @click="showSyncPanel = false">
                       Annuler
@@ -1197,15 +1196,15 @@ function volumeOpacityClass(ve: VolumeEntry): string {
                         ? 'Saisis un prix pour activer'
                         : `Appliquer ${batchPriceValue.toFixed(2)} € à chaque tome`"
                     >
-                      <button
+                      <BaseButton
                         class="btn btn-secondary btn-sm gap-1.5"
-                        :disabled="batchPriceValue === null || batchPriceMutation.isPending.value"
+                        :loading="batchPriceMutation.isPending.value"
+                        :disabled="batchPriceValue === null"
                         @click="batchPriceValue !== null && batchPriceMutation.mutate(batchPriceValue)"
                       >
-                        <BaseLoader v-if="batchPriceMutation.isPending.value" size="xs" />
-                        <Check v-else class="h-3.5 w-3.5" stroke-width="3" />
+                        <template #icon><Check class="h-3.5 w-3.5" stroke-width="3" /></template>
                         Appliquer à tous
-                      </button>
+                      </BaseButton>
                     </div>
                     <button class="btn btn-ghost btn-sm btn-circle" aria-label="Fermer" @click="showPrice = false">
                       <X class="h-4 w-4" />
@@ -1220,15 +1219,14 @@ function volumeOpacityClass(ve: VolumeEntry): string {
             <p class="text-sm text-base-content/60 line-clamp-3">
               {{ displayedSummary }}
             </p>
-            <button
+            <BaseButton
               class="btn btn-ghost btn-xs gap-1 mt-1 px-1 text-base-content/50 hover:text-base-content"
-              :disabled="translateMutation.isPending.value"
+              :loading="translateMutation.isPending.value"
               @click="toggleTranslation"
             >
-              <BaseLoader v-if="translateMutation.isPending.value" size="xs" />
-              <Languages v-else class="h-3 w-3" />
+              <template #icon><Languages class="h-3 w-3" /></template>
               {{ showTranslation ? t('manga.showOriginal') : t('manga.translate') }}
-            </button>
+            </BaseButton>
           </div>
         </div>
       </div>
@@ -1427,9 +1425,7 @@ function volumeOpacityClass(ve: VolumeEntry): string {
           <h2 class="text-sm font-bold">{{ t('catalogue.otherEditionsTitle', { title: entry.manga.title }) }}</h2>
           <p class="text-xs text-base-content/50">{{ t('catalogue.otherEditionsHint') }}</p>
         </div>
-        <div v-if="editionsLoading" class="flex justify-center py-12">
-          <BaseLoader size="lg" class="text-primary" />
-        </div>
+        <BaseLoader v-if="editionsLoading" variant="section" />
         <p v-else-if="editionsFailed" class="text-sm text-error py-4">{{ t('catalogue.searchError') }}</p>
         <div v-else-if="workEditions?.editions.length" class="flex flex-col gap-2">
           <div
@@ -1760,14 +1756,13 @@ function volumeOpacityClass(ve: VolumeEntry): string {
           </div>
       <div class="flex gap-3 justify-end">
         <button class="btn btn-ghost" @click="showDeleteConfirm = false">Annuler</button>
-        <button
+        <BaseButton
           class="btn btn-error gap-2"
-          :disabled="removeMutation.isPending.value"
+          :loading="removeMutation.isPending.value"
           @click="removeMutation.mutate()"
         >
-          <BaseLoader v-if="removeMutation.isPending.value" size="xs" />
           Supprimer
-        </button>
+        </BaseButton>
       </div>
     </div>
   </BaseModal>

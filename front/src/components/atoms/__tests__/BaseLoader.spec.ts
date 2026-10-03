@@ -5,10 +5,14 @@ import BaseLoader from '../BaseLoader.vue'
 import fr from '@/i18n/fr.json'
 import en from '@/i18n/en.json'
 
-function mountLoader(
-  props: { size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'; label?: string } = {},
-  attrs: Record<string, unknown> = {},
-) {
+interface LoaderProps {
+  variant?: 'inline' | 'section' | 'page'
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+  label?: string
+  tone?: 'current' | 'primary' | 'warning'
+}
+
+function mountLoader(props: LoaderProps = {}, attrs: Record<string, unknown> = {}) {
   const i18n = createI18n({
     legacy: false,
     locale: 'fr',
@@ -19,31 +23,70 @@ function mountLoader(
 }
 
 describe('BaseLoader', () => {
-  it('exposes an accessible status role with the localized default label', () => {
+  it('is a status with a hidden, localized "loading" text', () => {
     const wrapper = mountLoader()
 
     expect(wrapper.attributes('role')).toBe('status')
-    expect(wrapper.attributes('aria-label')).toBe(fr.common.loading)
+    expect(wrapper.find('.sr-only').text()).toBe(fr.common.loading)
   })
 
-  it('renders the smooth ring as a faint track with a sweeping comet', () => {
+  it('renders as a span so it fits inside a button or a paragraph', () => {
+    expect(mountLoader().element.tagName).toBe('SPAN')
+  })
+
+  it('hides the ring itself from assistive technologies', () => {
+    const wrapper = mountLoader()
+    const spinner = wrapper.find('.zig-loader__spinner')
+
+    expect(spinner.attributes('aria-hidden')).toBe('true')
+    expect(spinner.find('.zig-loader__track').exists()).toBe(true)
+    expect(spinner.find('.zig-loader__comet').exists()).toBe(true)
+  })
+
+  it('shows a caption, announced in place of the hidden text', () => {
+    const wrapper = mountLoader({ label: 'Création du lien…' })
+
+    expect(wrapper.find('.zig-loader__label').text()).toBe('Création du lien…')
+    expect(wrapper.find('.sr-only').exists()).toBe(false)
+  })
+
+  it('is an inline loader by default, small and in the surrounding text colour', () => {
     const wrapper = mountLoader()
 
-    expect(wrapper.find('.zig-loader__track').exists()).toBe(true)
-    expect(wrapper.find('.zig-loader__comet').exists()).toBe(true)
+    expect(wrapper.classes()).toContain('zig-loader--inline')
+    expect(wrapper.attributes('style')).toContain('--zig-loader-size: 1rem')
+    expect(wrapper.classes()).not.toContain('text-primary')
   })
 
-  it('drives its dimensions from the size prop via CSS variables', () => {
-    expect(mountLoader().attributes('style')).toContain('--zig-loader-size: 2.75rem')
-    expect(mountLoader({ size: 'xs' }).attributes('style')).toContain('--zig-loader-size: 1rem')
-    expect(mountLoader({ size: 'lg' }).attributes('style')).toContain('--zig-loader-size: 4rem')
+  it('stands in for a section in the primary colour', () => {
+    const wrapper = mountLoader({ variant: 'section' })
+
+    expect(wrapper.classes()).toContain('zig-loader--section')
+    expect(wrapper.classes()).toContain('text-primary')
+    expect(wrapper.attributes('style')).toContain('--zig-loader-size: 3rem')
   })
 
-  it('shows a caption and uses it as the accessible name when label is provided', () => {
-    const wrapper = mountLoader({ label: 'Chargement de la bibliothèque…' })
+  it('stands in for a whole page with the largest ring', () => {
+    const wrapper = mountLoader({ variant: 'page' })
 
-    expect(wrapper.text()).toContain('Chargement de la bibliothèque…')
-    expect(wrapper.attributes('aria-label')).toBe('Chargement de la bibliothèque…')
+    expect(wrapper.classes()).toContain('zig-loader--page')
+    expect(wrapper.attributes('style')).toContain('--zig-loader-size: 4rem')
+  })
+
+  it('lets an explicit size win over the variant default', () => {
+    expect(mountLoader({ size: 'md' }).attributes('style')).toContain('--zig-loader-size: 2rem')
+    expect(mountLoader({ variant: 'section', size: 'sm' }).attributes('style')).toContain(
+      '--zig-loader-size: 1.5rem',
+    )
+    expect(mountLoader({ size: 'md' }).attributes('style')).toContain('--zig-loader-thickness: 3px')
+  })
+
+  it('takes another tone, or the surrounding colour', () => {
+    expect(mountLoader({ variant: 'section', tone: 'warning' }).classes()).toContain('text-warning')
+    expect(mountLoader({ variant: 'section', tone: 'current' }).classes()).not.toContain(
+      'text-primary',
+    )
+    expect(mountLoader({ tone: 'primary' }).classes()).toContain('text-primary')
   })
 
   it('forwards utility classes onto the root so callers can theme the colour', () => {

@@ -5,7 +5,7 @@ import axios from 'axios'
 import { Eye, EyeOff } from 'lucide-vue-next'
 import { postRegister } from '@/api/auth'
 import { useThemeStore } from '@/stores/useThemeStore'
-import BaseLoader from '@/components/atoms/BaseLoader.vue'
+import BaseButton from '@/components/atoms/BaseButton.vue'
 
 const router = useRouter()
 const themeStore = useThemeStore()
@@ -193,14 +193,14 @@ async function submit() {
               </label>
             </div>
 
-            <button
+            <BaseButton
               type="submit"
               class="btn btn-primary w-full"
+              :loading="loading"
               :disabled="!canSubmit"
             >
-              <BaseLoader v-if="loading" size="xs" />
               S'inscrire
-            </button>
+            </BaseButton>
           </form>
 
           <router-link to="/login" class="link link-hover text-sm">

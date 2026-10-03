@@ -109,9 +109,8 @@ async function nativeShare(): Promise<void> {
       </div>
 
       <!-- Link -->
-      <div v-if="loading" class="flex items-center justify-center gap-2 py-4 text-base-content/50">
-        <BaseLoader size="xs" />
-        <span class="text-sm">{{ t('share.generating') }}</span>
+      <div v-if="loading" class="flex justify-center py-4 text-sm text-base-content/50">
+        <BaseLoader :label="t('share.generating')" />
       </div>
 
       <template v-else-if="url">

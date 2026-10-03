@@ -64,9 +64,7 @@ const tiles = computed(() => {
 
     <main class="mx-auto max-w-3xl px-5 py-8 sm:py-12">
       <!-- Loading -->
-      <div v-if="isPending" class="flex justify-center py-24">
-        <BaseLoader size="lg" class="text-primary" />
-      </div>
+      <BaseLoader v-if="isPending" variant="page" />
 
       <!-- Not found -->
       <div v-else-if="isError || !snapshot" class="text-center py-20 space-y-4">

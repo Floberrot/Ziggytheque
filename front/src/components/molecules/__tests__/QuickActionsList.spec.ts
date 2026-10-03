@@ -65,6 +65,19 @@ describe('QuickActionsList', () => {
     expect(wrapper.emitted('remove')).toHaveLength(1)
   })
 
+  it('shows the removal as running, without taking a second tap', async () => {
+    const wrapper = mountList({ entry: entry() })
+
+    await buttonWith(wrapper, 'Retirer de la collection').trigger('click')
+    await wrapper.setProps({ busy: true })
+    const confirm = buttonWith(wrapper, 'Retirer')
+
+    expect(confirm.attributes('aria-busy')).toBe('true')
+    expect(confirm.find('[role="status"]').exists()).toBe(true)
+    await confirm.trigger('click')
+    expect(wrapper.emitted('remove')).toBeUndefined()
+  })
+
   it('cancels the removal', async () => {
     const wrapper = mountList({ entry: entry() })
 

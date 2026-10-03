@@ -155,9 +155,7 @@ const today = computed(() =>
       </button>
     </div>
 
-    <div v-if="isPending" class="flex justify-center py-20">
-      <BaseLoader size="lg" class="text-primary" />
-    </div>
+    <BaseLoader v-if="isPending" variant="section" />
 
     <template v-else-if="stats">
       <!-- KPI cards -->

@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { CheckSquare, X, Star, Plus, ArrowRight, Check, ShoppingCart, Search } from 'lucide-vue-next'
 import { getWishlist, clearWishlist, purchaseVolume } from '@/api/wishlist'
 import { useUiStore } from '@/stores/useUiStore'
+import { useCollectionFiltersStore } from '@/stores/useCollectionFiltersStore'
+import { useRememberedScroll } from '@/composables/useRememberedScroll'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import type { WishlistEntry, VolumeEntry } from '@/types'
 import BaseCover from '@/components/atoms/BaseCover.vue'
 import { editionLabel } from '@/utils/edition'
+import BaseButton from '@/components/atoms/BaseButton.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
 
 const qc = useQueryClient()
@@ -16,9 +20,9 @@ const ui = useUiStore()
 const { t } = useI18n()
 const router = useRouter()
 
-// ── Search (debounced) ──
-const searchInput = ref('')
-const search = ref<string | undefined>(undefined)
+// ── Search (debounced) — remembered, like the scroll offset, when a series is opened ──
+const { wishlistSearchInput: searchInput } = storeToRefs(useCollectionFiltersStore())
+const search = ref<string | undefined>(searchInput.value.trim() || undefined)
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 watch(searchInput, (val) => {
@@ -40,7 +44,11 @@ const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useI
     return fetched < lastPage.total ? lastPage.page + 1 : undefined
   },
   initialPageParam: 1,
+  // Kept a while, so coming back from a series finds the list (and its scroll offset) as left.
+  gcTime: 30 * 60_000,
 })
+
+useRememberedScroll('wishlist', () => !isLoading.value)
 
 const entries = computed<WishlistEntry[]>(() => data.value?.pages.flatMap((p) => p.items) ?? [])
 const totalSeries = computed(() => data.value?.pages[0]?.total ?? 0)
@@ -219,9 +227,7 @@ onUnmounted(() => {
 
     <div class="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-5">
       <!-- Loading -->
-      <div v-if="isPending" class="space-y-4">
-        <div v-for="i in 3" :key="i" class="h-44 rounded-2xl bg-base-200 animate-pulse" />
-      </div>
+      <BaseLoader v-if="isPending" variant="section" tone="warning" />
 
       <!-- Empty -->
       <div v-else-if="!entries.length" class="flex flex-col items-center justify-center py-24 gap-4">
@@ -294,15 +300,15 @@ onUnmounted(() => {
                 >
                   Tout
                 </button>
-                <button
+                <BaseButton
                   class="btn btn-ghost btn-xs text-error"
+                  :loading="clearMutation.isPending.value && clearMutation.variables.value === entry.id"
                   :disabled="clearMutation.isPending.value"
                   title="Retirer de la liste de souhaits"
                   @click="clearMutation.mutate(entry.id)"
                 >
-                  <BaseLoader v-if="clearMutation.isPending.value" size="xs" />
-                  <X v-else class="h-4 w-4" />
-                </button>
+                  <template #icon><X class="h-4 w-4" /></template>
+                </BaseButton>
               </div>
             </div>
 
@@ -407,15 +413,14 @@ onUnmounted(() => {
             {{ selectedVeIds.size }} tome{{ selectedVeIds.size > 1 ? 's' : '' }}
           </span>
           <div class="flex-1" />
-          <button
+          <BaseButton
             class="btn btn-success btn-sm gap-1.5"
-            :disabled="isBatchProcessing"
+            :loading="isBatchProcessing"
             @click="batchPurchase"
           >
-            <BaseLoader v-if="isBatchProcessing" size="xs" />
-            <ShoppingCart v-else class="h-4 w-4" />
+            <template #icon><ShoppingCart class="h-4 w-4" /></template>
             Marquer acheté{{ selectedVeIds.size > 1 ? 's' : '' }}
-          </button>
+          </BaseButton>
           <button class="btn btn-ghost btn-sm shrink-0" @click="selectedVeIds = new Set()">
             Vider
           </button>

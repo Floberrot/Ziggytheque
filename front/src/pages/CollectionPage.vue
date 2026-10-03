@@ -13,6 +13,7 @@ import {
 } from '@/api/collection'
 import { useCollectionFiltersStore } from '@/stores/useCollectionFiltersStore'
 import { useUiStore } from '@/stores/useUiStore'
+import { useRememberedScroll } from '@/composables/useRememberedScroll'
 import { useI18n } from 'vue-i18n'
 import type { CollectionEntry, QuickActionRequest } from '@/types'
 import { groupByWork } from '@/utils/workGroups'
@@ -36,19 +37,21 @@ const GENRES = [
 ] as const
 
 // ── Filter state ──────────────────────────────────────────────────────────────
-// Persisted in a store (sessionStorage-backed) so filters are remembered across
-// navigation — e.g. opening a series and coming back to the list.
+// Persisted in a store (sessionStorage-backed) so search, filters, the refine panel
+// and the scroll offset are remembered across navigation — e.g. opening a series
+// and coming back to the list.
 
 const filtersStore = useCollectionFiltersStore()
-const { searchInput } = storeToRefs(filtersStore)
+const { searchInput, advancedOpen: showAdvanced } = storeToRefs(filtersStore)
 const filters = filtersStore.filters
 
 // Debounce search input (300 ms)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
-watch(searchInput, (val) => {
+watch(searchInput, () => {
   if (debounceTimer) clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => {
-    filters.search = val.trim() || undefined
+    debounceTimer = null
+    filtersStore.commitSearch()
   }, 300)
 })
 
@@ -61,6 +64,7 @@ const hasActiveFilters = computed(
 
 function resetFilters() {
   if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = null
   filtersStore.reset()
 }
 
@@ -180,8 +184,7 @@ function togglePreset(preset: FilterPreset) {
 const activePresetCount = computed(() => PRESETS.filter(p => p.match(filters)).length)
 
 // ── Advanced (refine) filters — collapsed by default to keep the bar tidy ──────
-
-const showAdvanced = ref(false)
+// Open or closed as the reader left it (showAdvanced comes from the store).
 
 const advancedActiveCount = computed(
   () => (filters.genre ? 1 : 0) + (filters.sort ? 1 : 0) + (filters.edition ? 1 : 0),
@@ -219,7 +222,12 @@ const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useI
     return fetched < lastPage.total ? lastPage.page + 1 : undefined
   },
   initialPageParam: 1,
+  // Every page scrolled through stays cached for a while, so coming back from a series
+  // finds the list as long as it was and the scroll offset lands on the same cards.
+  gcTime: 30 * 60_000,
 })
+
+useRememberedScroll('collection', () => !isLoading.value)
 
 const entries = computed(() => data.value?.pages.flatMap((p) => p.items) ?? [])
 const total   = computed(() => data.value?.pages[0]?.total ?? 0)
@@ -304,7 +312,11 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (debounceTimer) clearTimeout(debounceTimer)
+  // Left while typing: keep the term the box shows, the list will match it on return.
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    filtersStore.commitSearch()
+  }
   observer?.disconnect()
 })
 </script>
@@ -468,14 +480,8 @@ onUnmounted(() => {
     </div>
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-      <!-- Loading skeleton -->
-      <div v-if="isLoading" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-        <div
-          v-for="i in 12"
-          :key="i"
-          class="aspect-[2/3] rounded-2xl bg-base-200 animate-pulse"
-        />
-      </div>
+      <!-- Loading -->
+      <BaseLoader v-if="isLoading" variant="section" />
 
       <!-- Empty state -->
       <div v-else-if="!isLoading && entries.length === 0" class="flex flex-col items-center justify-center py-24 gap-4">
