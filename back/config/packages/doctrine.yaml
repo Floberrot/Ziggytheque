@@ -23,6 +23,9 @@ doctrine:
             notification_owner:
                 class: App\Notification\Infrastructure\Doctrine\NotificationOwnerFilter
                 enabled: false
+            manga_owner:
+                class: App\Manga\Infrastructure\Doctrine\MangaOwnerFilter
+                enabled: false
         mappings:
             Auth:
                 type: attribute

@@ -11,15 +11,15 @@ use Symfony\Component\HttpKernel\Event\ControllerEvent;
 
 /**
  * Enables the per-owner Doctrine filters for the authenticated user on every
- * main HTTP request, scoping all user-owned data (collections, wishlist,
- * notifications, articles) to that account. Unauthenticated requests and the
+ * main HTTP request, scoping all user-owned data (series, collections,
+ * wishlist, notifications, articles) to that account. Unauthenticated requests and the
  * worker / CLI context leave the filters disabled.
  */
 #[AsEventListener]
 final readonly class OwnerFilterListener
 {
     /** @var list<string> */
-    private const FILTERS = ['collection_owner', 'notification_owner'];
+    private const FILTERS = ['collection_owner', 'notification_owner', 'manga_owner'];
 
     public function __construct(
         private EntityManagerInterface $entityManager,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Collection\Domain\Service;
 
+use App\Auth\Domain\User;
 use App\Collection\Domain\CollectionEntry;
 use App\Collection\Domain\CollectionRepositoryInterface;
 use App\Collection\Domain\ReadingStatusEnum;
@@ -141,5 +142,52 @@ final class CatalogueEntryRegistrarTest extends TestCase
         $this->assertSame('9782723425483', $manga->volumeByNumber(1)?->isbn?->value);
         $this->assertSame('Kentaro Miura', $manga->author);
         $this->assertSame([], $registration->addedNumbers);
+    }
+
+    public function testANewSeriesBelongsToWhoeverAddsIt(): void
+    {
+        $owner = $this->account('reader-1');
+
+        $registration = $this->registrar->register($this->prestige(), [1], $owner);
+
+        $this->assertTrue($registration->seriesCreated);
+        $this->assertSame($owner, $this->storedSeries[0]->owner);
+        $this->assertSame($owner, $this->entriesByMangaId[$registration->mangaId]->owner);
+    }
+
+    public function testOnesOwnCopyIsReused(): void
+    {
+        $owner = $this->account('reader-1');
+        $first = $this->registrar->register($this->prestige(), [1], $owner);
+
+        $second = $this->registrar->register($this->prestige(), [2], $owner);
+
+        $this->assertFalse($second->seriesCreated);
+        $this->assertSame($first->mangaId, $second->mangaId);
+    }
+
+    /** Even where no owner filter runs, another account's copy is never written into. */
+    public function testAnotherAccountsCopyIsNeverReused(): void
+    {
+        $someoneElse = new Manga(
+            id: 'm-someone-else',
+            title: 'Berserk',
+            edition: 'Glénat',
+            language: 'fr',
+            specialEdition: 'Prestige',
+            owner: $this->account('reader-2'),
+        );
+        $this->storedSeries[] = $someoneElse;
+
+        $registration = $this->registrar->register($this->prestige(), [1], $this->account('reader-1'));
+
+        $this->assertTrue($registration->seriesCreated);
+        $this->assertNotSame('m-someone-else', $registration->mangaId);
+        $this->assertCount(0, $someoneElse->volumes);
+    }
+
+    private function account(string $id): User
+    {
+        return new User(id: $id, email: $id . '@example.com', passwordHash: 'hash', displayName: $id);
     }
 }

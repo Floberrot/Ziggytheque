@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Manga\Domain;
 
+use App\Auth\Domain\User;
 use App\Manga\Domain\Exception\TooManyVolumesException;
 use App\Manga\Domain\Exception\VolumeAlreadyExistsException;
 use DateTimeImmutable;
@@ -13,6 +14,11 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
 
+/**
+ * One series in one account: every account has its own copy (title, publisher,
+ * covers, ISBNs, prices, tomes), so what a user corrects never changes another's.
+ * Reads are scoped to the current account by the `manga_owner` Doctrine filter.
+ */
 #[ORM\Entity]
 #[ORM\Table(name: 'mangas')]
 class Manga
@@ -58,9 +64,19 @@ class Manga
         // Null for the publisher's standard run.
         #[ORM\Column(length: 150, nullable: true)]
         public ?string $specialEdition = null,
+        // Null only for series left over from the shared-catalogue era with no
+        // collection entry: no account sees them.
+        #[ORM\ManyToOne(targetEntity: User::class)]
+        #[ORM\JoinColumn(name: 'owner_id', nullable: true, onDelete: 'CASCADE')]
+        public ?User $owner = null,
     ) {
         $this->volumes = new ArrayCollection();
         $this->createdAt = new DateTimeImmutable();
+    }
+
+    public function isOwnedBy(string $userId): bool
+    {
+        return $this->owner !== null && $this->owner->id === $userId;
     }
 
     /** @throws VolumeAlreadyExistsException when another volume already has this number */

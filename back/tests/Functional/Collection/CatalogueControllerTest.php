@@ -236,7 +236,7 @@ final class CatalogueControllerTest extends AbstractApiTestCase
         $this->assertSame([2], $second['alreadyOwnedNumbers']);
     }
 
-    public function testAnotherUserReusesTheSeriesButGetsTheirOwnEntry(): void
+    public function testAnotherUserGetsTheirOwnCopyOfTheSeries(): void
     {
         $mine = $this->assertJsonStatus(201, $this->jsonRequest('POST', '/api/catalogue/add', $this->prestigePayload([2])));
 
@@ -247,9 +247,15 @@ final class CatalogueControllerTest extends AbstractApiTestCase
         $this->assertNull($searchAsOther['editions'][1]['collection']);
 
         $theirs = $this->assertJsonStatus(201, $this->requestAs($otherToken, 'POST', '/api/catalogue/add', $this->prestigePayload([1])));
-        $this->assertFalse($theirs['seriesCreated']);
-        $this->assertSame($mine['mangaId'], $theirs['mangaId']);
+        $this->assertTrue($theirs['seriesCreated']);
+        $this->assertNotSame($mine['mangaId'], $theirs['mangaId']);
         $this->assertNotSame($mine['collectionEntryId'], $theirs['collectionEntryId']);
+        $this->assertSame(3, $theirs['totalVolumes']);
+
+        // Adding more tomes later reuses one's own copy, never the other's.
+        $again = $this->assertJsonStatus(200, $this->requestAs($otherToken, 'POST', '/api/catalogue/add', $this->prestigePayload([3])));
+        $this->assertSame($theirs['mangaId'], $again['mangaId']);
+        $this->assertFalse($again['seriesCreated']);
     }
 
     public function testAddWithoutOwnedTomesStillStartsTheSeries(): void

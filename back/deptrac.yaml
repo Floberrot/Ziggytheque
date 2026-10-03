@@ -159,6 +159,7 @@ deptrac:
       - Auth_Domain
     Manga_Domain:
       - Shared
+      - Auth_Domain
     Notification_Domain:
       - Shared
       - Collection_Domain
@@ -201,6 +202,7 @@ deptrac:
     Manga_Application:
       - Manga_Domain
       - Manga_Shared
+      - Auth_Domain
       - Shared
     Notification_Application:
       - Notification_Domain

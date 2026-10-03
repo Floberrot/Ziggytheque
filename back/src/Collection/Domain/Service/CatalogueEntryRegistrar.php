@@ -16,8 +16,9 @@ use Symfony\Component\Uid\Uuid;
 /**
  * Manga-first addition: the user picks tomes, the whole series follows.
  *
- * Finds the series (or creates it with every known tome), starts the user's entry if
- * needed, then marks the picked tomes as owned. The other tomes stay untracked.
+ * Finds the user's own copy of the series (or creates it, theirs, with every known
+ * tome), starts their entry if needed, then marks the picked tomes as owned. The
+ * other tomes stay untracked.
  */
 final readonly class CatalogueEntryRegistrar
 {
@@ -32,6 +33,10 @@ final readonly class CatalogueEntryRegistrar
     public function register(CatalogueEdition $edition, array $ownedNumbers, ?User $owner): CatalogueRegistration
     {
         $manga = $this->matcher->findSeries($edition->identity());
+        // Another account's copy is never reused, even where no owner filter runs.
+        if ($manga !== null && $owner !== null && !$manga->isOwnedBy($owner->id)) {
+            $manga = null;
+        }
         $seriesCreated = $manga === null;
         $manga ??= new Manga(
             id: Uuid::v4()->toRfc4122(),
@@ -41,6 +46,7 @@ final readonly class CatalogueEntryRegistrar
             author: $edition->author,
             coverUrl: $edition->coverUrl,
             specialEdition: $edition->specialEdition,
+            owner: $owner,
         );
 
         $this->completeSeries($manga, $edition, $ownedNumbers);

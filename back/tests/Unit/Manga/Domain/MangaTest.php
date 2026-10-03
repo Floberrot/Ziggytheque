@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Manga\Domain;
 
+use App\Auth\Domain\User;
 use App\Manga\Domain\Exception\TooManyVolumesException;
 use App\Manga\Domain\Exception\VolumeAlreadyExistsException;
 use App\Manga\Domain\GenreEnum;
@@ -149,5 +150,28 @@ final class MangaTest extends TestCase
 
         $this->expectException(VolumeAlreadyExistsException::class);
         $manga->addVolume(new Volume(id: 'v1-bis', manga: $manga, number: 1));
+    }
+
+    public function testASeriesBelongsToItsOwnerOnly(): void
+    {
+        $owner = $this->account('owner-1');
+        $manga = new Manga(id: 'manga-owned', title: 'Berserk', edition: null, language: 'fr', owner: $owner);
+
+        $this->assertSame($owner, $manga->owner);
+        $this->assertTrue($manga->isOwnedBy('owner-1'));
+        $this->assertFalse($manga->isOwnedBy('someone-else'));
+    }
+
+    public function testASeriesWithoutOwnerBelongsToNobody(): void
+    {
+        $manga = $this->makeManga();
+
+        $this->assertNull($manga->owner);
+        $this->assertFalse($manga->isOwnedBy('owner-1'));
+    }
+
+    private function account(string $id): User
+    {
+        return new User(id: $id, email: $id . '@example.com', passwordHash: 'hash', displayName: $id);
     }
 }
