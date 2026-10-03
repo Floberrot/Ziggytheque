@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Manga\Application\Import;
 
+use App\Auth\Domain\UserRepositoryInterface;
 use App\Manga\Domain\GenreEnum;
 use App\Manga\Domain\Manga;
 use App\Manga\Domain\MangaRepositoryInterface;
@@ -11,6 +12,7 @@ use App\Manga\Shared\Event\ImportMangaFailedEvent;
 use App\Manga\Shared\Event\ImportMangaStartedEvent;
 use App\Manga\Shared\Event\ImportMangaSucceededEvent;
 use App\Shared\Application\Bus\EventBusInterface;
+use App\Shared\Domain\Security\CurrentUserProviderInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Uid\Uuid;
 use Throwable;
@@ -20,6 +22,8 @@ final readonly class ImportMangaHandler
 {
     public function __construct(
         private MangaRepositoryInterface $repository,
+        private UserRepositoryInterface $userRepository,
+        private CurrentUserProviderInterface $currentUserProvider,
         private EventBusInterface $eventBus,
     ) {
     }
@@ -41,6 +45,8 @@ final readonly class ImportMangaHandler
                 genre: $command->genre !== null ? GenreEnum::from($command->genre) : null,
                 externalId: $command->externalId,
                 specialEdition: $command->specialEdition,
+                // A series typed by hand belongs to whoever typed it.
+                owner: $this->userRepository->findById($this->currentUserProvider->currentUserId()),
             );
 
             // Volume placeholders when the total is known.

@@ -260,6 +260,11 @@ final readonly class DoctrineCollectionRepository implements CollectionRepositor
     public function delete(CollectionEntry $entry): void
     {
         $this->em->remove($entry);
+        // Same flush: a second one would trip on the journal lines still pointing
+        // at the removed entry.
+        if ($entry->ownsItsSeries()) {
+            $this->em->remove($entry->manga);
+        }
         $this->em->flush();
     }
 }

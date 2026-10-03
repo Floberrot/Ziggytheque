@@ -47,7 +47,7 @@ Every time a feature is planned, developed, or removed — this rule is non-nego
 ## Bounded Contexts (back/src/)
 - `Shared/` — CommandBus / QueryBus (Messenger), EventBus (`SymfonyEventBus`, EventDispatcher), ExceptionListener, `CacheRateLimiter`, `SecretStrength`, `CurrentUserProviderInterface`
 - `Auth/` — User (role, status, notification channel), AuthToken (email verification / reset), login / register / reset / gate handlers, admin user management, `DoctrineUserProvider` + `ActiveUserChecker`
-- `Manga/` — Manga + Volume entities (price lives on Volume). A Manga is one *series* = work × publisher (`edition`) × special edition (`specialEdition`, free text, null = standard run). French catalogue (`Domain/Catalogue`, BnF + Google Books fallback)
+- `Manga/` — Manga + Volume entities (price lives on Volume). A Manga is one *series* = work × publisher (`edition`) × special edition (`specialEdition`, free text, null = standard run), **owned by one account** (`Manga.owner`): each account has its own copy, so a correction (title, cover, ISBN, price, tomes) never changes another's. The `manga_owner` Doctrine filter scopes every HTTP read to the current account (another's series → 404); removing a series from the collection deletes the copy. French catalogue (`Domain/Catalogue`, BnF + Google Books fallback)
 - `Collection/` — CollectionEntry (one series in a user's collection: reading status, rating, follow) + VolumeEntry (per tome: owned / read / wished / announced, price), the catalogue add / scan endpoints
 - `Wishlist/` — HTTP only: the wishlist is the tomes flagged `isWished` (VolumeEntry); buying one marks it owned
 - `Stats/` — GetStats query (counts, owned / wishlist / total value, genre and reading-status breakdowns, top authors, ratings, monthly and recent additions)
@@ -166,10 +166,10 @@ Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrin
 - GET    /proxy/cover?url= (cover proxy, raster images only) · GET /health · /messenger (Basic auth)
 
 ## Add flow — manga first, French editions only
-- The user finds a *tome* (scan, title or author); the whole series follows (created with every tome, the others stay untracked).
+- The user finds a *tome* (scan, title or author); the whole series follows (created — the user's own copy — with every tome, the others stay untracked).
 - Catalogue: `App\Manga\Domain\Catalogue\CatalogueInterface` → `CachedCatalogue` (1 h) → `FallbackCatalogue` (BnF SRU first, Google Books only when BnF has nothing). Test env: `App\Tests\Doubles\Manga\InMemoryCatalogue`.
 - **Special editions are discovered, never predicted**: `CatalogueTitleParser` reads the title structure (BnF ISBD "Berserk : prestige. 3", "Berserk. 5 (Éd. prestige)", Google "One Piece - Édition originale - Tome 3", "Berserk - 5"); whatever sits in the edition slot is kept verbatim ("Éd." is spelled out "Édition"). A qualifier written *after* the tome number is an edition when it is an edition statement (starts or ends with the word "édition") or when it repeats on several tomes (`CatalogueEditionAssembler`). Never add a list of edition names.
-- Series identity (`EditionIdentity`): folded title + publisher imprint (`PublisherNormalizer`) + folded special edition, the word "édition" around the name aside ("Prestige" = "Édition prestige").
+- Series identity (`EditionIdentity`): folded title + publisher imprint (`PublisherNormalizer`) + folded special edition, the word "édition" around the name aside ("Prestige" = "Édition prestige"). It is matched among the current account's own series only: adding a series someone else collects creates the user's own copy (`CatalogueEntryRegistrar` never reuses another account's).
 - Catalogue noise: only printed books with an ISBN are kept (BnF `dc:type` must be printed text; every type / Google category is checked against films, music, software, video games — `EditionRelevanceFilter`).
 - A scanned ISBN always finds its own tome: the records the catalogue returns *for* that ISBN carry it (`CatalogueSearch::identifyIsbn`).
 - A series created from the catalogue is enriched in the background (genre / summary / author) from Jikan (`ExternalApiClientInterface`, exact-title match only) via `EnrichMangaMessage` (async).

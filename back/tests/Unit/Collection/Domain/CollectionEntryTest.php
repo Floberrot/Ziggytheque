@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Collection\Domain;
 
+use App\Auth\Domain\User;
 use App\Collection\Domain\CollectionEntry;
 use App\Collection\Domain\ReadingStatusEnum;
 use App\Collection\Domain\VolumeEntry;
@@ -176,5 +177,27 @@ final class CollectionEntryTest extends TestCase
         $entry->refreshReadingStatus();
 
         $this->assertSame(ReadingStatusEnum::Completed, $entry->readingStatus);
+    }
+
+    public function testAnEntryOwnsTheSeriesCopyOfItsOwner(): void
+    {
+        $owner = $this->account('owner-1');
+        $manga = new Manga(id: 'm-owned', title: 'Berserk', edition: null, language: 'fr', owner: $owner);
+
+        $this->assertTrue((new CollectionEntry(id: 'e1', manga: $manga, owner: $owner))->ownsItsSeries());
+    }
+
+    public function testAnEntryDoesNotOwnSomeoneElsesSeries(): void
+    {
+        $manga = new Manga(id: 'm-other', title: 'Berserk', edition: null, language: 'fr', owner: $this->account('owner-1'));
+
+        $this->assertFalse((new CollectionEntry(id: 'e2', manga: $manga, owner: $this->account('owner-2')))->ownsItsSeries());
+        $this->assertFalse((new CollectionEntry(id: 'e3', manga: $manga, owner: null))->ownsItsSeries());
+        $this->assertFalse((new CollectionEntry(id: 'e4', manga: $this->makeManga(), owner: $this->account('owner-1')))->ownsItsSeries());
+    }
+
+    private function account(string $id): User
+    {
+        return new User(id: $id, email: $id . '@example.com', passwordHash: 'hash', displayName: $id);
     }
 }

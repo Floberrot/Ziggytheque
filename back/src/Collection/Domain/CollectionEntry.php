@@ -58,6 +58,15 @@ class CollectionEntry
     }
 
     /**
+     * The series is this account's own copy: removing the entry removes it too, with
+     * its tomes, covers and prices.
+     */
+    public function ownsItsSeries(): bool
+    {
+        return $this->owner !== null && $this->manga->isOwnedBy($this->owner->id);
+    }
+
+    /**
      * Starts tracking every volume of the series that has no entry yet (volumes added
      * to the series after the user started collecting it).
      *

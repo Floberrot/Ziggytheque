@@ -41,15 +41,18 @@ final readonly class AddToCollectionHandler
 
         try {
             $manga = $this->mangaRepository->findById($command->mangaId);
+            $currentUserId = $this->currentUserProvider->currentUserId();
 
-            if ($manga === null) {
+            // Only one's own series goes in one's collection: another account's copy
+            // does not exist for this user.
+            if ($manga === null || !$manga->isOwnedBy($currentUserId)) {
                 throw new NotFoundException('Manga', $command->mangaId);
             }
 
             $entry = new CollectionEntry(
                 id: Uuid::v4()->toRfc4122(),
                 manga: $manga,
-                owner: $this->userRepository->findById($this->currentUserProvider->currentUserId()),
+                owner: $this->userRepository->findById($currentUserId),
             );
 
             foreach ($manga->volumes as $volume) {

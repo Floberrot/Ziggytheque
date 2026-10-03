@@ -39,5 +39,6 @@ interface CollectionRepositoryInterface
 
     public function save(CollectionEntry $entry): void;
 
+    /** Removes the entry and, when it is the owner's own copy, the series under it (one flush). */
     public function delete(CollectionEntry $entry): void;
 }
