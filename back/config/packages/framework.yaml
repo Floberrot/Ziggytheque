@@ -5,6 +5,13 @@ framework:
     # Note that the session will be started ONLY if you read or write from it.
     session: true
 
+    # The client address (login / register limits, journal) comes from the frontend
+    # nginx, which reaches the backend over Railway's private network and forwards
+    # the address Railway's edge saw. Only private-network hops are believed: a
+    # request reaching the backend from the internet cannot pick its own address.
+    trusted_proxies: '%env(TRUSTED_PROXIES)%'
+    trusted_headers: ['x-forwarded-for']
+
     # No external call may hang a request: BnF, Google Books, covers, prices,
     # Jikan… A client that needs more sets its own timeout per request.
     http_client:

@@ -40,7 +40,9 @@ Every time a feature is planned, developed, or removed — this rule is non-nego
 - The account is reloaded on every request: one no longer `active` (disabled, back to pending) gets 401 with the token it already holds (`ActiveUserChecker`, `api` firewall).
 - Admin gate (second factor): an admin posts `POST /api/auth/gate { password }` (`GATE_PASSWORD`, ≥ 12 chars, else 503) → JWT carrying `adminUnlocked` → `ROLE_ADMIN_UNLOCKED`, required by `/api/admin/*` (front: /journal, /admin/users). Granted only while the account is still an admin.
 - `/messenger` uses HTTP Basic (MONITOR_USER / MONITOR_PASSWORD; refused while the password is weak)
-- Quotas (`CacheRateLimiter` → 429), per account: catalogue 60/min; manga lookups that call outside services (cover-by-isbn, volume-search, translate-summary, prices) 30/min; cover batches 5/10 min; test notification 5/15 min. Login / register / reset are limited per email, the gate per user.
+- Quotas (`CacheRateLimiter` → 429), per account: catalogue 60/min; manga lookups that call outside services (cover-by-isbn, volume-search, translate-summary, prices) 30/min; cover batches 5/10 min; test notification 5/15 min. The gate is limited per user.
+- Public auth endpoints, per client IP: login 30/5 min, register and request-reset 10/h (plus 5/h per email). Login failures count per email **and** IP and a successful login clears them, so guessing someone's password from one address never locks its owner out. Register answers the same 201 for an address that already has an account (its owner gets an "account exists" email); login hashes the password even for an unknown address — neither the answer nor its timing tells which emails exist.
+- Client IP: the frontend nginx sends the address Railway's edge put in `X-Real-IP` as `X-Forwarded-For`; the backend believes it only from `TRUSTED_PROXIES` (`private_ranges`: the Railway private network), so a request reaching the backend from the internet cannot choose its address. Check it after a deploy: the journal shows the IP of each change.
 
 ## Bounded Contexts (back/src/)
 - `Shared/` — CommandBus / QueryBus (Messenger), EventBus (`SymfonyEventBus`, EventDispatcher), ExceptionListener, `CacheRateLimiter`, `SecretStrength`, `CurrentUserProviderInterface`
@@ -50,7 +52,7 @@ Every time a feature is planned, developed, or removed — this rule is non-nego
 - `Wishlist/` — HTTP only: the wishlist is the tomes flagged `isWished` (VolumeEntry); buying one marks it owned
 - `Stats/` — GetStats query (counts, owned / wishlist / total value, genre and reading-status breakdowns, top authors, ratings, monthly and recent additions)
 - `Share/` — public snapshot of a user's stats (`/share/:token`)
-- `Notification/` — news (RSS feeds + Jikan, matched to followed series → Article), in-app Notification + email / Discord delivery, activity journal (ActivityLog), scheduler (daily crawl)
+- `Notification/` — news (RSS feeds + Jikan, matched to followed series → Article), in-app Notification + email / Discord delivery, activity journal (ActivityLog: every change and every failed request — successful reads are not written), scheduler (daily crawl)
 
 ## Code Style
 

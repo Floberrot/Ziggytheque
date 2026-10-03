@@ -22,6 +22,12 @@ final readonly class ActivityLogKernelSubscriber
      */
     private const EXCLUDED_PREFIXES = ['/api/auth'];
 
+    /**
+     * A successful read changes nothing worth a journal line and would write one row
+     * per page view; a failed one still goes in (it is an error to look at).
+     */
+    private const READ_METHODS = ['GET', 'HEAD', 'OPTIONS'];
+
     /** Path prefixes whose following segments may carry secrets (share/scan tokens). */
     private const MASKED_PREFIXES = ['/api/share/', '/api/scan/'];
 
@@ -42,6 +48,10 @@ final readonly class ActivityLogKernelSubscriber
         $statusCode = $event->getResponse()->getStatusCode();
 
         if (!str_starts_with($path, '/api/')) {
+            return;
+        }
+
+        if ($statusCode < 400 && in_array($request->getMethod(), self::READ_METHODS, true)) {
             return;
         }
 

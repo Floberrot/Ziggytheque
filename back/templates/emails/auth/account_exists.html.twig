@@ -1,0 +1,13 @@
+{% extends 'emails/auth/layout.html.twig' %}
+
+{% block title %}Vous avez déjà un compte{% endblock %}
+
+{% block content %}
+  <h1>Vous avez déjà un compte, {{ displayName }}</h1>
+  <p>Quelqu'un, peut-être vous, vient de demander la création d'un compte Ziggytheque avec cette adresse. Elle en a déjà un : connectez-vous, ou choisissez un nouveau mot de passe si vous l'avez oublié.</p>
+  <div class="btn-wrap">
+    <a href="{{ loginUrl }}" class="btn">Se connecter</a>
+  </div>
+  <p class="muted">Mot de passe oublié ? <a href="{{ forgotPasswordUrl }}" class="link">Le réinitialiser</a></p>
+  <p class="muted">Si vous n'êtes pas à l'origine de cette demande, ignorez cet email : rien n'a changé sur votre compte.</p>
+{% endblock %}

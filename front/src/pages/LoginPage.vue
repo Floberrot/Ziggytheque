@@ -29,6 +29,8 @@ async function submit() {
   } catch (err) {
     if (axios.isAxiosError(err) && err.response?.status === 403) {
       error.value = 'Votre compte n\'est pas encore actif. Vérifiez votre email ou attendez l\'approbation admin.'
+    } else if (axios.isAxiosError(err) && err.response?.status === 429) {
+      error.value = 'Trop de tentatives. Réessayez dans quelques minutes.'
     } else {
       error.value = 'Email ou mot de passe invalide.'
     }

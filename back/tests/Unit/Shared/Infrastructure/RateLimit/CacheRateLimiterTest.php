@@ -45,6 +45,42 @@ final class CacheRateLimiterTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
+    public function testResetStartsTheCountOver(): void
+    {
+        $limiter = new CacheRateLimiter(new ArrayAdapter());
+        $limiter->consume('client-f', 2, 60);
+        $limiter->consume('client-f', 2, 60);
+
+        $limiter->reset('client-f');
+
+        $limiter->consume('client-f', 2, 60);
+        $limiter->consume('client-f', 2, 60);
+        $this->expectException(RateLimitExceededException::class);
+        $limiter->consume('client-f', 2, 60);
+    }
+
+    public function testResetLeavesOtherKeysAlone(): void
+    {
+        $limiter = new CacheRateLimiter(new ArrayAdapter());
+        $limiter->consume('client-g', 1, 60);
+        $limiter->consume('client-h', 1, 60);
+
+        $limiter->reset('client-h');
+
+        $this->expectException(RateLimitExceededException::class);
+        $limiter->consume('client-g', 1, 60);
+    }
+
+    public function testResetIgnoresACacheOutage(): void
+    {
+        $pool = $this->createStub(CacheItemPoolInterface::class);
+        $pool->method('deleteItem')->willThrowException(new RuntimeException('cache down'));
+
+        (new CacheRateLimiter($pool))->reset('client-i');
+
+        $this->addToAssertionCount(1);
+    }
+
     public function testFailsOpenWhenCacheThrows(): void
     {
         $pool = $this->createStub(CacheItemPoolInterface::class);

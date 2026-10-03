@@ -49,7 +49,7 @@ Définies en tête du script via `IGNORE_KEYS` (liste exacte) et `IGNORE_PATTERN
 |---|---|
 | `APP_ENV`, `APP_DEBUG` | figées dans l'image (`ENV APP_ENV=prod`) |
 | `JWT_SECRET_KEY`, `JWT_PUBLIC_KEY` | chemins de fichiers ; la paire de clés est générée au boot (`docker-entrypoint.sh`) |
-| `JWT_TTL`, `MESSENGER_TRANSPORT_DSN` | la valeur par défaut commitée dans `back/.env` **est** la valeur de prod |
+| `JWT_TTL`, `TRUSTED_PROXIES`, `MESSENGER_TRANSPORT_DSN` | la valeur par défaut commitée dans `back/.env` **est** la valeur de prod |
 | `DATABASE_URL` | fournie par Railway en référence du service Postgres |
 | `*_BASE_URL` (motif) | URLs de base d'API publiques (`MANGADEX_BASE_URL`, `OPEN_LIBRARY_COVERS_BASE_URL`, `BNF_BASE_URL`, …) dont le défaut commité **est** la valeur de prod |
 | `VITE_API_BASE_URL` | build arg volontairement vide |

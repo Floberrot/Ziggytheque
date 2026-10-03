@@ -65,9 +65,9 @@ final class ActivityLogControllerTest extends AbstractApiTestCase
     public function testActivityLogItemsExposeOwner(): void
     {
         // The setUp admin performs an API call → owner must be attributed.
-        $this->jsonRequest('GET', '/api/collection');
+        $this->createSeries('Owned Log Series');
 
-        $items = $this->itemsFor('eventType=user_action&search=/api/collection');
+        $items = $this->itemsFor('eventType=user_action&search=/api/manga');
 
         $this->assertNotEmpty($items);
         $ownerEmails = array_map(static fn (array $item) => $item['owner']['email'] ?? null, $items);
@@ -80,8 +80,10 @@ final class ActivityLogControllerTest extends AbstractApiTestCase
         $readerToken = $this->tokenForUser('owner-filter@test.local');
 
         // Each account performs one API call → one user_action log per owner.
-        $this->jsonRequest('GET', '/api/collection');
-        $this->requestWithToken('GET', '/api/collection', $readerToken);
+        $this->createSeries('Admin Series');
+        $this->requestWithToken('POST', '/api/manga', $readerToken, (string) json_encode([
+            'title' => 'Reader Series', 'language' => 'fr',
+        ]));
 
         $items = $this->itemsFor('eventType=user_action&ownerId=' . $reader->id);
 
@@ -89,6 +91,28 @@ final class ActivityLogControllerTest extends AbstractApiTestCase
         foreach ($items as $item) {
             $this->assertSame($reader->id, $item['owner']['id']);
         }
+    }
+
+    // ── What is journaled ────────────────────────────────────────────────────
+
+    public function testASuccessfulReadIsNotJournaled(): void
+    {
+        $this->assertSame(200, $this->jsonRequest('GET', '/api/collection')->getStatusCode());
+        $this->assertSame(200, $this->jsonRequest('GET', '/api/stats')->getStatusCode());
+
+        $this->assertSame([], $this->itemsFor('eventType=user_action&search=/api/collection'));
+        $this->assertSame([], $this->itemsFor('eventType=user_action&search=/api/stats'));
+    }
+
+    public function testAChangeIsJournaled(): void
+    {
+        $this->createSeries('Journaled Series');
+
+        $items = $this->itemsFor('eventType=user_action&search=/api/manga');
+
+        $this->assertCount(1, $items);
+        $this->assertSame('POST', $items[0]['metadata']['method']);
+        $this->assertSame(201, $items[0]['metadata']['status_code']);
     }
 
     // ── from / to / search filters ───────────────────────────────────────────
@@ -280,6 +304,11 @@ final class ActivityLogControllerTest extends AbstractApiTestCase
         $data = json_decode((string) $gateResponse->getContent(), true);
 
         return $data['token'] ?? '';
+    }
+
+    private function createSeries(string $title): void
+    {
+        $this->assertSame(201, $this->jsonRequest('POST', '/api/manga', ['title' => $title, 'language' => 'fr'])->getStatusCode());
     }
 
     private function requestWithToken(string $method, string $url, string $token, string $body = ''): Response

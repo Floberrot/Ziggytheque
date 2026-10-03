@@ -13,6 +13,7 @@ use App\Tests\Functional\AbstractApiTestCase;
 use App\Tests\Functional\Fixtures\UserFixtureFactory;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Uid\Uuid;
 
@@ -37,17 +38,35 @@ final class AuthControllerTest extends AbstractApiTestCase
         self::assertEmailHtmlBodyContains($email, 'verify-email?token=');
     }
 
-    public function testRegisterWithDuplicateEmailReturns409(): void
+    public function testRegisterWithAnExistingEmailAnswersLikeANewRegistration(): void
     {
-        UserFixtureFactory::createActiveUser(static::getContainer(), email: 'dup@test.local');
+        UserFixtureFactory::createActiveUser(static::getContainer(), email: 'dup@test.local', displayName: 'Dup Owner');
 
         $response = $this->jsonRequest(
             'POST',
             '/api/auth/register',
-            ['email' => 'dup@test.local', 'password' => 'Password1!', 'displayName' => 'Dup'],
+            ['email' => 'dup@test.local', 'password' => 'Password1!', 'displayName' => 'Someone Else'],
             auth: false,
         );
-        $this->assertJsonStatus(409, $response);
+        $data = $this->assertJsonStatus(201, $response);
+
+        // The very answer of a new registration: nothing tells the address is taken.
+        $this->assertSame('Registration successful. Please check your email to verify your account.', $data['message']);
+        // The owner is told by email, with a way in — never a verification link.
+        self::assertEmailCount(1);
+        $email = self::getMailerMessage();
+        self::assertInstanceOf(Email::class, $email);
+        self::assertEmailAddressContains($email, 'To', 'dup@test.local');
+        self::assertEmailHtmlBodyContains($email, 'Dup Owner');
+        self::assertEmailHtmlBodyContains($email, '/forgot-password');
+        self::assertEmailHtmlBodyNotContains($email, 'verify-email?token=');
+        // And the existing account is untouched.
+        /** @var EntityManagerInterface $entityManager */
+        $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+        $accounts = $entityManager->getRepository(User::class)->findBy(['email' => 'dup@test.local']);
+        $this->assertCount(1, $accounts);
+        $this->assertSame('Dup Owner', $accounts[0]->displayName);
+        $this->assertSame(UserStatusEnum::Active, $accounts[0]->status);
     }
 
     public function testRegisterWithMissingFieldReturns400(): void
@@ -270,6 +289,88 @@ final class AuthControllerTest extends AbstractApiTestCase
         $this->assertJsonStatus(200, $response);
     }
 
+    public function testFailuresFromAnotherAddressNeverLockTheOwnerOut(): void
+    {
+        UserFixtureFactory::createActiveUser(static::getContainer(), email: 'target@test.local');
+
+        for ($attempt = 1; $attempt <= 10; $attempt++) {
+            $this->assertSame(401, $this->failedLoginFrom('203.0.113.10', 'target@test.local')->getStatusCode());
+        }
+        $this->assertJsonStatus(429, $this->failedLoginFrom('203.0.113.10', 'target@test.local'));
+
+        // The owner, from their own address, is not blocked by someone else's guesses.
+        $this->assertJsonStatus(200, $this->loginFrom('198.51.100.20', 'target@test.local', 'Test1234!'));
+    }
+
+    public function testASuccessfulLoginClearsTheFailedAttempts(): void
+    {
+        UserFixtureFactory::createActiveUser(static::getContainer(), email: 'forgetful@test.local');
+
+        for ($attempt = 1; $attempt <= 9; $attempt++) {
+            $this->failedLoginFrom('198.51.100.30', 'forgetful@test.local');
+        }
+        $this->assertJsonStatus(200, $this->loginFrom('198.51.100.30', 'forgetful@test.local', 'Test1234!'));
+
+        // The count starts over: ten more failures are still checked, the next is refused.
+        for ($attempt = 1; $attempt <= 10; $attempt++) {
+            $this->assertSame(401, $this->failedLoginFrom('198.51.100.30', 'forgetful@test.local')->getStatusCode());
+        }
+        $this->assertJsonStatus(429, $this->failedLoginFrom('198.51.100.30', 'forgetful@test.local'));
+    }
+
+    public function testOneAddressCannotSweepManyAccounts(): void
+    {
+        for ($attempt = 1; $attempt <= 30; $attempt++) {
+            $email = sprintf('sweep-%d@test.local', $attempt);
+            $this->assertSame(401, $this->failedLoginFrom('203.0.113.40', $email)->getStatusCode());
+        }
+
+        $this->assertJsonStatus(429, $this->failedLoginFrom('203.0.113.40', 'sweep-31@test.local'));
+        // Other clients are not affected.
+        $this->assertSame(401, $this->failedLoginFrom('203.0.113.41', 'sweep-31@test.local')->getStatusCode());
+    }
+
+    public function testAForwardedForSentFromTheInternetIsIgnored(): void
+    {
+        UserFixtureFactory::createActiveUser(static::getContainer(), email: 'spoofed@test.local');
+
+        // A client reaching the backend directly (public address) forging a new
+        // X-Forwarded-For on each try is still counted on its real address.
+        for ($attempt = 1; $attempt <= 10; $attempt++) {
+            $forgedAddress = sprintf('10.0.0.%d', $attempt);
+            $response = $this->failedLoginFrom($forgedAddress, 'spoofed@test.local', remoteAddress: '203.0.113.50');
+            $this->assertSame(401, $response->getStatusCode());
+        }
+
+        $this->assertJsonStatus(429, $this->failedLoginFrom('10.0.0.99', 'spoofed@test.local', remoteAddress: '203.0.113.50'));
+    }
+
+    public function testRegistrationsFromOneAddressAreLimited(): void
+    {
+        for ($attempt = 1; $attempt <= 10; $attempt++) {
+            $response = $this->postFrom('203.0.113.60', '/api/auth/register', [
+                'email' => sprintf('signup-%d@test.local', $attempt), 'password' => 'Password1!', 'displayName' => 'Signup',
+            ]);
+            $this->assertSame(201, $response->getStatusCode());
+        }
+
+        $this->assertJsonStatus(429, $this->postFrom('203.0.113.60', '/api/auth/register', [
+            'email' => 'signup-11@test.local', 'password' => 'Password1!', 'displayName' => 'Signup',
+        ]));
+    }
+
+    public function testResetRequestsFromOneAddressAreLimited(): void
+    {
+        for ($attempt = 1; $attempt <= 10; $attempt++) {
+            $response = $this->postFrom('203.0.113.70', '/api/auth/request-reset', [
+                'email' => sprintf('reset-%d@test.local', $attempt),
+            ]);
+            $this->assertSame(200, $response->getStatusCode());
+        }
+
+        $this->assertJsonStatus(429, $this->postFrom('203.0.113.70', '/api/auth/request-reset', ['email' => 'reset-11@test.local']));
+    }
+
     public function testRepeatedResetRequestsAreRateLimited(): void
     {
         UserFixtureFactory::createActiveUser(static::getContainer(), email: 'mailbomb@test.local');
@@ -346,5 +447,35 @@ final class AuthControllerTest extends AbstractApiTestCase
         $entityManager->flush();
 
         return $plainToken;
+    }
+
+    /**
+     * The request as the frontend nginx forwards it: from a private-network hop
+     * (127.0.0.1 in tests, trusted) carrying the client address in X-Forwarded-For.
+     * $remoteAddress replaces that hop, e.g. with a public address that is not trusted.
+     *
+     * @param array<string, string> $body
+     */
+    private function postFrom(string $clientIp, string $url, array $body, string $remoteAddress = '127.0.0.1'): Response
+    {
+        $this->client->request('POST', $url, [], [], [
+            'CONTENT_TYPE'         => 'application/json',
+            'HTTP_ACCEPT'          => 'application/json',
+            'HTTP_X_FORWARDED_FOR' => $clientIp,
+            'REMOTE_ADDR'          => $remoteAddress,
+        ], (string) json_encode($body));
+
+        return $this->client->getResponse();
+    }
+
+    private function loginFrom(string $clientIp, string $email, string $password, string $remoteAddress = '127.0.0.1'): Response
+    {
+        return $this->postFrom($clientIp, '/api/auth/login', ['email' => $email, 'password' => $password], $remoteAddress);
+    }
+
+    /** A login with a wrong password. */
+    private function failedLoginFrom(string $clientIp, string $email, string $remoteAddress = '127.0.0.1'): Response
+    {
+        return $this->postFrom($clientIp, '/api/auth/login', ['email' => $email, 'password' => 'wrong-password'], $remoteAddress);
     }
 }
