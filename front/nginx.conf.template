@@ -38,8 +38,6 @@ server {
                application/manifest+json image/svg+xml text/plain;
 
     # Baseline hardening. `always` so they are set on error responses too.
-    # No CSP here: the SPA's inline styles and the camera-based scanner need a
-    # policy tuned against a real build, which belongs in its own change.
     add_header X-Content-Type-Options nosniff always;
     add_header X-Frame-Options SAMEORIGIN always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
@@ -47,6 +45,20 @@ server {
     # HSTS: Railway terminates TLS in front of nginx and serves www over HTTPS
     # only. No `preload`, and no includeSubDomains while other hosts exist.
     add_header Strict-Transport-Security "max-age=31536000" always;
+
+    # Content Security Policy, REPORT-ONLY for now: the browser reports in its console
+    # what the policy would block, and blocks nothing. Tuned for this SPA:
+    #   script-src  'self'           Vite bundles and the PWA's registerSW.js, no inline script
+    #   style-src   'unsafe-inline'  Vue style bindings, Tailwind / DaisyUI inline styles
+    #   img-src     data: blob: https:  covers from any catalogue host, QR codes (data:)
+    #   connect-src 'self'           /api and the Mercure EventSource, both proxied below
+    #   media-src   blob:            the scanner's camera stream on older browsers
+    #   worker-src / manifest-src    the vite-plugin-pwa service worker and manifest
+    # To enforce it: check every page (scanner, charts, cover batch, install as an app)
+    # shows no "Content-Security-Policy" report in the console, then rename the header
+    # to Content-Security-Policy (and update the check in .github/workflows/docker.yml).
+    # If MERCURE_PUBLIC_URL is ever on another origin, add it to connect-src first.
+    add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'" always;
 
     # Public DNS resolver — 127.0.0.11 is Docker Compose only, not available on Railway
     resolver 8.8.8.8 8.8.4.4 valid=30s ipv6=off;

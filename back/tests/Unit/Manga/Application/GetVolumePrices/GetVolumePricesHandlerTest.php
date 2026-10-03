@@ -17,7 +17,7 @@ use App\Manga\Domain\Service\RetailerOfferResolver;
 use App\Manga\Domain\Volume;
 use App\Manga\Domain\VolumePriceProviderInterface;
 use App\Shared\Domain\Exception\NotFoundException;
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 
 final class GetVolumePricesHandlerTest extends TestCase
@@ -26,21 +26,28 @@ final class GetVolumePricesHandlerTest extends TestCase
     private const string VOLUME_ID = 'volume-1';
     private const string ISBN      = '9782723425483';
 
-    private MangaRepositoryInterface&MockObject $repository;
-    private VolumePriceProviderInterface&MockObject $priceProvider;
-    private PriceOfferCacheInterface&MockObject $cache;
+    private MangaRepositoryInterface&Stub $repository;
+    private VolumePriceProviderInterface&Stub $priceProvider;
+    private PriceOfferCacheInterface&Stub $cache;
     private GetVolumePricesHandler $handler;
 
     protected function setUp(): void
     {
-        $this->repository    = $this->createMock(MangaRepositoryInterface::class);
-        $this->priceProvider = $this->createMock(VolumePriceProviderInterface::class);
-        $this->cache         = $this->createMock(PriceOfferCacheInterface::class);
+        $this->repository    = $this->createStub(MangaRepositoryInterface::class);
+        $this->priceProvider = $this->createStub(VolumePriceProviderInterface::class);
+        $this->cache         = $this->createStub(PriceOfferCacheInterface::class);
 
-        $this->handler = new GetVolumePricesHandler(
+        $this->handler = $this->handlerWith($this->priceProvider, $this->cache);
+    }
+
+    private function handlerWith(
+        VolumePriceProviderInterface $priceProvider,
+        PriceOfferCacheInterface $cache,
+    ): GetVolumePricesHandler {
+        return new GetVolumePricesHandler(
             $this->repository,
-            $this->priceProvider,
-            $this->cache,
+            $priceProvider,
+            $cache,
             new PriceOfferSorter(),
             new RetailerOfferResolver(),
         );
@@ -133,10 +140,11 @@ final class GetVolumePricesHandlerTest extends TestCase
     public function testFreshOffersAreCached(): void
     {
         $this->repository->method('findById')->willReturn($this->makeManga(Isbn::fromString(self::ISBN)));
-        $this->cache->method('get')->willReturn(null);
         $this->priceProvider->method('findOffers')->willReturn([$this->makeOffer('Amazon', 7.20)]);
 
-        $this->cache->expects($this->once())
+        $cache = $this->createMock(PriceOfferCacheInterface::class);
+        $cache->expects($this->once())->method('get')->willReturn(null);
+        $cache->expects($this->once())
             ->method('put')
             ->with(
                 $this->anything(),
@@ -145,16 +153,17 @@ final class GetVolumePricesHandlerTest extends TestCase
                     && $offers[0]['merchant'] === 'Amazon'),
             );
 
-        ($this->handler)(new GetVolumePricesQuery(self::MANGA_ID, self::VOLUME_ID));
+        ($this->handlerWith($this->priceProvider, $cache))(new GetVolumePricesQuery(self::MANGA_ID, self::VOLUME_ID));
     }
 
     public function testCachedOffersAlsoFeedTheRetailerBlocksWithoutProviderCall(): void
     {
         $this->repository->method('findById')->willReturn($this->makeManga(Isbn::fromString(self::ISBN)));
         $this->cache->method('get')->willReturn([$this->makeOffer('Fnac', 7.90)->toArray()]);
-        $this->priceProvider->expects($this->never())->method('findOffers');
+        $priceProvider = $this->createMock(VolumePriceProviderInterface::class);
+        $priceProvider->expects($this->never())->method('findOffers');
 
-        $result = ($this->handler)(new GetVolumePricesQuery(self::MANGA_ID, self::VOLUME_ID));
+        $result = ($this->handlerWith($priceProvider, $this->cache))(new GetVolumePricesQuery(self::MANGA_ID, self::VOLUME_ID));
 
         [$amazonBlock, $fnacBlock, $ebayBlock] = $result['retailers'];
         $this->assertSame('not_found', $amazonBlock['status']);

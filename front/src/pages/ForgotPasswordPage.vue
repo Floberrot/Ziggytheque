@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { postRequestPasswordReset } from '@/api/auth'
 import { useThemeStore } from '@/stores/useThemeStore'
 import BaseButton from '@/components/atoms/BaseButton.vue'
 
 const router = useRouter()
 const themeStore = useThemeStore()
+const { t } = useI18n()
 
 const email = ref('')
 const loading = ref(false)
@@ -37,27 +39,27 @@ async function submit() {
         <img :src="logoSrc" alt="Ziggytheque" class="h-28 w-auto object-contain" />
 
         <template v-if="submitted">
-          <h2 class="text-lg font-semibold">Email envoyé</h2>
+          <h2 class="text-lg font-semibold">{{ t('auth.forgot.sentTitle') }}</h2>
           <p class="text-base-content/70 text-sm text-center">
-            Si un compte existe pour cette adresse, un lien de réinitialisation
-            vient d'être envoyé.
+            {{ t('auth.forgot.sentBody') }}
           </p>
           <button class="btn btn-primary btn-sm" @click="router.push({ name: 'login' })">
-            Retour à la connexion
+            {{ t('auth.backToLogin') }}
           </button>
         </template>
 
         <template v-else>
-          <h2 class="text-lg font-semibold">Mot de passe oublié&nbsp;?</h2>
+          <h2 class="text-lg font-semibold">{{ t('auth.forgot.title') }}</h2>
           <p class="text-base-content/60 text-sm text-center">
-            Entrez votre email pour recevoir un lien de réinitialisation.
+            {{ t('auth.forgot.intro') }}
           </p>
 
           <form class="flex flex-col gap-3 w-full" @submit.prevent="submit">
             <input
               v-model="email"
               type="email"
-              placeholder="Email"
+              :placeholder="t('auth.email')"
+              :aria-label="t('auth.email')"
               class="input input-bordered w-full"
               autocomplete="email"
               autofocus
@@ -68,12 +70,12 @@ async function submit() {
               class="btn btn-primary w-full"
               :loading="loading"
             >
-              Envoyer le lien
+              {{ t('auth.forgot.submit') }}
             </BaseButton>
           </form>
 
           <router-link to="/login" class="link link-hover text-sm">
-            Retour à la connexion
+            {{ t('auth.backToLogin') }}
           </router-link>
         </template>
       </div>

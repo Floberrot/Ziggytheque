@@ -114,7 +114,7 @@ async function batchPurchase() {
     await qc.invalidateQueries({ queryKey: ['collection'] })
     await qc.invalidateQueries({ queryKey: ['stats'] })
     selectedVeIds.value = new Set()
-    ui.addToast(`${count} tome${count > 1 ? 's' : ''} marqué${count > 1 ? 's' : ''} comme acheté${count > 1 ? 's' : ''}`, 'success')
+    ui.addToast(t('wishlist.batchPurchased', { count }, count), 'success')
   } finally {
     isBatchProcessing.value = false
   }
@@ -126,7 +126,7 @@ const clearMutation = useMutation({
   onSuccess: () => {
     qc.invalidateQueries({ queryKey: ['wishlist'] })
     qc.invalidateQueries({ queryKey: ['stats'] })
-    ui.addToast('Retiré de la liste de souhaits', 'success')
+    ui.addToast(t('wishlist.removed'), 'success')
   },
 })
 
@@ -140,6 +140,12 @@ const purchaseMutation = useMutation({
     ui.addToast(t('wishlist.purchased'), 'success')
   },
 })
+
+/** A wished tome: bought at once, or picked in batch mode. */
+function activateVolume(entry: WishlistEntry, volume: VolumeEntry): void {
+  if (batchMode.value) toggleVolumeSelect(volume.id)
+  else purchaseMutation.mutate({ entryId: entry.id, veId: volume.id })
+}
 
 function goToDetail(id: string) {
   router.push({ name: 'collection-detail', params: { id } })
@@ -173,8 +179,8 @@ onUnmounted(() => {
           <h1 class="text-3xl font-extrabold tracking-tight">{{ t('wishlist.title') }}</h1>
           <p class="text-base-content/50 text-sm mt-1">
             <template v-if="!isPending">
-              {{ totalSeries }} série{{ totalSeries !== 1 ? 's' : '' }} ·
-              <span class="text-warning font-semibold">{{ totalWished }} tome{{ totalWished !== 1 ? 's' : '' }} souhaité{{ totalWished !== 1 ? 's' : '' }}</span>
+              {{ t('wishlist.seriesCount', { count: totalSeries }, totalSeries) }} ·
+              <span class="text-warning font-semibold">{{ t('wishlist.wishedCount', { count: totalWished }, totalWished) }}</span>
             </template>
           </p>
         </div>
@@ -187,11 +193,11 @@ onUnmounted(() => {
             @click="toggleBatchMode"
           >
             <CheckSquare class="h-4 w-4" />
-            {{ batchMode ? 'Terminer' : 'Sélectionner' }}
+            {{ batchMode ? t('volumeGrid.batchDone') : t('volumeGrid.batchSelect') }}
           </button>
           <RouterLink to="/add" class="btn btn-warning btn-sm gap-1.5 shadow">
             <Plus class="h-4 w-4" stroke-width="2.5" />
-            Ajouter
+            {{ t('nav.add') }}
           </RouterLink>
         </div>
       </div>
@@ -205,6 +211,7 @@ onUnmounted(() => {
             type="search"
             class="input input-bordered w-full h-10 pl-10 pr-10 text-sm rounded-xl bg-base-100 focus:outline-none focus:ring-2 focus:ring-warning/30 focus:border-warning transition-all"
             :placeholder="t('filter.searchPlaceholder')"
+            :aria-label="t('filter.searchPlaceholder')"
           />
           <button
             v-if="searchInput"
@@ -219,9 +226,9 @@ onUnmounted(() => {
 
       <!-- Batch quick-select row -->
       <div v-if="batchMode" class="max-w-5xl mx-auto mt-3 flex flex-wrap gap-2 text-sm">
-        <span class="text-xs text-base-content/40 self-center">Sélectionner :</span>
-        <button class="btn btn-xs btn-ghost" @click="selectAllWished">Tous les tomes</button>
-        <button class="btn btn-xs btn-ghost text-base-content/30" @click="selectedVeIds = new Set()">Vider</button>
+        <span class="text-xs text-base-content/40 self-center">{{ t('volumeGrid.selectLabel') }}</span>
+        <button class="btn btn-xs btn-ghost" @click="selectAllWished">{{ t('wishlist.selectAllVolumes') }}</button>
+        <button class="btn btn-xs btn-ghost text-base-content/30" @click="selectedVeIds = new Set()">{{ t('volumeGrid.clearSelection') }}</button>
       </div>
     </div>
 
@@ -235,13 +242,13 @@ onUnmounted(() => {
           <Star class="h-16 w-16" stroke-width="1" />
         </div>
         <template v-if="search">
-          <p class="text-base-content/40 text-lg font-medium">Aucun résultat pour « {{ search }} »</p>
-          <button class="btn btn-ghost btn-sm" @click="searchInput = ''">Effacer la recherche</button>
+          <p class="text-base-content/40 text-lg font-medium">{{ t('wishlist.noResults', { query: search }) }}</p>
+          <button class="btn btn-ghost btn-sm" @click="searchInput = ''">{{ t('wishlist.clearSearch') }}</button>
         </template>
         <template v-else>
           <p class="text-base-content/40 text-lg font-medium">{{ t('wishlist.empty') }}</p>
           <p class="text-base-content/30 text-sm text-center max-w-xs">
-            Depuis la vue collection, marquez des tomes comme souhaités ou utilisez le bouton "Ajouter à la liste"
+            {{ t('wishlist.emptyHint') }}
           </p>
         </template>
       </div>
@@ -298,13 +305,14 @@ onUnmounted(() => {
                   class="btn btn-ghost btn-xs gap-1 text-xs"
                   @click="selectEntryWished(entry)"
                 >
-                  Tout
+                  {{ t('volumeGrid.selectAll') }}
                 </button>
                 <BaseButton
                   class="btn btn-ghost btn-xs text-error"
                   :loading="clearMutation.isPending.value && clearMutation.variables.value === entry.id"
                   :disabled="clearMutation.isPending.value"
-                  title="Retirer de la liste de souhaits"
+                  :title="t('wishlist.removeTitle')"
+                  :aria-label="t('wishlist.removeTitle')"
                   @click="clearMutation.mutate(entry.id)"
                 >
                   <template #icon><X class="h-4 w-4" /></template>
@@ -316,25 +324,32 @@ onUnmounted(() => {
             <div class="flex items-center gap-3 text-sm">
               <span class="flex items-center gap-1">
                 <span class="w-2 h-2 rounded-full bg-success inline-block" />
-                <span class="text-base-content/70"><span class="font-semibold text-success">{{ entry.ownedCount }}</span> possédé{{ entry.ownedCount !== 1 ? 's' : '' }}</span>
+                <span class="text-base-content/70"><span class="font-semibold text-success">{{ entry.ownedCount }}</span> {{ t('manga.meterOwned', entry.ownedCount) }}</span>
               </span>
               <span class="flex items-center gap-1">
                 <span class="w-2 h-2 rounded-full bg-warning inline-block" />
-                <span class="text-base-content/70"><span class="font-semibold text-warning">{{ wishedVolumes(entry).length }}</span> souhaité{{ wishedVolumes(entry).length !== 1 ? 's' : '' }}</span>
+                <span class="text-base-content/70"><span class="font-semibold text-warning">{{ wishedVolumes(entry).length }}</span> {{ t('manga.meterWished', wishedVolumes(entry).length) }}</span>
               </span>
-              <span class="text-base-content/30">/ {{ entry.totalVolumes }} tomes</span>
+              <span class="text-base-content/30">{{ t('wishlist.ofVolumes', { count: entry.totalVolumes }) }}</span>
             </div>
 
             <!-- Volume chips row — horizontal scroll -->
             <!-- py-3 gives room for scale transforms (overflow-x:auto clips y otherwise) -->
             <div class="overflow-x-auto py-3 -mx-1">
               <div class="flex gap-2.5 flex-nowrap px-1">
+                <!-- A button for the keyboard too: Enter / Space buys it (or picks it in batch mode) -->
                 <div
                   v-for="ve in wishedVolumes(entry).sort((a, b) => a.number - b.number)"
                   :key="ve.id"
-                  class="shrink-0 cursor-pointer"
-                  :title="batchMode ? `Tome ${ve.number} — Sélectionner` : `Tome ${ve.number} — Marquer acheté`"
-                  @click="batchMode ? toggleVolumeSelect(ve.id) : purchaseMutation.mutate({ entryId: entry.id, veId: ve.id })"
+                  class="shrink-0 cursor-pointer rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  role="button"
+                  tabindex="0"
+                  :title="batchMode ? t('wishlist.volumeSelect', { number: ve.number }) : t('wishlist.volumePurchase', { number: ve.number })"
+                  :aria-label="batchMode ? t('wishlist.volumeSelect', { number: ve.number }) : t('wishlist.volumePurchase', { number: ve.number })"
+                  :aria-pressed="batchMode ? selectedVeIds.has(ve.id) : undefined"
+                  @click="activateVolume(entry, ve)"
+                  @keydown.enter.prevent="activateVolume(entry, ve)"
+                  @keydown.space.prevent="activateVolume(entry, ve)"
                 >
                   <div
                     class="w-14 h-20 rounded-xl overflow-hidden ring-2 bg-base-200 relative transition-all duration-150"
@@ -344,7 +359,7 @@ onUnmounted(() => {
                         ? 'ring-base-300/50 hover:ring-primary/50 hover:scale-105'
                         : 'ring-warning/60 hover:ring-success hover:scale-110 hover:shadow-md hover:z-10'"
                   >
-                    <BaseCover :src="ve.coverUrl" :alt="`Tome ${ve.number}`" class="w-full h-full">
+                    <BaseCover :src="ve.coverUrl" :alt="t('catalogue.tome', { number: ve.number })" class="w-full h-full">
                       <template #fallback>
                         <span class="text-sm font-bold text-base-content/50">{{ ve.number }}</span>
                       </template>
@@ -376,18 +391,24 @@ onUnmounted(() => {
                 </div>
 
                 <!-- View all CTA -->
-                <div class="shrink-0 cursor-pointer" @click="goToDetail(entry.id)">
+                <div
+                  class="shrink-0 cursor-pointer rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  role="link"
+                  tabindex="0"
+                  @click="goToDetail(entry.id)"
+                  @keydown.enter.prevent="goToDetail(entry.id)"
+                >
                   <div class="w-14 h-20 rounded-xl border-2 border-dashed border-base-300 hover:border-primary flex items-center justify-center transition-colors text-base-content/30 hover:text-primary">
                     <ArrowRight class="h-5 w-5" />
                   </div>
-                  <div class="text-center text-[10px] mt-1 text-base-content/25 leading-none">voir tout</div>
+                  <div class="text-center text-[10px] mt-1 text-base-content/25 leading-none">{{ t('wishlist.seeAll') }}</div>
                 </div>
               </div>
             </div>
 
             <!-- Hint text -->
             <p class="text-[10px] text-base-content/25 italic leading-tight">
-              {{ batchMode ? 'Appuyez sur les tomes pour les sélectionner' : 'Appuyez sur un tome pour le marquer comme acheté' }}
+              {{ batchMode ? t('wishlist.hintSelect') : t('wishlist.hintPurchase') }}
             </p>
           </div>
         </div>
@@ -410,7 +431,7 @@ onUnmounted(() => {
       >
         <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3 flex-wrap">
           <span class="badge badge-warning badge-lg shrink-0">
-            {{ selectedVeIds.size }} tome{{ selectedVeIds.size > 1 ? 's' : '' }}
+            {{ t('volumeBatch.count', { count: selectedVeIds.size }, selectedVeIds.size) }}
           </span>
           <div class="flex-1" />
           <BaseButton
@@ -419,10 +440,10 @@ onUnmounted(() => {
             @click="batchPurchase"
           >
             <template #icon><ShoppingCart class="h-4 w-4" /></template>
-            Marquer acheté{{ selectedVeIds.size > 1 ? 's' : '' }}
+            {{ t('wishlist.markPurchased', selectedVeIds.size) }}
           </BaseButton>
           <button class="btn btn-ghost btn-sm shrink-0" @click="selectedVeIds = new Set()">
-            Vider
+            {{ t('volumeGrid.clearSelection') }}
           </button>
         </div>
       </div>

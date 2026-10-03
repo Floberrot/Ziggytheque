@@ -6,6 +6,7 @@ namespace App\Tests\Functional\Auth;
 
 use App\Tests\Functional\AbstractApiTestCase;
 use App\Tests\Functional\Fixtures\UserFixtureFactory;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\Mime\Email;
 
 final class AdminUserControllerTest extends AbstractApiTestCase
@@ -64,23 +65,6 @@ final class AdminUserControllerTest extends AbstractApiTestCase
         $gateData = json_decode((string) $gateResponse->getContent(), true);
 
         return ['HTTP_AUTHORIZATION' => 'Bearer ' . ($gateData['token'] ?? ''), 'HTTP_ACCEPT' => 'application/json'];
-    }
-
-    // ── GET /api/admin/users/{id} ─────────────────────────────────────────
-
-    public function testGetUserReturns404ForUnknownId(): void
-    {
-        $unlockedToken = $this->getAdminUnlockedToken();
-
-        $this->client->request(
-            'GET',
-            '/api/admin/users/non-existent-id',
-            [],
-            [],
-            ['HTTP_AUTHORIZATION' => 'Bearer ' . $unlockedToken, 'HTTP_ACCEPT' => 'application/json'],
-        );
-
-        $this->assertJsonStatus(404, $this->client->getResponse());
     }
 
     // ── POST /api/admin/users/{id}/approve ────────────────────────────────
@@ -188,6 +172,35 @@ final class AdminUserControllerTest extends AbstractApiTestCase
         $data = $this->assertJsonStatus(200, $this->client->getResponse());
         $this->assertArrayHasKey('resetLink', $data);
         $this->assertStringContainsString('reset-password', (string) $data['resetLink']);
+    }
+
+    // ── Unknown account ───────────────────────────────────────────────────
+
+    /** @return iterable<string, array{string, string, array<string, mixed>}> */
+    public static function accountRoutes(): iterable
+    {
+        yield 'approve'    => ['POST', '/approve', []];
+        yield 'update'     => ['PATCH', '', ['displayName' => 'Ghost']];
+        yield 'delete'     => ['DELETE', '', []];
+        yield 'reset link' => ['POST', '/reset-link', []];
+    }
+
+    /** @param array<string, mixed> $body */
+    #[DataProvider('accountRoutes')]
+    public function testAnUnknownAccountReturns404(string $method, string $suffix, array $body): void
+    {
+        $headers = $this->unlockedHeaders() + ['CONTENT_TYPE' => 'application/json'];
+
+        $this->client->request(
+            $method,
+            '/api/admin/users/non-existent-id' . $suffix,
+            [],
+            [],
+            $headers,
+            $body !== [] ? (string) json_encode($body) : '',
+        );
+
+        $this->assertJsonStatus(404, $this->client->getResponse());
     }
 
     // ── Helper ────────────────────────────────────────────────────────────

@@ -194,17 +194,18 @@ function selectEntry(id: string | undefined): void {
 
       <!-- Pagination -->
       <div v-if="(articlePage?.totalPages ?? 0) > 1" class="flex justify-center gap-2 mt-8">
-        <button class="btn btn-sm btn-ghost" :disabled="page === 1" @click="page--">‹</button>
+        <button class="btn btn-sm btn-ghost" :disabled="page === 1" :aria-label="t('common.previous')" @click="page--">‹</button>
         <button
           v-for="p in articlePage!.totalPages"
           :key="p"
           class="btn btn-sm"
           :class="p === page ? 'btn-primary' : 'btn-ghost'"
+          :aria-current="p === page ? 'page' : undefined"
           @click="page = p"
         >
           {{ p }}
         </button>
-        <button class="btn btn-sm btn-ghost" :disabled="page === articlePage!.totalPages" @click="page++">›</button>
+        <button class="btn btn-sm btn-ghost" :disabled="page === articlePage!.totalPages" :aria-label="t('common.next')" @click="page++">›</button>
       </div>
     </div>
   </div>

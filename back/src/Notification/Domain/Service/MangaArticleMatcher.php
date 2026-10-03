@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Notification\Domain\Service;
 
+use App\Shared\Domain\Text\TextFold;
+
 /**
  * Decides whether a news article actually mentions a followed manga.
  *
@@ -16,6 +18,8 @@ namespace App\Notification\Domain\Service;
  * The rule enforced here: the core series title — the edition descriptor
  * stripped off — must appear as a whole, word-bounded phrase in the article
  * text. The work must absolutely be named; a loose keyword overlap is not enough.
+ * Both sides are folded ({@see TextFold::fold}), so the phrase match ignores case,
+ * accents and punctuation.
  */
 final readonly class MangaArticleMatcher
 {
@@ -41,31 +45,18 @@ final readonly class MangaArticleMatcher
         'omnibus',
     ];
 
-    /** @var array<string, string> */
-    private const DIACRITIC_MAP = [
-        'à' => 'a', 'â' => 'a', 'ä' => 'a', 'á' => 'a', 'ã' => 'a', 'å' => 'a',
-        'ç' => 'c',
-        'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
-        'î' => 'i', 'ï' => 'i', 'í' => 'i', 'ì' => 'i',
-        'ô' => 'o', 'ö' => 'o', 'ó' => 'o', 'ò' => 'o', 'õ' => 'o',
-        'û' => 'u', 'ü' => 'u', 'ù' => 'u', 'ú' => 'u',
-        'ÿ' => 'y', 'ý' => 'y',
-        'ñ' => 'n',
-        'œ' => 'oe', 'æ' => 'ae', 'ß' => 'ss',
-    ];
-
     /**
      * True when the core series title appears, as a whole word-bounded phrase,
      * anywhere in the supplied article text (title + description/excerpt).
      */
     public function mentions(string $mangaTitle, string $articleText): bool
     {
-        $core = $this->normalize($this->coreTitle($mangaTitle));
+        $core = TextFold::fold($this->coreTitle($mangaTitle));
         if ($core === '') {
             return false;
         }
 
-        $haystack = $this->normalize($articleText);
+        $haystack = TextFold::fold($articleText);
         if ($haystack === '') {
             return false;
         }
@@ -74,14 +65,14 @@ final readonly class MangaArticleMatcher
     }
 
     /**
-     * The normalized significant words of the core title, in order. Callers use
+     * The folded significant words of the core title, in order. Callers use
      * them to build a relevant snippet around the first occurrence in the text.
      *
      * @return list<string>
      */
     public function coreTitleWords(string $mangaTitle): array
     {
-        $core = $this->normalize($this->coreTitle($mangaTitle));
+        $core = TextFold::fold($this->coreTitle($mangaTitle));
 
         return $core === '' ? [] : explode(' ', $core);
     }
@@ -104,7 +95,7 @@ final readonly class MangaArticleMatcher
 
     private function isEditionDescriptor(string $segment): bool
     {
-        $normalized = $this->normalize($segment);
+        $normalized = TextFold::fold($segment);
         if ($normalized === '') {
             return false;
         }
@@ -116,19 +107,5 @@ final readonly class MangaArticleMatcher
         }
 
         return false;
-    }
-
-    /**
-     * Lowercase, fold common diacritics, collapse every run of non-alphanumeric
-     * characters to a single space, then trim. The result is a space-delimited
-     * token stream so phrase matching is punctuation- and accent-insensitive.
-     */
-    private function normalize(string $value): string
-    {
-        $value = mb_strtolower(trim($value));
-        $value = strtr($value, self::DIACRITIC_MAP);
-        $value = preg_replace('/[^\p{L}\p{N}]+/u', ' ', $value) ?? '';
-
-        return trim($value);
     }
 }

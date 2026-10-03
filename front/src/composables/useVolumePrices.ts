@@ -15,6 +15,7 @@ export function useVolumePrices(
   const hasIsbn = ref(false)
   const marketplace = ref<string | null>(null)
   const isLoading = ref(false)
+  /** i18n key of the failure, or null — the caller translates it. */
   const error = ref<string | null>(null)
   const loaded = ref(false)
 
@@ -32,7 +33,7 @@ export function useVolumePrices(
       marketplace.value = result.marketplace
       loaded.value = true
     } catch {
-      error.value = 'Prix indisponibles'
+      error.value = 'prices.unavailable'
       offers.value = []
       retailers.value = []
     } finally {

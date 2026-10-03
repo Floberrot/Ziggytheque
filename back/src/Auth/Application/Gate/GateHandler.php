@@ -6,13 +6,12 @@ namespace App\Auth\Application\Gate;
 
 use App\Auth\Domain\Exception\GateDisabledException;
 use App\Auth\Domain\Exception\InvalidGatePasswordException;
-use App\Auth\Domain\User;
+use App\Auth\Domain\Service\SessionTokenIssuerInterface;
 use App\Auth\Shared\Event\GateFailedEvent;
 use App\Auth\Shared\Event\GateStartedEvent;
 use App\Auth\Shared\Event\GateSucceededEvent;
 use App\Shared\Application\Bus\EventBusInterface;
 use App\Shared\Domain\Security\SecretStrength;
-use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Throwable;
 
@@ -21,7 +20,7 @@ final readonly class GateHandler
 {
     public function __construct(
         private string $gatePassword,
-        private JWTTokenManagerInterface $jwtManager,
+        private SessionTokenIssuerInterface $sessionTokenIssuer,
         private EventBusInterface $eventBus,
     ) {
     }
@@ -41,7 +40,7 @@ final readonly class GateHandler
                 throw new InvalidGatePasswordException();
             }
 
-            $token = $this->jwtManager->createFromPayload($command->user, ['adminUnlocked' => true]);
+            $token = $this->sessionTokenIssuer->issueAdminUnlocked($command->user);
 
             $this->eventBus->publish(new GateSucceededEvent(
                 correlationId: $started->correlationId,

@@ -7,7 +7,6 @@ namespace App\Auth\Infrastructure\Http;
 use App\Auth\Application\Admin\ApproveUser\ApproveUserCommand;
 use App\Auth\Application\Admin\DeleteUser\DeleteUserCommand;
 use App\Auth\Application\Admin\GenerateResetLink\GenerateResetLinkCommand;
-use App\Auth\Application\Admin\GetUser\GetUserQuery;
 use App\Auth\Application\Admin\ListUsers\ListUsersQuery;
 use App\Auth\Application\Admin\UpdateUser\UpdateUserCommand;
 use App\Auth\Domain\User;
@@ -48,15 +47,6 @@ final readonly class AdminUserController
         ));
 
         return new JsonResponse($result->toArray());
-    }
-
-    #[Route('/{id}', methods: ['GET'])]
-    public function get(string $id): JsonResponse
-    {
-        /** @var User $user */
-        $user = $this->queryBus->ask(new GetUserQuery($id));
-
-        return new JsonResponse($user->toAdminArray());
     }
 
     #[Route('/{id}', methods: ['PATCH'])]

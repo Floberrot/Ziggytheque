@@ -20,11 +20,6 @@ final readonly class DoctrineNotificationRepository implements NotificationRepos
             ->findBy(['isRead' => false], ['createdAt' => 'DESC']);
     }
 
-    public function findById(string $id): ?Notification
-    {
-        return $this->em->find(Notification::class, $id);
-    }
-
     public function save(Notification $notification): void
     {
         $this->em->persist($notification);

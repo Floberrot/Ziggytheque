@@ -1,15 +1,4 @@
 import client from './client'
-import type { Manga, MangaDetail } from '@/types'
-
-export async function searchManga(q: string): Promise<Manga[]> {
-  const res = await client.get('/manga', { params: { q } })
-  return res.data
-}
-
-export async function getManga(id: string): Promise<MangaDetail> {
-  const res = await client.get(`/manga/${id}`)
-  return res.data
-}
 
 /** Translate a summary into French (English → French for now). */
 export async function translateSummary(text: string): Promise<string> {
@@ -35,13 +24,8 @@ export async function importManga(payload: {
 
 export type CoverProvider = 'composite' | 'mangadex' | 'openlibrary' | 'googlebooks'
 
-export async function searchVolumeExternal(
-  q: string,
-  page = 1,
-  volumeNumber?: number | null,
-  edition?: string | null,
-  provider: CoverProvider = 'composite',
-): Promise<{
+/** One cover suggestion of the title search (a tome of some edition, by some source). */
+export interface VolumeSearchResult {
   externalId: string | null
   title: string
   edition: string | null
@@ -50,7 +34,15 @@ export async function searchVolumeExternal(
   language: string
   totalVolumes: number | null
   source: string | null
-}[]> {
+}
+
+export async function searchVolumeExternal(
+  q: string,
+  page = 1,
+  volumeNumber?: number | null,
+  edition?: string | null,
+  provider: CoverProvider = 'composite',
+): Promise<VolumeSearchResult[]> {
   const params: Record<string, string | number> = { q, page, provider }
   if (volumeNumber != null) params.volumeNumber = volumeNumber
   if (edition != null) params.edition = edition
@@ -58,10 +50,15 @@ export async function searchVolumeExternal(
   return res.data
 }
 
-export async function updateManga(
-  id: string,
-  payload: { title?: string; edition?: string; specialEdition?: string; coverUrl?: string },
-): Promise<void> {
+/** The corrections a user can make to their copy of a series. */
+export interface MangaUpdatePayload {
+  title?: string
+  edition?: string
+  specialEdition?: string
+  coverUrl?: string
+}
+
+export async function updateManga(id: string, payload: MangaUpdatePayload): Promise<void> {
   await client.patch(`/manga/${id}`, payload)
 }
 
@@ -71,18 +68,6 @@ export async function updateVolume(
   payload: { coverUrl?: string; releaseDate?: string; price?: number | null; isbn?: string },
 ): Promise<void> {
   await client.patch(`/manga/${mangaId}/volumes/${volumeId}`, payload)
-}
-
-export async function addVolume(
-  mangaId: string,
-  payload: {
-    number: number
-    coverUrl?: string
-    releaseDate?: string
-  },
-): Promise<{ id: string }> {
-  const res = await client.post(`/manga/${mangaId}/volumes`, payload)
-  return res.data
 }
 
 export async function coverByIsbn(isbn: string): Promise<{

@@ -12,7 +12,6 @@ export interface Toast {
 }
 
 export const useUiStore = defineStore('ui', () => {
-  const isLoading = ref(false)
   const toasts = ref<Toast[]>([])
 
   function addToast(message: string, type: 'success' | 'error' | 'info' = 'info') {
@@ -47,5 +46,5 @@ export const useUiStore = defineStore('ui', () => {
     toasts.value = toasts.value.filter((t) => t.id !== id)
   }
 
-  return { isLoading, toasts, addToast, addProgressToast, updateProgressToast, closeProgressToast, removeToast }
+  return { toasts, addToast, addProgressToast, updateProgressToast, closeProgressToast, removeToast }
 })

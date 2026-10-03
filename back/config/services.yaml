@@ -64,6 +64,13 @@ services:
     App\Auth\Domain\Service\AdminBackfillServiceInterface:
         alias: App\Auth\Infrastructure\Doctrine\DoctrineAdminBackfillService
 
+    # Session tokens (Lexik JWT) and password hashing (security.yaml) behind domain ports
+    App\Auth\Domain\Service\SessionTokenIssuerInterface:
+        alias: App\Auth\Infrastructure\Token\JwtSessionTokenIssuer
+
+    App\Auth\Domain\Service\PasswordHasherInterface:
+        alias: App\Auth\Infrastructure\Security\SymfonyPasswordHasher
+
     # Shared security
     App\Shared\Domain\Security\CurrentUserProviderInterface:
         alias: App\Auth\Infrastructure\Security\SymfonyCurrentUserProvider
@@ -268,10 +275,10 @@ services:
             $pool: '@cache.app'
             $ttlSeconds: 86400
 
-    # Generic cache-backed rate limiter (no symfony/rate-limiter dependency).
-    App\Shared\Infrastructure\RateLimit\CacheRateLimiter:
-        arguments:
-            $pool: '@rate_limiter_cache'
+    # Generic rate limiter (no symfony/rate-limiter dependency): atomic counters in
+    # PostgreSQL, shared by the web container and the worker.
+    App\Shared\Infrastructure\RateLimit\RateLimitCounterStoreInterface:
+        alias: App\Shared\Infrastructure\RateLimit\DoctrineRateLimitCounterStore
 
     # Keyless summary translation (Google "gtx" web endpoint) — English → French.
     App\Manga\Domain\SummaryTranslatorInterface:
@@ -313,11 +320,11 @@ services:
     App\Notification\Domain\Service\JikanNewsClientInterface:
         alias: App\Notification\Infrastructure\Jikan\JikanNewsClient
 
-    App\Notification\Application\Email\SendFollowingNotificationHandler:
-        arguments:
-            $notificationEmail: '%notification_email%'
+    # Test notification delivery (mailer + Discord HTTP call) behind a domain port
+    App\Notification\Domain\TestNotificationSenderInterface:
+        alias: App\Notification\Infrastructure\Delivery\TestNotificationSender
 
-    App\Notification\Application\Test\SendTestNotificationHandler:
+    App\Notification\Infrastructure\Delivery\TestNotificationSender:
         arguments:
             $notificationEmail: '%notification_email%'
 
@@ -384,11 +391,6 @@ when@test:
             arguments: ['@App\Tests\Doubles\Doctrine\QueryCounter']
             tags: ['doctrine.middleware']
 
-        # Lets AbstractApiTestCase clear rate-limit counters between tests.
-        test.rate_limiter_cache:
-            alias: rate_limiter_cache
-            public: true
-
         App\Manga\Domain\ExternalApiClientInterface:
             alias: App\Manga\Infrastructure\ExternalApi\NullMangaApiClient
         App\Manga\Domain\VolumePriceProviderInterface:
@@ -424,3 +426,24 @@ when@test:
             alias: App\Tests\Doubles\Manga\InMemoryScanResultPublisher
         App\Tests\Doubles\Manga\InMemoryScanResultPublisher:
             public: true
+
+        # The daily crawl reads its RSS feeds and Jikan news from memory.
+        App\Notification\Domain\Service\RssFeedParserInterface:
+            alias: App\Tests\Doubles\Notification\InMemoryRssFeedParser
+        App\Tests\Doubles\Notification\InMemoryRssFeedParser:
+            public: true
+        App\Notification\Domain\Service\JikanNewsClientInterface:
+            alias: App\Tests\Doubles\Notification\InMemoryJikanNewsClient
+        App\Tests\Doubles\Notification\InMemoryJikanNewsClient:
+            public: true
+
+        # The cover proxy fetches from a fake upstream (a small JPEG for every URL).
+        App\Manga\Infrastructure\Http\CoverProxyController:
+            autowire: true
+            autoconfigure: true
+            arguments:
+                $httpClient: '@test.cover_proxy_http_client'
+        test.cover_proxy_http_client:
+            class: Symfony\Component\HttpClient\MockHttpClient
+            arguments: ['@App\Tests\Doubles\Manga\FakeCoverImageResponseFactory']
+        App\Tests\Doubles\Manga\FakeCoverImageResponseFactory: ~

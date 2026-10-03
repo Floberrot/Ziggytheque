@@ -78,9 +78,9 @@ final class WishlistControllerTest extends AbstractApiTestCase
 
         // Both titles start with "Wishlist Manga "; narrow to the matching entry's exact title.
         $title = (string) json_decode(
-            (string) $this->jsonRequest('GET', '/api/manga/' . $matchingId)->getContent(),
+            (string) $this->jsonRequest('GET', '/api/collection/' . $matchingEntry)->getContent(),
             true,
-        )['title'];
+        )['manga']['title'];
 
         $response = $this->jsonRequest('GET', '/api/wishlist?search=' . urlencode($title));
         $data     = $this->assertJsonStatus(200, $response);
@@ -97,27 +97,6 @@ final class WishlistControllerTest extends AbstractApiTestCase
 
         $this->assertSame(0, $data['total']);
         $this->assertSame([], $data['items']);
-    }
-
-    // ── POST /api/wishlist/{id}/add-remaining ────────────────────────────────
-
-    public function testAddRemaining(): void
-    {
-        $mangaId = $this->createMangaWithVolumes(2);
-        $entryId = $this->addToCollection($mangaId);
-
-        $response = $this->jsonRequest('POST', '/api/wishlist/' . $entryId . '/add-remaining');
-        $this->assertSame(204, $response->getStatusCode());
-
-        $wishlist = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/wishlist'));
-        $found    = array_filter($wishlist['items'], static fn ($entry) => $entry['id'] === $entryId);
-        $this->assertNotEmpty($found);
-    }
-
-    public function testAddRemainingNotFoundReturns404(): void
-    {
-        $response = $this->jsonRequest('POST', '/api/wishlist/bad-id/add-remaining');
-        $this->assertJsonStatus(404, $response);
     }
 
     // ── DELETE /api/wishlist/{id} ────────────────────────────────────────────

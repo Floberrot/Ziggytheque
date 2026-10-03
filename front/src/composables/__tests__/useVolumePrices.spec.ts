@@ -100,7 +100,7 @@ describe('useVolumePrices', () => {
 
     expect(offers.value).toEqual([])
     expect(retailers.value).toEqual([])
-    expect(error.value).toBeTruthy()
+    expect(error.value).toBe('prices.unavailable')
     expect(loaded.value).toBe(false)
   })
 

@@ -147,7 +147,22 @@ deptrac:
     - name: Shared
       collectors:
         - type: class
-          value: 'App\\Shared.*'
+          value: 'App\\Shared\\(?!Infrastructure\\).*'
+
+    # Shared adapters (buses, HTTP listeners, rate limiter…): for Infrastructure only
+    - name: Shared_Infrastructure
+      collectors:
+        - type: class
+          value: 'App\\Shared\\Infrastructure\\.*'
+
+    # ── Infrastructure packages (adapters only) ───────────────────────────────
+    # Domain and Application code reach these through ports (interfaces in Domain):
+    # JWT, mailer, password hashing, HTTP, Twig, console, Doctrine outside its
+    # mapping attributes.
+    - name: Infrastructure_Packages
+      collectors:
+        - type: classNameRegex
+          value: '#^(Lexik\\|Twig\\|Zenstruck\\|Doctrine\\(DBAL|Persistence)\\|Doctrine\\ORM\\(?!Mapping\\)|Symfony\\Contracts\\HttpClient\\|Symfony\\Component\\(Mailer|Mime|PasswordHasher|HttpClient|HttpFoundation|HttpKernel|Routing|Console)\\)#'
 
   ruleset:
     # Domain layers: can depend on Shared + other Domain layers
@@ -234,6 +249,8 @@ deptrac:
       - Auth_Application
       - Notification_Domain
       - Shared
+      - Shared_Infrastructure
+      - Infrastructure_Packages
     Collection_Infrastructure:
       - Collection_Domain
       - Collection_Shared
@@ -242,18 +259,24 @@ deptrac:
       - Manga_Application
       - Notification_Domain
       - Shared
+      - Shared_Infrastructure
+      - Infrastructure_Packages
     Manga_Infrastructure:
       - Manga_Domain
       - Manga_Shared
       - Manga_Application
       - Notification_Domain
       - Shared
+      - Shared_Infrastructure
+      - Infrastructure_Packages
     Notification_Infrastructure:
       - Notification_Domain
       - Notification_Shared
       - Notification_Application
       - Collection_Domain
       - Shared
+      - Shared_Infrastructure
+      - Infrastructure_Packages
     Stats_Infrastructure:
       - Stats_Domain
       - Stats_Application
@@ -261,10 +284,14 @@ deptrac:
       - Manga_Application
       - Collection_Domain
       - Shared
+      - Shared_Infrastructure
+      - Infrastructure_Packages
     Share_Infrastructure:
       - Share_Domain
       - Share_Application
       - Shared
+      - Shared_Infrastructure
+      - Infrastructure_Packages
     Wishlist_Infrastructure:
       - Wishlist_Domain
       - Wishlist_Shared
@@ -275,6 +302,11 @@ deptrac:
       - Collection_Application
       - Notification_Domain
       - Shared
+      - Shared_Infrastructure
+      - Infrastructure_Packages
 
     # Shared can depend on nothing (it is the base layer)
     Shared: ~
+    Shared_Infrastructure:
+      - Shared
+      - Infrastructure_Packages

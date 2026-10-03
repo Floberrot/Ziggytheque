@@ -150,12 +150,4 @@ class Manga
             'createdAt' => $this->createdAt->format(DateTimeInterface::ATOM),
         ];
     }
-
-    /** @return array<string, mixed> */
-    public function toDetailArray(): array
-    {
-        return array_merge($this->toArray(), [
-            'volumes' => $this->volumes->map(fn (Volume $v) => $v->toArray())->toArray(),
-        ]);
-    }
 }

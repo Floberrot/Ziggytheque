@@ -1,10 +1,21 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { Article } from '@/types'
 import BaseCover from '@/components/atoms/BaseCover.vue'
 import { safeUrl } from '@/utils/safeUrl'
 
 defineProps<{ article: Article }>()
+
+const { t, locale } = useI18n()
+
+function publishedOn(iso: string): string {
+  return new Date(iso).toLocaleDateString(locale.value === 'fr' ? 'fr-FR' : 'en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
 
 // A dead preview image leaves the neutral placeholder rather than a broken image.
 const previewFailed = ref(false)
@@ -64,9 +75,9 @@ const previewFailed = ref(false)
 
       <!-- Author + date -->
       <div class="flex items-center gap-3 text-[11px] text-base-content/40 mt-1">
-        <span v-if="article.author">par {{ article.author }}</span>
+        <span v-if="article.author">{{ t('notifications.byAuthor', { author: article.author }) }}</span>
         <span v-if="article.publishedAt">
-          {{ new Date(article.publishedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) }}
+          {{ publishedOn(article.publishedAt) }}
         </span>
       </div>
     </div>

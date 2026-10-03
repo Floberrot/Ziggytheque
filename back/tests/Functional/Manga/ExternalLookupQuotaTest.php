@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Manga;
 
 use App\Tests\Functional\AbstractApiTestCase;
+use App\Tests\Functional\Fixtures\HandTypedSeriesTrait;
 use App\Tests\Functional\Fixtures\UserFixtureFactory;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,6 +16,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class ExternalLookupQuotaTest extends AbstractApiTestCase
 {
+    use HandTypedSeriesTrait;
+
     private const int EXTERNAL_LOOKUP_LIMIT = 30;
     private const int COVER_BATCH_LIMIT     = 5;
 
@@ -25,12 +28,7 @@ final class ExternalLookupQuotaTest extends AbstractApiTestCase
     {
         parent::setUp();
 
-        $manga = $this->assertJsonStatus(201, $this->jsonRequest('POST', '/api/manga', [
-            'title' => 'Quota Series', 'language' => 'fr', 'totalVolumes' => 1,
-        ]));
-        $this->mangaId = (string) $manga['id'];
-        $detail = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/manga/' . $this->mangaId));
-        $this->volumeId = (string) $detail['volumes'][0]['id'];
+        ['mangaId' => $this->mangaId, 'volumeIds' => [$this->volumeId]] = $this->collectHandTypedSeries('Quota Series');
     }
 
     /** @return iterable<string, array{string, string, array<string, mixed>}> */

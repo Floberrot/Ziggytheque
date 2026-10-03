@@ -20,7 +20,8 @@ Every time a feature is planned, developed, or removed — this rule is non-nego
 - A feature PR that adds or changes production code without touching `tests/` is **incomplete** — do not mark work as done.
 - Unit tests (`back/tests/Unit/`) cover pure domain objects: entities, VOs, enums, exceptions, domain services. No kernel, no DB, no HTTP.
 - Functional tests (`back/tests/Functional/`) boot the real Symfony kernel and hit real PostgreSQL. They test every HTTP status code the endpoint can return.
-- Use `NullMangaApiClient` and `when@test:` service overrides in `config/services.yaml` to stub external HTTP calls — never let tests reach the real internet.
+- Use `NullMangaApiClient` and `when@test:` service overrides in `config/services.yaml` to stub external HTTP calls — never let tests reach the real internet (the crawl uses `InMemoryRssFeedParser` / `InMemoryJikanNewsClient`, the cover proxy a MockHttpClient).
+- `App\Tests\Doubles\Shared\RecordingEventBus` asserts what a handler published; functional tests read a series back through the collection detail (`HandTypedSeriesTrait`). Rate-limit counters live in PostgreSQL, so DAMA rolls them back with each test — nothing to clear.
 - The DAMA PHPUnit extension (configured in `phpunit.dist.xml`) wraps each test in a savepoint; no manual DB cleanup is needed between tests.
 
 ## Git Discipline
@@ -28,6 +29,7 @@ Every time a feature is planned, developed, or removed — this rule is non-nego
 - **One commit per PR** — a PR must land as a single commit. Prefer `git commit --amend` to add changes to the current commit; use `git rebase -i` to squash only if amend is not possible.
 - **Never create a new commit when one already exists on the branch** — always amend instead.
 - **Commits must be authored solely by the repo owner** — never set Claude or any AI assistant as the author. Always preserve the user's git identity (`user.name` / `user.email`). Never pass `--author` or alter git config.
+- **GitHub Actions are pinned by commit SHA**, the version in a comment (`uses: actions/checkout@<sha> # v5.1.0`) — never `@vX`. Dependabot (`.github/dependabot.yml`, github-actions) bumps them.
 
 ## Stack
 - Backend: Symfony 8 + PHP 8.4 + FrankenPHP + PostgreSQL 17 (`back/`)
@@ -40,19 +42,19 @@ Every time a feature is planned, developed, or removed — this rule is non-nego
 - The account is reloaded on every request: one no longer `active` (disabled, back to pending) gets 401 with the token it already holds (`ActiveUserChecker`, `api` firewall).
 - Admin gate (second factor): an admin posts `POST /api/auth/gate { password }` (`GATE_PASSWORD`, ≥ 12 chars, else 503) → JWT carrying `adminUnlocked` → `ROLE_ADMIN_UNLOCKED`, required by `/api/admin/*` (front: /journal, /admin/users). Granted only while the account is still an admin.
 - `/messenger` uses HTTP Basic (MONITOR_USER / MONITOR_PASSWORD; refused while the password is weak)
-- Quotas (`CacheRateLimiter` → 429), per account: catalogue 60/min; manga lookups that call outside services (cover-by-isbn, volume-search, translate-summary, prices) 30/min; cover batches 5/10 min; test notification 5/15 min. The gate is limited per user.
+- Quotas (`CacheRateLimiter` → 429), per account: catalogue 60/min; manga lookups that call outside services (cover-by-isbn, volume-search, translate-summary, prices) 30/min; cover batches 5/10 min; test notification 5/15 min. The gate is limited per user; the public cover proxy `/proxy/cover` 600/min per client IP.
 - Public auth endpoints, per client IP: login 30/5 min, register and request-reset 10/h (plus 5/h per email). Login failures count per email **and** IP and a successful login clears them, so guessing someone's password from one address never locks its owner out. Register answers the same 201 for an address that already has an account (its owner gets an "account exists" email); login hashes the password even for an unknown address — neither the answer nor its timing tells which emails exist.
 - Client IP: the frontend nginx sends the address Railway's edge put in `X-Real-IP` as `X-Forwarded-For`; the backend believes it only from `TRUSTED_PROXIES` (`private_ranges`: the Railway private network), so a request reaching the backend from the internet cannot choose its address. Check it after a deploy: the journal shows the IP of each change.
 
 ## Bounded Contexts (back/src/)
-- `Shared/` — CommandBus / QueryBus (Messenger), EventBus (`SymfonyEventBus`, EventDispatcher), ExceptionListener, `CacheRateLimiter`, `SecretStrength`, `CurrentUserProviderInterface`
+- `Shared/` — CommandBus / QueryBus (Messenger), EventBus (`SymfonyEventBus`, EventDispatcher), ExceptionListener, `SecretStrength`, `CurrentUserProviderInterface`; `TextFold` (`Shared/Domain/Text`): the single text folding — `fold()` for comparison keys, `foldAccents()` when punctuation matters; `CacheRateLimiter`: atomic fixed-window counters in PostgreSQL (`rate_limit_counters`, sha1 keys, one upsert per call, shared by every container), fails open, expired windows purged daily at 04:15 UTC (`PurgeExpiredRateLimitCountersTask`)
 - `Auth/` — User (role, status, notification channel), AuthToken (email verification / reset), login / register / reset / gate handlers, admin user management, `DoctrineUserProvider` + `ActiveUserChecker`
 - `Manga/` — Manga + Volume entities (price lives on Volume). A Manga is one *series* = work × publisher (`edition`) × special edition (`specialEdition`, free text, null = standard run), **owned by one account** (`Manga.owner`): each account has its own copy, so a correction (title, cover, ISBN, price, tomes) never changes another's. The `manga_owner` Doctrine filter scopes every HTTP read to the current account (another's series → 404); removing a series from the collection deletes the copy. French catalogue (`Domain/Catalogue`, BnF + Google Books fallback)
 - `Collection/` — CollectionEntry (one series in a user's collection: reading status, rating, follow) + VolumeEntry (per tome: owned / read / wished / announced, price), the catalogue add / scan endpoints
 - `Wishlist/` — HTTP only: the wishlist is the tomes flagged `isWished` (VolumeEntry); buying one marks it owned
 - `Stats/` — GetStats query (counts, owned / wishlist / total value, genre and reading-status breakdowns, top authors, ratings, monthly and recent additions)
 - `Share/` — public snapshot of a user's stats (`/share/:token`)
-- `Notification/` — news (RSS feeds + Jikan, matched to followed series → Article), in-app Notification + email / Discord delivery, activity journal (ActivityLog: every change and every failed request — successful reads are not written), scheduler (daily crawl)
+- `Notification/` — news (RSS feeds + Jikan, matched to followed series → Article), in-app Notification + email / Discord delivery, activity journal (ActivityLog: every change — rating, reading status, series and tome corrections included — and every failed request; successful reads are not written), scheduler. Daily crawl: one job per RSS feed (matched against every followed series) and one per followed MyAnimeList id, so each source is downloaded once per run (`CrawlPlanner`, `RssArticleCollector`, `JikanArticleCollector`)
 
 ## Code Style
 
@@ -117,7 +119,8 @@ make migration
 Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrine's hash names. Never write them manually in `addSql()`.
 
 ## Key Patterns
-- Hexagonal: Domain → Application → Infrastructure
+- Hexagonal: Domain → Application → Infrastructure. Application never imports adapter packages (JWT, mailer, password hasher, HTTP client, Twig, Doctrine outside its mapping attributes): it injects Domain ports (`SessionTokenIssuerInterface`, `PasswordHasherInterface`, `TestNotificationSenderInterface`…). Deptrac enforces it (`Infrastructure_Packages`, `Shared_Infrastructure` layers)
+- Lookups that ask every source (prices, cover-by-isbn, volume-search) send all requests before reading any: a new HTTP source implements `Deferred*ProviderInterface` (`requestX()` returns a closure that reads the answer and never throws). First-hit cascades (auto-covers) stay sequential
 - CQRS via Symfony Messenger (command.bus / query.bus), default_bus: command.bus; domain events go through `EventBusInterface` → `SymfonyEventBus` (Symfony EventDispatcher, synchronous)
 - No try/catch in controllers — ExceptionListener handles all DomainExceptions
 - #[MapRequestPayload] on every controller that reads a request body
@@ -126,7 +129,7 @@ Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrin
 
 ## Frontend (front/src/)
 - Atomic Design: atoms (Base*) → molecules → organisms → pages
-- Only pages call useQuery/useMutation
+- Only pages call useQuery/useMutation — or composables that only pages call (`useVolumeToggle`, `useCollectionQuickActions`); organisms emit writes and never call write APIs (e.g. `EnrichVolumeModal` emits `toggle` / `saveIsbn` / `applyCover`, `MangaDetailPage` mutates)
 - Auth: useAuthStore (sessionStorage), Bearer JWT via axios interceptor (a 401 logs out)
 - vue-query: default `staleTime` 30 s (main.ts) — every mutation invalidates the keys it changes; a mutation without its own `onError` gets the global "action failed" toast
 - Heavy code is loaded on demand: pages are lazy routes; zxing (only without a native `BarcodeDetector`), chart.js (`GenrePieChart`), qrcode (`BaseQrCode`) and `EnrichVolumeModal` are dynamic imports. A failed chunk after a deploy reloads the page once (`vite:preloadError`)
@@ -136,9 +139,10 @@ Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrin
 - API layer: api/client.ts (axios), api/auth.ts, manga.ts, collection.ts, wishlist.ts, stats.ts, notification.ts
 - Covers: always `BaseCover` (or `BaseLazyImage` + `coverUrl()`), never a raw `<img :src>` — it proxies anti-hotlink hosts (Google Books, MangaDex, BnF) through `/proxy/cover`, upgrades `http://`, and falls back to an icon on a broken or placeholder image
 - Collection grid: one card per work (`groupByWork`: same folded title, or a title starting with it by the same author); several editions show as a stacked `MangaCard` that opens `WorkEditionsSheet`
-- Quick actions: right click / long press (`useLongPress`) on a collection or dashboard card → `CollectionQuickActions` (open, follow, rate, remove); the mutations live in the page
+- Quick actions: right click / long press (`useLongPress`) on a collection or dashboard card → `CollectionQuickActions` (open, follow, rate, remove); the mutations live in `useCollectionQuickActions`, called by the pages
 - Mobile (< lg): top header (logo + Actualités) and a bottom bar (Accueil, Collection, **Ajouter** raised in the middle, Souhaits, Réglages sheet); `pb-mobile-nav` / `mb-mobile-nav` keep content and toasts above it
-- i18n: vue-i18n, fr.json + en.json, FR default
+- i18n: vue-i18n, fr.json + en.json (same key sets, no hard-coded user-facing text), FR default, language picked in Réglages (`LanguageSwitcher`, `localStorage.locale`, `i18n/locale.ts` also sets `<html lang>`); `i18n/index.ts` exports the instance (`i18n.global.t` outside components); router titles are `meta.titleKey`; composables return i18n keys, never texts; reading-status labels always come from `status.*` (`utils/readingStatus`)
+- Accessibility: clickable cards and tiles are focusable (`role` + `tabindex` + Enter / Space + `focus-visible` ring); quick actions also open from the Menu key / Shift+F10 (`utils/pointer.contextMenuPoint`); `BaseHeartRating` is a radiogroup (arrows, Home / End); every icon-only button has an i18n aria-label; dialogs go through `BaseModal` (focus trap, Escape)
 
 ## Routes (frontend)
 - Public: /login, /register, /verify-email, /forgot-password, /reset-password, /scan/:token (phone scanner), /share/:token
@@ -150,8 +154,8 @@ Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrin
 ## API Endpoints
 - POST   /api/auth/register, verify-email, login, request-reset, reset-password (public) · POST /api/auth/gate (admin)
 - GET    /api/me, PATCH /api/me/notifications, POST /api/me/notifications/test
-- Admin (unlocked): GET /api/admin/users, GET/PATCH/DELETE /api/admin/users/:id, POST /api/admin/users/:id/approve, POST /api/admin/users/:id/reset-link
-- GET    /api/manga?q=, GET/PATCH /api/manga/:id, POST /api/manga, POST /api/manga/:id/volumes, PATCH /api/manga/:id/volumes/:volumeId
+- Admin (unlocked): GET /api/admin/users, PATCH/DELETE /api/admin/users/:id, POST /api/admin/users/:id/approve, POST /api/admin/users/:id/reset-link
+- POST   /api/manga, PATCH /api/manga/:id, PATCH /api/manga/:id/volumes/:volumeId (a series is read back through its collection entry)
 - External lookups: GET /api/manga/cover-by-isbn?isbn=, GET /api/manga/volume-search?q=, POST /api/manga/translate-summary { text ≤ 5000 }, GET /api/manga/:id/volumes/:volumeId/prices, POST /api/manga/:id/auto-covers (async batch, Mercure progress)
 - GET    /api/catalogue/search?q=&mode=title|author|isbn → series (work × publisher × special edition) + the user's owned tomes
 - GET    /api/catalogue/edition?workTitle=&publisher=&specialEdition= → one series with every known tome
@@ -160,11 +164,11 @@ Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrin
 - POST   /api/scan/sessions {} (free, 30 min — phone scans a shelf) or { mangaId, volumeId } (one tome, 10 min) · POST /api/scan/submit (public, scan token)
 - GET/POST /api/collection, GET/DELETE /api/collection/:id — list default sort = by work (A → Z), `sort=added_desc|rating_desc|rating_asc`
 - PATCH  /api/collection/:id/status, /rating, /follow, /batch-price · POST /api/collection/:id/sync-volumes, /add-to-wishlist
-- PATCH  /api/collection/:id/volumes/:veId/toggle { field: isOwned|isRead } · POST /api/collection/:id/volumes/:veId/purchase
-- GET    /api/wishlist, POST /api/wishlist/:id/add-remaining, DELETE /api/wishlist/:id, POST /api/wishlist/:id/volumes/:veId/purchase
+- PATCH  /api/collection/:id/volumes/:veId/toggle { field: isOwned|isRead }
+- GET    /api/wishlist, DELETE /api/wishlist/:id, POST /api/wishlist/:id/volumes/:veId/purchase
 - GET    /api/stats · POST /api/share, GET /api/share/:token (public)
 - GET    /api/articles, /api/articles/followed, /api/articles/activity-logs
-- GET    /api/notifications, PATCH /api/notifications/:id/read
+- GET    /api/notifications
 - GET    /proxy/cover?url= (cover proxy, raster images only) · GET /health · /messenger (Basic auth)
 
 ## Add flow — manga first, French editions only
@@ -192,6 +196,8 @@ Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrin
 - Emails: **Resend** — domain `ziggytheque.fr` verified, sender `notifications@ziggytheque.fr`, `MAILER_DSN=resend+api://KEY@default`. Full setup: `docs/resend.md`
 - Frontend nginx proxies `/api` and `/proxy` to the backend via `BACKEND_URL` (internal Railway URL), so the SPA stays same-origin. It gzips the bundles, caches `/assets/*` (hashed) for a year as immutable and revalidates everything else (`no-cache`), so a deploy is seen at once
 - Backend image: `php.ini-production` + `back/docker/php-prod.ini` (OPcache without timestamp checks — the code never changes in an image —, `memory_limit` above the worker's own limit, `expose_php` off). The SPA is not in it. `.github/workflows/docker.yml` builds and checks both images on every PR that touches them
+- Both images run without root: back and worker as `www-data` (frankenphp has `CAP_NET_BIND_SERVICE`; `var/`, `config/jwt`, `/data/caddy`, `/config/caddy` writable), front as `nginx` (pid in `/tmp`). `docker.yml` checks it
+- nginx sends a report-only CSP (`front/nginx.conf.template` explains how to enforce it; `MERCURE_PUBLIC_URL` must join `connect-src` if it ever moves to another origin)
 - CORS prod value: `CORS_ALLOW_ORIGIN=^https://(www\.)?ziggytheque\.fr$`
 - **Secrets never live in `back/.env`** (it ships in the image): their keys stay there with an EMPTY value, local values go in `back/.env.dev`, test values in `back/.env.test`, real values in Railway. A weak value (empty, short, `CHANGEME`, an old committed default — `SecretStrength`) keeps its feature closed: `/messenger` accepts nobody (MONITOR_PASSWORD < 12 chars), the admin gate answers 503 (GATE_PASSWORD < 12 chars). `bin/console app:security:check-secrets` runs at container start and lists the weak ones (names only).
 - **Env var sync at deploy**: a `sync-env` job (in both deploy workflows) compares the env vars declared in the repo's `.env` files against what's set on the target Railway environment and creates any **new** one with a sentinel value `CHANGEME` (the Railway CLI can't set empty; `--skip-deploys`, never edits existing values) so it only needs its real value typed in Railway. Always exits 0 — never blocks a deploy. Script + ignore-list (`IGNORE_KEYS` exact + `IGNORE_PATTERNS` globs, incl. `*_BASE_URL`): `scripts/railway-sync-env-keys.sh`; full doc: `docs/railway-env-sync.md`. When you add a `back/.env` var whose committed default IS the prod value, add its key to `IGNORE_KEYS` so it isn't shadowed by a `CHANGEME` placeholder.

@@ -4,21 +4,17 @@ declare(strict_types=1);
 
 namespace App\Notification\Application\Test;
 
+use App\Notification\Domain\Exception\TestNotificationConfigurationException;
 use App\Notification\Domain\Notification;
 use App\Notification\Domain\NotificationRepositoryInterface;
 use App\Notification\Domain\TestNotificationRecipient;
 use App\Notification\Domain\TestNotificationRecipientResolverInterface;
+use App\Notification\Domain\TestNotificationSenderInterface;
 use App\Shared\Domain\ValueObject\DiscordWebhookUrl;
-use DateTimeImmutable;
-use DateTimeInterface;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
-use Symfony\Component\Mime\Email;
 use Symfony\Component\Uid\Uuid;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Throwable;
-use Twig\Environment;
 
 /**
  * Sends a one-off "test" notification to the user's configured channel so they
@@ -28,23 +24,20 @@ use Twig\Environment;
  *
  * The handler stays free of any Auth\Domain dependency: it resolves what it
  * needs via TestNotificationRecipientResolverInterface, whose implementation
- * lives in Auth\Infrastructure.
+ * lives in Auth\Infrastructure. The delivery itself (mailer, Discord HTTP call)
+ * sits behind TestNotificationSenderInterface.
  */
 #[AsMessageHandler]
 final readonly class SendTestNotificationHandler
 {
-    private const CHANNEL_EMAIL      = 'email';
-    private const CHANNEL_DISCORD    = 'discord';
-    private const DISCORD_COLOR_BLUE = 3_447_003;
+    private const CHANNEL_EMAIL   = 'email';
+    private const CHANNEL_DISCORD = 'discord';
 
     public function __construct(
         private TestNotificationRecipientResolverInterface $recipientResolver,
         private NotificationRepositoryInterface $notificationRepository,
-        private MailerInterface $mailer,
-        private HttpClientInterface $httpClient,
-        private Environment $twig,
+        private TestNotificationSenderInterface $sender,
         private LoggerInterface $logger,
-        private string $notificationEmail,
     ) {
     }
 
@@ -78,18 +71,7 @@ final readonly class SendTestNotificationHandler
             throw new TestNotificationConfigurationException('No notification email configured.');
         }
 
-        $html = $this->twig->render('emails/notification_test.html.twig', [
-            'displayName' => $recipient->displayName,
-        ]);
-
-        $email = (new Email())
-            ->from($this->notificationEmail)
-            ->to($address)
-            ->subject('Ziggytheque — Test de notification')
-            ->text(sprintf('Bonjour %s, ceci est ton test.', $recipient->displayName))
-            ->html($html);
-
-        $this->mailer->send($email);
+        $this->sender->sendEmail($address, $recipient->displayName);
     }
 
     private function sendDiscordTest(TestNotificationRecipient $recipient): void
@@ -107,27 +89,7 @@ final readonly class SendTestNotificationHandler
             );
         }
 
-        $payload = [
-            'embeds' => [[
-                'title'       => '🔔 Test de notification',
-                'description' => sprintf('Bonjour %s, ceci est ton test.', $recipient->displayName),
-                'color'       => self::DISCORD_COLOR_BLUE,
-                'footer'      => ['text' => 'Ziggytheque'],
-                'timestamp'   => (new DateTimeImmutable())->format(DateTimeInterface::ATOM),
-            ]],
-        ];
-
-        $response = $this->httpClient->request('POST', $webhook, [
-            'json'    => $payload,
-            'timeout' => 5,
-        ]);
-
-        $status = $response->getStatusCode();
-        if ($status < 200 || $status >= 300) {
-            throw new TestNotificationConfigurationException(
-                sprintf('Discord webhook returned HTTP %d.', $status),
-            );
-        }
+        $this->sender->sendDiscord($webhook, $recipient->displayName);
     }
 
     private function notifyUserOfFailure(TestNotificationRecipient $recipient, Throwable $exception): void

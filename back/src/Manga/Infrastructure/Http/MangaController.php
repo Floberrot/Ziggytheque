@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace App\Manga\Infrastructure\Http;
 
-use App\Manga\Application\AddVolume\AddVolumeCommand;
 use App\Manga\Application\AutoCovers\StartCoverBatchCommand;
 use App\Manga\Application\FindCoverByIsbn\FindCoverByIsbnQuery;
-use App\Manga\Application\Get\GetMangaQuery;
 use App\Manga\Application\GetVolumePrices\GetVolumePricesQuery;
 use App\Manga\Application\Import\ImportMangaCommand;
-use App\Manga\Application\Search\SearchMangaQuery;
 use App\Manga\Application\SearchVolumeExternal\SearchVolumeExternalQuery;
 use App\Manga\Application\TranslateSummary\TranslateSummaryQuery;
 use App\Manga\Application\Update\UpdateMangaCommand;
@@ -41,14 +38,6 @@ final readonly class MangaController
         private CacheRateLimiter $rateLimiter,
         private CurrentUserProviderInterface $currentUserProvider,
     ) {
-    }
-
-    #[Route('', methods: ['GET'])]
-    public function search(Request $request): JsonResponse
-    {
-        $query = $request->query->get('q', '');
-
-        return new JsonResponse($this->queryBus->ask(new SearchMangaQuery($query)));
     }
 
     #[Route('/cover-by-isbn', methods: ['GET'])]
@@ -92,12 +81,6 @@ final readonly class MangaController
         return new JsonResponse($this->queryBus->ask(new TranslateSummaryQuery($request->text)));
     }
 
-    #[Route('/{id}', methods: ['GET'])]
-    public function get(string $id): JsonResponse
-    {
-        return new JsonResponse($this->queryBus->ask(new GetMangaQuery($id)));
-    }
-
     #[Route('', methods: ['POST'])]
     public function import(#[MapRequestPayload] ImportMangaRequest $request): JsonResponse
     {
@@ -129,19 +112,6 @@ final readonly class MangaController
         ));
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
-    }
-
-    #[Route('/{id}/volumes', methods: ['POST'])]
-    public function addVolume(string $id, #[MapRequestPayload] AddVolumeRequest $request): JsonResponse
-    {
-        $volumeId = $this->commandBus->dispatch(new AddVolumeCommand(
-            mangaId: $id,
-            number: $request->number,
-            coverUrl: $request->coverUrl,
-            releaseDate: $request->releaseDate,
-        ));
-
-        return new JsonResponse(['id' => $volumeId], Response::HTTP_CREATED);
     }
 
     #[Route('/{id}/volumes/{volumeId}', methods: ['PATCH'])]

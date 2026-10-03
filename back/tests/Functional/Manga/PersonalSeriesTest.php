@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Manga;
 
 use App\Tests\Functional\AbstractApiTestCase;
+use App\Tests\Functional\Fixtures\HandTypedSeriesTrait;
 use App\Tests\Functional\Fixtures\UserFixtureFactory;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,7 +16,10 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class PersonalSeriesTest extends AbstractApiTestCase
 {
+    use HandTypedSeriesTrait;
+
     private string $mangaId;
+    private string $entryId;
     private string $volumeId;
     private string $intruderToken;
 
@@ -24,13 +28,10 @@ final class PersonalSeriesTest extends AbstractApiTestCase
         parent::setUp();
 
         // The setUp admin types a 2-tome series by hand and collects it.
-        $manga = $this->assertJsonStatus(201, $this->jsonRequest('POST', '/api/manga', [
-            'title' => 'Private Series', 'language' => 'fr', 'totalVolumes' => 2,
-        ]));
-        $this->mangaId = (string) $manga['id'];
-        $this->assertJsonStatus(201, $this->jsonRequest('POST', '/api/collection', ['mangaId' => $this->mangaId]));
-        $detail = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/manga/' . $this->mangaId));
-        $this->volumeId = (string) $detail['volumes'][0]['id'];
+        $series = $this->collectHandTypedSeries('Private Series', 2);
+        $this->mangaId  = $series['mangaId'];
+        $this->entryId  = $series['entryId'];
+        $this->volumeId = $series['volumeIds'][0];
 
         UserFixtureFactory::createActiveUser(static::getContainer(), email: 'intruder@test.local');
         $this->intruderToken = $this->tokenForUser('intruder@test.local');
@@ -39,9 +40,7 @@ final class PersonalSeriesTest extends AbstractApiTestCase
     /** @return iterable<string, array{string, string, array<string, mixed>}> */
     public static function seriesRoutes(): iterable
     {
-        yield 'read the series' => ['GET', '/api/manga/{manga}', []];
         yield 'rename the series' => ['PATCH', '/api/manga/{manga}', ['title' => 'Hijacked']];
-        yield 'add a tome' => ['POST', '/api/manga/{manga}/volumes', ['number' => 3]];
         yield 'change a tome' => ['PATCH', '/api/manga/{manga}/volumes/{volume}', ['price' => 99, 'isbn' => '9782344036075']];
         yield 'fetch the covers' => ['POST', '/api/manga/{manga}/auto-covers', ['force' => true]];
         yield 'look up the prices' => ['GET', '/api/manga/{manga}/volumes/{volume}/prices', []];
@@ -58,20 +57,11 @@ final class PersonalSeriesTest extends AbstractApiTestCase
         $this->assertJsonStatus(404, $response);
 
         // The owner's series is untouched.
-        $detail = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/manga/' . $this->mangaId));
-        $this->assertSame('Private Series', $detail['title']);
+        $detail = $this->collectionDetail($this->entryId);
+        $this->assertSame('Private Series', $detail['manga']['title']);
         $this->assertCount(2, $detail['volumes']);
         $this->assertNull($detail['volumes'][0]['price']);
         $this->assertNull($detail['volumes'][0]['isbn']);
-    }
-
-    public function testTheSeriesSearchListsOnlyOnesOwnSeries(): void
-    {
-        $mine = $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/manga?q=Private'));
-        $this->assertSame([$this->mangaId], array_column($mine, 'id'));
-
-        $theirs = $this->assertJsonStatus(200, $this->requestAs($this->intruderToken, 'GET', '/api/manga?q=Private'));
-        $this->assertSame([], $theirs);
     }
 
     public function testASeriesTypedByHandBelongsToWhoeverTypedIt(): void
@@ -80,8 +70,8 @@ final class PersonalSeriesTest extends AbstractApiTestCase
             'title' => 'Intruder Series', 'language' => 'fr',
         ]));
 
-        $this->assertJsonStatus(200, $this->requestAs($this->intruderToken, 'GET', '/api/manga/' . $theirs['id']));
-        $this->assertJsonStatus(404, $this->jsonRequest('GET', '/api/manga/' . $theirs['id']));
+        $this->assertJsonStatus(404, $this->jsonRequest('POST', '/api/collection', ['mangaId' => $theirs['id']]));
+        $this->assertJsonStatus(201, $this->requestAs($this->intruderToken, 'POST', '/api/collection', ['mangaId' => $theirs['id']]));
     }
 
     public function testCorrectionsStayInTheCopyOfWhoeverMadeThem(): void
@@ -89,7 +79,7 @@ final class PersonalSeriesTest extends AbstractApiTestCase
         $mine = $this->assertJsonStatus(201, $this->jsonRequest('POST', '/api/catalogue/add', $this->cataloguePayload()));
         $theirs = $this->assertJsonStatus(201, $this->requestAs($this->intruderToken, 'POST', '/api/catalogue/add', $this->cataloguePayload()));
 
-        $myVolumeId = (string) $this->assertJsonStatus(200, $this->jsonRequest('GET', '/api/manga/' . $mine['mangaId']))['volumes'][0]['id'];
+        $myVolumeId = (string) $this->collectionDetail($mine['collectionEntryId'])['volumes'][0]['volumeId'];
         $this->assertSame(204, $this->jsonRequest('PATCH', '/api/manga/' . $mine['mangaId'], [
             'title' => 'Berserk (my title)', 'coverUrl' => 'https://covers.example/mine.jpg',
         ])->getStatusCode());
@@ -100,11 +90,11 @@ final class PersonalSeriesTest extends AbstractApiTestCase
             'price' => 8,
         ])->getStatusCode());
 
-        $theirSeries = $this->assertJsonStatus(200, $this->requestAs($this->intruderToken, 'GET', '/api/manga/' . $theirs['mangaId']));
-        $this->assertSame('Berserk', $theirSeries['title']);
-        $this->assertSame('https://catalogue.bnf.fr/couverture?appName=NE&idArk=ark:/12148/cb1', $theirSeries['coverUrl']);
-        $this->assertSame([null, null, null], array_column($theirSeries['volumes'], 'price'));
-        $this->assertNull($theirSeries['volumes'][0]['coverUrl']);
+        $theirEntry = $this->assertJsonStatus(200, $this->requestAs($this->intruderToken, 'GET', '/api/collection/' . $theirs['collectionEntryId']));
+        $this->assertSame('Berserk', $theirEntry['manga']['title']);
+        $this->assertSame('https://catalogue.bnf.fr/couverture?appName=NE&idArk=ark:/12148/cb1', $theirEntry['manga']['coverUrl']);
+        $this->assertSame([null, null, null], array_column($theirEntry['volumes'], 'price'));
+        $this->assertNull($theirEntry['volumes'][0]['coverUrl']);
     }
 
     public function testRemovingASeriesFromTheCollectionDeletesOnlyOnesOwnCopy(): void
@@ -114,9 +104,8 @@ final class PersonalSeriesTest extends AbstractApiTestCase
 
         $this->assertSame(204, $this->jsonRequest('DELETE', '/api/collection/' . $mine['collectionEntryId'])->getStatusCode());
 
-        $this->assertJsonStatus(404, $this->jsonRequest('GET', '/api/manga/' . $mine['mangaId']));
-        $theirSeries = $this->assertJsonStatus(200, $this->requestAs($this->intruderToken, 'GET', '/api/manga/' . $theirs['mangaId']));
-        $this->assertCount(3, $theirSeries['volumes']);
+        // My copy is gone (nothing left to rename), theirs keeps its three tomes.
+        $this->assertJsonStatus(404, $this->jsonRequest('PATCH', '/api/manga/' . $mine['mangaId'], ['title' => 'Gone']));
         $theirEntry = $this->assertJsonStatus(200, $this->requestAs($this->intruderToken, 'GET', '/api/collection/' . $theirs['collectionEntryId']));
         $this->assertSame([true, false, false], array_column($theirEntry['volumes'], 'isOwned'));
 

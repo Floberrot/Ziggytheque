@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { postResetPassword } from '@/api/auth'
 import { useThemeStore } from '@/stores/useThemeStore'
@@ -9,9 +10,11 @@ import BaseButton from '@/components/atoms/BaseButton.vue'
 const route = useRoute()
 const router = useRouter()
 const themeStore = useThemeStore()
+const { t } = useI18n()
 
 const newPassword = ref('')
 const confirmPassword = ref('')
+/** i18n key of the failure, '' when none. */
 const error = ref('')
 const loading = ref(false)
 const success = ref(false)
@@ -22,16 +25,16 @@ const logoSrc = computed(() =>
 
 async function submit() {
   if (newPassword.value !== confirmPassword.value) {
-    error.value = 'Les mots de passe ne correspondent pas.'
+    error.value = 'auth.passwordsMismatch'
     return
   }
   if (newPassword.value.length < 8) {
-    error.value = 'Le mot de passe doit faire au moins 8 caractères.'
+    error.value = 'auth.reset.tooShort'
     return
   }
   const token = route.query.token
   if (typeof token !== 'string' || token === '') {
-    error.value = 'Lien invalide.'
+    error.value = 'auth.reset.invalidLink'
     return
   }
 
@@ -42,9 +45,9 @@ async function submit() {
     success.value = true
   } catch (err) {
     if (axios.isAxiosError(err) && err.response?.status === 400) {
-      error.value = 'Ce lien est invalide ou a expiré.'
+      error.value = 'auth.reset.expired'
     } else {
-      error.value = 'La réinitialisation a échoué.'
+      error.value = 'auth.reset.failed'
     }
   } finally {
     loading.value = false
@@ -59,23 +62,24 @@ async function submit() {
         <img :src="logoSrc" alt="Ziggytheque" class="h-28 w-auto object-contain" />
 
         <template v-if="success">
-          <h2 class="text-lg font-semibold">Mot de passe modifié&nbsp;!</h2>
+          <h2 class="text-lg font-semibold">{{ t('auth.reset.doneTitle') }}</h2>
           <p class="text-base-content/70 text-sm text-center">
-            Vous pouvez désormais vous connecter avec votre nouveau mot de passe.
+            {{ t('auth.reset.doneBody') }}
           </p>
           <button class="btn btn-primary btn-sm" @click="router.push({ name: 'login' })">
-            Aller à la connexion
+            {{ t('auth.goToLogin') }}
           </button>
         </template>
 
         <template v-else>
-          <h2 class="text-lg font-semibold">Nouveau mot de passe</h2>
+          <h2 class="text-lg font-semibold">{{ t('auth.reset.title') }}</h2>
 
           <form class="flex flex-col gap-3 w-full" @submit.prevent="submit">
             <input
               v-model="newPassword"
               type="password"
-              placeholder="Nouveau mot de passe"
+              :placeholder="t('auth.reset.newPassword')"
+              :aria-label="t('auth.reset.newPassword')"
               class="input input-bordered w-full"
               :class="{ 'input-error': error }"
               autocomplete="new-password"
@@ -86,13 +90,14 @@ async function submit() {
               <input
                 v-model="confirmPassword"
                 type="password"
-                placeholder="Confirmer le mot de passe"
+                :placeholder="t('auth.confirmPassword')"
+                :aria-label="t('auth.confirmPassword')"
                 class="input input-bordered w-full"
                 :class="{ 'input-error': error }"
                 autocomplete="new-password"
               />
               <label v-if="error" class="label">
-                <span class="label-text-alt text-error">{{ error }}</span>
+                <span class="label-text-alt text-error">{{ t(error) }}</span>
               </label>
             </div>
 
@@ -101,7 +106,7 @@ async function submit() {
               class="btn btn-primary w-full"
               :loading="loading"
             >
-              Réinitialiser
+              {{ t('auth.reset.submit') }}
             </BaseButton>
           </form>
         </template>

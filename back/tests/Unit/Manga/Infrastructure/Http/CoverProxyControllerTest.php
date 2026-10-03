@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Unit\Manga\Infrastructure\Http;
 
 use App\Manga\Infrastructure\Http\CoverProxyController;
+use App\Shared\Domain\Exception\RateLimitExceededException;
+use App\Shared\Infrastructure\RateLimit\CacheRateLimiter;
+use App\Tests\Doubles\Shared\InMemoryRateLimitCounterStore;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -217,10 +220,57 @@ final class CoverProxyControllerTest extends TestCase
         self::assertSame(Response::HTTP_NOT_FOUND, $this->handle($client, self::ALLOWED)->getStatusCode());
     }
 
+    public function testRefusesAClientIpPastItsQuotaBeforeAnyFetch(): void
+    {
+        $client     = new MockHttpClient();
+        $controller = new CoverProxyController(
+            $client,
+            new NullLogger(),
+            new CacheRateLimiter(new InMemoryRateLimitCounterStore()),
+        );
+
+        for ($call = 0; $call < CoverProxyController::REQUESTS_PER_IP; $call++) {
+            $controller($this->request('https://evil.example/x.jpg', '203.0.113.7'));
+        }
+
+        try {
+            $controller($this->request(self::ALLOWED, '203.0.113.7'));
+            self::fail('The call past the quota should be refused.');
+        } catch (RateLimitExceededException) {
+            self::assertSame(0, $client->getRequestsCount());
+        }
+    }
+
+    public function testCountsEachClientIpApart(): void
+    {
+        $controller = new CoverProxyController(
+            new MockHttpClient(),
+            new NullLogger(),
+            new CacheRateLimiter(new InMemoryRateLimitCounterStore()),
+        );
+
+        for ($call = 0; $call < CoverProxyController::REQUESTS_PER_IP; $call++) {
+            $controller($this->request('https://evil.example/x.jpg', '203.0.113.8'));
+        }
+
+        $response = $controller($this->request('https://evil.example/x.jpg', '203.0.113.9'));
+
+        self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
+    }
+
     private function handle(MockHttpClient $client, string $url): Response
     {
-        $controller = new CoverProxyController($client, new NullLogger());
+        $controller = new CoverProxyController(
+            $client,
+            new NullLogger(),
+            new CacheRateLimiter(new InMemoryRateLimitCounterStore()),
+        );
 
-        return $controller(Request::create('/proxy/cover', 'GET', ['url' => $url]));
+        return $controller($this->request($url, '198.51.100.1'));
+    }
+
+    private function request(string $url, string $clientIp): Request
+    {
+        return Request::create('/proxy/cover', 'GET', ['url' => $url], server: ['REMOTE_ADDR' => $clientIp]);
     }
 }

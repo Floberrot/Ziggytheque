@@ -6,9 +6,12 @@ namespace App\Tests\Functional\Manga;
 
 use App\Tests\Doubles\Manga\InMemoryScanResultPublisher;
 use App\Tests\Functional\AbstractApiTestCase;
+use App\Tests\Functional\Fixtures\HandTypedSeriesTrait;
 
 final class ScanControllerTest extends AbstractApiTestCase
 {
+    use HandTypedSeriesTrait;
+
     private function importManga(array $overrides = []): string
     {
         $payload = array_merge([
@@ -23,13 +26,12 @@ final class ScanControllerTest extends AbstractApiTestCase
         return (string) $data['id'];
     }
 
-    private function addVolume(string $mangaId, int $number = 1): string
+    /** @return array{string, string} the series id and the id of its one tome */
+    private function seriesWithOneTome(): array
     {
-        $response = $this->jsonRequest('POST', '/api/manga/' . $mangaId . '/volumes', ['number' => $number]);
-        $this->assertSame(201, $response->getStatusCode());
+        $series = $this->collectHandTypedSeries('Scan Manga');
 
-        $data = json_decode((string) $response->getContent(), true);
-        return (string) $data['id'];
+        return [$series['mangaId'], $series['volumeIds'][0]];
     }
 
     public function testCreateSessionRequiresAuth(): void
@@ -69,8 +71,7 @@ final class ScanControllerTest extends AbstractApiTestCase
 
     public function testCreateSessionReturnsTokens(): void
     {
-        $mangaId = $this->importManga();
-        $volumeId = $this->addVolume($mangaId);
+        [$mangaId, $volumeId] = $this->seriesWithOneTome();
 
         $data = $this->assertJsonStatus(201, $this->jsonRequest('POST', '/api/scan/sessions', [
             'mangaId' => $mangaId,
@@ -87,8 +88,7 @@ final class ScanControllerTest extends AbstractApiTestCase
 
     public function testSubmitPublishesIsbn(): void
     {
-        $mangaId = $this->importManga();
-        $volumeId = $this->addVolume($mangaId);
+        [$mangaId, $volumeId] = $this->seriesWithOneTome();
 
         $sessionData = $this->assertJsonStatus(201, $this->jsonRequest('POST', '/api/scan/sessions', [
             'mangaId' => $mangaId,
@@ -121,8 +121,7 @@ final class ScanControllerTest extends AbstractApiTestCase
 
     public function testSubmitInvalidIsbnReturns422(): void
     {
-        $mangaId = $this->importManga();
-        $volumeId = $this->addVolume($mangaId);
+        [$mangaId, $volumeId] = $this->seriesWithOneTome();
 
         $sessionData = $this->assertJsonStatus(201, $this->jsonRequest('POST', '/api/scan/sessions', [
             'mangaId' => $mangaId,

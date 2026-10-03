@@ -1,10 +1,16 @@
 import { onScopeDispose } from 'vue'
-import type { ScanSessionResponse } from '@/api/manga'
+import { createScanSession, type ScanSessionResponse } from '@/api/manga'
+
+interface ScanSessionCallbacks {
+  onResult?: (isbn: string) => void
+}
 
 export function useScanSession() {
   let source: EventSource | null = null
+  // Left (tab switched, page closed) while the session was being created: never listen.
+  let disposed = false
 
-  function start(payload: ScanSessionResponse, callbacks: { onResult?: (isbn: string) => void }): void {
+  function start(payload: ScanSessionResponse, callbacks: ScanSessionCallbacks): void {
     close()
 
     const url = new URL(payload.mercureUrl)
@@ -26,12 +32,29 @@ export function useScanSession() {
     source.onerror = () => {}
   }
 
+  /**
+   * Opens a phone hand-off and listens to it: for one tome, or — without a target —
+   * for the add page's shelf scan. It only creates a short-lived channel, nothing of
+   * the collection changes. Resolves with the session, whose token the QR code carries.
+   */
+  async function open(
+    target: { mangaId: string; volumeId: string } | null,
+    callbacks: ScanSessionCallbacks,
+  ): Promise<ScanSessionResponse> {
+    const session = target ? await createScanSession(target) : await createScanSession()
+    if (!disposed) start(session, callbacks)
+    return session
+  }
+
   function close(): void {
     source?.close()
     source = null
   }
 
-  onScopeDispose(close)
+  onScopeDispose(() => {
+    disposed = true
+    close()
+  })
 
-  return { start, close }
+  return { start, open, close }
 }

@@ -16,7 +16,7 @@ const isBatch = route.query.batch === '1'
 const viewfinder = ref<InstanceType<typeof ScanViewfinder> | null>(null)
 const readCount = ref(0)
 const {
-  isScanning, errorMessage: cameraError, torchAvailable, torchOn, start: startScanner, startContinuous, toggleTorch,
+  isScanning, errorKey: cameraErrorKey, torchAvailable, torchOn, start: startScanner, startContinuous, toggleTorch,
 } = useBarcodeScanner()
 
 const successIsbn = ref<string | null>(null)
@@ -87,7 +87,7 @@ onMounted(() => {
 
         <!-- Success state -->
         <div v-if="successIsbn" class="flex flex-col items-center gap-4 py-4">
-          <div class="text-6xl">✓</div>
+          <div class="text-6xl" aria-hidden="true">✓</div>
           <p class="text-success font-semibold text-center">
             {{ t('scan.success', { isbn: successIsbn }) }}
           </p>
@@ -108,17 +108,17 @@ onMounted(() => {
             @toggle-torch="toggleTorch()"
           />
 
-          <div v-if="cameraError" class="alert alert-error alert-sm text-sm">
-            {{ cameraError || t('scan.cameraError') }}
+          <div v-if="cameraErrorKey" class="alert alert-error alert-sm text-sm">
+            {{ t(cameraErrorKey) }}
           </div>
 
           <div v-if="scanError" class="alert alert-warning alert-sm text-sm">
             {{ scanError }}
           </div>
 
-          <div v-if="isScanning && !cameraError" class="flex items-center gap-2 text-sm text-base-content/50 justify-center">
+          <div v-if="isScanning && !cameraErrorKey" class="flex items-center gap-2 text-sm text-base-content/50 justify-center">
             <BaseLoader size="xs" />
-            Recherche du code-barres…
+            {{ t('scan.searching') }}
           </div>
 
           <div v-if="isBatch && sentIsbns.length" class="space-y-1 text-center">

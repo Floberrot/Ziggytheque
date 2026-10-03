@@ -7,6 +7,7 @@ namespace App\Tests\Functional\Notification;
 use App\Notification\Domain\ActivityLog;
 use App\Notification\Domain\EventTypeEnum;
 use App\Tests\Functional\AbstractApiTestCase;
+use App\Tests\Functional\Fixtures\HandTypedSeriesTrait;
 use App\Tests\Functional\Fixtures\UserFixtureFactory;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -16,6 +17,8 @@ use Symfony\Component\Uid\Uuid;
 
 final class ActivityLogControllerTest extends AbstractApiTestCase
 {
+    use HandTypedSeriesTrait;
+
     // ── Authorization ────────────────────────────────────────────────────────
 
     public function testActivityLogsRequiresAuth(): void
@@ -113,6 +116,57 @@ final class ActivityLogControllerTest extends AbstractApiTestCase
         $this->assertCount(1, $items);
         $this->assertSame('POST', $items[0]['metadata']['method']);
         $this->assertSame(201, $items[0]['metadata']['status_code']);
+    }
+
+    public function testRatingASeriesIsJournaled(): void
+    {
+        ['entryId' => $entryId] = $this->collectHandTypedSeries('Rated Series');
+
+        $this->assertSame(204, $this->jsonRequest('PATCH', '/api/collection/' . $entryId . '/rating', ['rating' => 8])->getStatusCode());
+
+        $log = $this->onlyItem($this->itemsFor('eventType=collection_action&collectionEntryId=' . $entryId), 'rating');
+        $this->assertSame('success', $log['status']);
+        $this->assertSame(8, $log['metadata']['rating']);
+        $this->assertSame('Rated Series', $log['mangaTitle']);
+        $this->assertSame('admin@test.local', $log['owner']['email'] ?? null);
+    }
+
+    public function testChangingTheReadingStatusIsJournaled(): void
+    {
+        ['entryId' => $entryId] = $this->collectHandTypedSeries('Paused Series');
+
+        $this->assertSame(204, $this->jsonRequest('PATCH', '/api/collection/' . $entryId . '/status', ['status' => 'on_hold'])->getStatusCode());
+
+        $log = $this->onlyItem($this->itemsFor('eventType=collection_action&collectionEntryId=' . $entryId), 'status');
+        $this->assertSame('success', $log['status']);
+        $this->assertSame('on_hold', $log['metadata']['status']);
+        $this->assertSame('Paused Series', $log['mangaTitle']);
+    }
+
+    public function testCorrectingASeriesIsJournaled(): void
+    {
+        ['mangaId' => $mangaId] = $this->collectHandTypedSeries('Typo Seires');
+
+        $this->assertSame(204, $this->jsonRequest('PATCH', '/api/manga/' . $mangaId, ['title' => 'Typo Series'])->getStatusCode());
+
+        $log = $this->onlyMangaLog($mangaId, 'mangaTitle');
+        $this->assertSame('success', $log['status']);
+        $this->assertSame('Typo Series', $log['metadata']['mangaTitle']);
+        $this->assertArrayNotHasKey('volumeId', $log['metadata']);
+        $this->assertSame('admin@test.local', $log['owner']['email'] ?? null);
+    }
+
+    public function testCorrectingATomeIsJournaled(): void
+    {
+        ['mangaId' => $mangaId, 'volumeIds' => [$volumeId]] = $this->collectHandTypedSeries('Priced Series');
+
+        $this->assertSame(204, $this->jsonRequest('PATCH', '/api/manga/' . $mangaId . '/volumes/' . $volumeId, ['price' => 9.5])->getStatusCode());
+
+        $log = $this->onlyMangaLog($mangaId, 'volumeId');
+        $this->assertSame('success', $log['status']);
+        $this->assertSame($volumeId, $log['metadata']['volumeId']);
+        $this->assertSame(1, $log['metadata']['number']);
+        $this->assertSame('Priced Series', $log['metadata']['mangaTitle']);
     }
 
     // ── from / to / search filters ───────────────────────────────────────────
@@ -331,6 +385,34 @@ final class ActivityLogControllerTest extends AbstractApiTestCase
         $this->assertSame(200, $response->getStatusCode(), (string) $response->getContent());
 
         return (array) json_decode((string) $response->getContent(), true);
+    }
+
+    /**
+     * The one journal entry whose metadata carries the given key.
+     *
+     * @param  list<array<string, mixed>> $items
+     * @return array<string, mixed>
+     */
+    private function onlyItem(array $items, string $metadataKey): array
+    {
+        $matching = array_values(array_filter(
+            $items,
+            static fn (array $item): bool => is_array($item['metadata']) && array_key_exists($metadataKey, $item['metadata']),
+        ));
+        $this->assertCount(1, $matching);
+
+        return $matching[0];
+    }
+
+    /** @return array<string, mixed> the one manga_action entry about this series carrying the metadata key */
+    private function onlyMangaLog(string $mangaId, string $metadataKey): array
+    {
+        $items = array_values(array_filter(
+            $this->itemsFor('eventType=manga_action'),
+            static fn (array $item): bool => ($item['metadata']['mangaId'] ?? null) === $mangaId,
+        ));
+
+        return $this->onlyItem($items, $metadataKey);
     }
 
     /** @return list<array<string, mixed>> */

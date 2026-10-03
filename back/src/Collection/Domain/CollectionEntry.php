@@ -49,8 +49,6 @@ class CollectionEntry
         #[ORM\Column(options: ['default' => false])]
         public bool $notificationsEnabled = false,
         #[ORM\Column(nullable: true)]
-        public ?DateTimeImmutable $lastNotifiedAt = null,
-        #[ORM\Column(nullable: true)]
         public ?DateTimeImmutable $notificationsEnabledAt = null,
     ) {
         $this->volumeEntries = new ArrayCollection();

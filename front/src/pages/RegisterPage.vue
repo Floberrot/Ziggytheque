@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { Eye, EyeOff } from 'lucide-vue-next'
 import { postRegister } from '@/api/auth'
@@ -9,6 +10,7 @@ import BaseButton from '@/components/atoms/BaseButton.vue'
 
 const router = useRouter()
 const themeStore = useThemeStore()
+const { t } = useI18n()
 
 const email = ref('')
 const password = ref('')
@@ -16,6 +18,7 @@ const passwordConfirm = ref('')
 const displayName = ref('')
 const showPassword = ref(false)
 const showPasswordConfirm = ref(false)
+/** i18n key of the failure, '' when none. */
 const error = ref('')
 const loading = ref(false)
 const success = ref(false)
@@ -26,7 +29,7 @@ const logoSrc = computed(() =>
 
 const passwordStrength = computed(() => {
   const value = password.value
-  if (!value) return { score: 0, label: '', barClass: '', textClass: '' }
+  if (!value) return { score: 0, labelKey: '', barClass: '', textClass: '' }
 
   let score = 0
   if (value.length >= 8) score++
@@ -35,11 +38,11 @@ const passwordStrength = computed(() => {
   if (/\d/.test(value)) score++
   if (/[^A-Za-z0-9]/.test(value)) score++
 
-  if (score <= 1) return { score, label: 'Faible', barClass: 'bg-error', textClass: 'text-error' }
-  if (score <= 2) return { score, label: 'Moyen', barClass: 'bg-warning', textClass: 'text-warning' }
-  if (score <= 3) return { score, label: 'Bon', barClass: 'bg-info', textClass: 'text-info' }
-  if (score <= 4) return { score, label: 'Fort', barClass: 'bg-success', textClass: 'text-success' }
-  return { score, label: 'Très fort', barClass: 'bg-success', textClass: 'text-success' }
+  if (score <= 1) return { score, labelKey: 'auth.register.strengthWeak', barClass: 'bg-error', textClass: 'text-error' }
+  if (score <= 2) return { score, labelKey: 'auth.register.strengthFair', barClass: 'bg-warning', textClass: 'text-warning' }
+  if (score <= 3) return { score, labelKey: 'auth.register.strengthGood', barClass: 'bg-info', textClass: 'text-info' }
+  if (score <= 4) return { score, labelKey: 'auth.register.strengthStrong', barClass: 'bg-success', textClass: 'text-success' }
+  return { score, labelKey: 'auth.register.strengthVeryStrong', barClass: 'bg-success', textClass: 'text-success' }
 })
 
 const passwordsMatch = computed(
@@ -69,11 +72,11 @@ async function submit() {
     // An address that already has an account gets the same answer as a new one
     // (its owner is told by email), so there is no "already taken" case here.
     if (axios.isAxiosError(err) && err.response?.status === 422) {
-      error.value = 'Email invalide ou mot de passe trop court (8 caractères min).'
+      error.value = 'auth.register.invalid'
     } else if (axios.isAxiosError(err) && err.response?.status === 429) {
-      error.value = 'Trop de tentatives. Réessayez dans un moment.'
+      error.value = 'auth.register.tooManyAttempts'
     } else {
-      error.value = 'L\'inscription a échoué. Réessayez plus tard.'
+      error.value = 'auth.register.failed'
     }
   } finally {
     loading.value = false
@@ -88,27 +91,26 @@ async function submit() {
         <img :src="logoSrc" alt="Ziggytheque" class="h-28 w-auto object-contain" />
 
         <div v-if="success" class="space-y-4 text-center">
-          <h2 class="text-lg font-semibold">Inscription envoyée&nbsp;!</h2>
+          <h2 class="text-lg font-semibold">{{ t('auth.register.sentTitle') }}</h2>
           <p class="text-base-content/70 text-sm">
-            Un email de vérification vous a été envoyé. Cliquez sur le lien
-            pour activer votre compte. Un administrateur devra ensuite valider
-            votre demande avant que vous puissiez vous connecter.
+            {{ t('auth.register.sentBody') }}
           </p>
           <button class="btn btn-primary btn-sm" @click="router.push({ name: 'login' })">
-            Retour à la connexion
+            {{ t('auth.backToLogin') }}
           </button>
         </div>
 
         <template v-else>
           <p class="text-base-content/50 text-sm tracking-wide">
-            Créez votre compte
+            {{ t('auth.register.subtitle') }}
           </p>
 
           <form class="flex flex-col gap-3 w-full" @submit.prevent="submit">
             <input
               v-model="displayName"
               type="text"
-              placeholder="Nom d'affichage"
+              :placeholder="t('auth.register.displayName')"
+              :aria-label="t('auth.register.displayName')"
               class="input input-bordered w-full"
               :class="{ 'input-error': error }"
               autocomplete="name"
@@ -117,7 +119,8 @@ async function submit() {
             <input
               v-model="email"
               type="email"
-              placeholder="Email"
+              :placeholder="t('auth.email')"
+              :aria-label="t('auth.email')"
               class="input input-bordered w-full"
               :class="{ 'input-error': error }"
               autocomplete="email"
@@ -128,7 +131,8 @@ async function submit() {
                 <input
                   v-model="password"
                   :type="showPassword ? 'text' : 'password'"
-                  placeholder="Mot de passe (8 caractères min)"
+                  :placeholder="t('auth.register.passwordHint')"
+                  :aria-label="t('auth.register.passwordHint')"
                   class="input input-bordered w-full pr-12"
                   :class="{ 'input-error': error }"
                   autocomplete="new-password"
@@ -137,7 +141,7 @@ async function submit() {
                 <button
                   type="button"
                   class="absolute inset-y-0 right-0 px-3 flex items-center text-base-content/60 hover:text-base-content"
-                  :aria-label="showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+                  :aria-label="showPassword ? t('auth.hidePassword') : t('auth.showPassword')"
                   tabindex="-1"
                   @click="showPassword = !showPassword"
                 >
@@ -156,7 +160,7 @@ async function submit() {
                   />
                 </div>
                 <p class="text-xs" :class="passwordStrength.textClass">
-                  Force&nbsp;: {{ passwordStrength.label }}
+                  {{ t('auth.register.strength', { level: t(passwordStrength.labelKey) }) }}
                 </p>
               </div>
             </div>
@@ -166,7 +170,8 @@ async function submit() {
                 <input
                   v-model="passwordConfirm"
                   :type="showPasswordConfirm ? 'text' : 'password'"
-                  placeholder="Confirmer le mot de passe"
+                  :placeholder="t('auth.confirmPassword')"
+                  :aria-label="t('auth.confirmPassword')"
                   class="input input-bordered w-full pr-12"
                   :class="{
                     'input-error': passwordsMismatch || error,
@@ -177,7 +182,7 @@ async function submit() {
                 <button
                   type="button"
                   class="absolute inset-y-0 right-0 px-3 flex items-center text-base-content/60 hover:text-base-content"
-                  :aria-label="showPasswordConfirm ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+                  :aria-label="showPasswordConfirm ? t('auth.hidePassword') : t('auth.showPassword')"
                   tabindex="-1"
                   @click="showPasswordConfirm = !showPasswordConfirm"
                 >
@@ -186,10 +191,10 @@ async function submit() {
                 </button>
               </div>
               <label v-if="passwordsMismatch" class="label">
-                <span class="label-text-alt text-error">Les mots de passe ne correspondent pas.</span>
+                <span class="label-text-alt text-error">{{ t('auth.passwordsMismatch') }}</span>
               </label>
               <label v-else-if="error" class="label">
-                <span class="label-text-alt text-error">{{ error }}</span>
+                <span class="label-text-alt text-error">{{ t(error) }}</span>
               </label>
             </div>
 
@@ -199,12 +204,12 @@ async function submit() {
               :loading="loading"
               :disabled="!canSubmit"
             >
-              S'inscrire
+              {{ t('auth.register.submit') }}
             </BaseButton>
           </form>
 
           <router-link to="/login" class="link link-hover text-sm">
-            Déjà inscrit&nbsp;? Connectez-vous
+            {{ t('auth.register.haveAccount') }}
           </router-link>
         </template>
       </div>

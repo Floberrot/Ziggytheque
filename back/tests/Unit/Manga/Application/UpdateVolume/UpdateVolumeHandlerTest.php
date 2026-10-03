@@ -11,10 +11,11 @@ use App\Manga\Domain\Isbn;
 use App\Manga\Domain\Manga;
 use App\Manga\Domain\MangaRepositoryInterface;
 use App\Manga\Domain\Volume;
+use App\Manga\Shared\Event\UpdateVolumeFailedEvent;
+use App\Manga\Shared\Event\UpdateVolumeStartedEvent;
 use App\Manga\Shared\Event\UpdateVolumeSucceededEvent;
-use App\Shared\Application\Bus\EventBusInterface;
 use App\Shared\Domain\Exception\NotFoundException;
-use PHPUnit\Framework\MockObject\MockObject;
+use App\Tests\Doubles\Shared\RecordingEventBus;
 use PHPUnit\Framework\TestCase;
 
 final class UpdateVolumeHandlerTest extends TestCase
@@ -22,15 +23,31 @@ final class UpdateVolumeHandlerTest extends TestCase
     private const string MANGA_ID  = 'manga-1';
     private const string VOLUME_ID = 'volume-1';
 
-    private MangaRepositoryInterface&MockObject $repository;
-    private EventBusInterface&MockObject $eventBus;
-    private UpdateVolumeHandler $handler;
+    private RecordingEventBus $eventBus;
 
     protected function setUp(): void
     {
-        $this->repository = $this->createMock(MangaRepositoryInterface::class);
-        $this->eventBus   = $this->createMock(EventBusInterface::class);
-        $this->handler    = new UpdateVolumeHandler($this->repository, $this->eventBus);
+        $this->eventBus = new RecordingEventBus();
+    }
+
+    private function handler(?Manga $storedManga, ?MangaRepositoryInterface $repository = null): UpdateVolumeHandler
+    {
+        if ($repository === null) {
+            $repository = $this->createStub(MangaRepositoryInterface::class);
+            $repository->method('findById')->willReturn($storedManga);
+        }
+
+        return new UpdateVolumeHandler($repository, $this->eventBus);
+    }
+
+    /** A repository that must save exactly this series, or nothing at all. */
+    private function repositoryExpectingSaves(?Manga $storedManga, int $saves): MangaRepositoryInterface
+    {
+        $repository = $this->createMock(MangaRepositoryInterface::class);
+        $repository->expects($this->once())->method('findById')->with(self::MANGA_ID)->willReturn($storedManga);
+        $repository->expects($this->exactly($saves))->method('save');
+
+        return $repository;
     }
 
     private function makeMangaWithVolume(): Manga
@@ -52,31 +69,34 @@ final class UpdateVolumeHandlerTest extends TestCase
 
     public function testThrowsNotFoundForUnknownManga(): void
     {
-        $this->repository->method('findById')->willReturn(null);
-        $this->repository->expects($this->never())->method('save');
+        $handler = $this->handler(null, $this->repositoryExpectingSaves(null, 0));
 
-        $this->expectException(NotFoundException::class);
+        try {
+            $handler(new UpdateVolumeCommand(mangaId: self::MANGA_ID, volumeId: self::VOLUME_ID));
+            $this->fail('An unknown series must be refused.');
+        } catch (NotFoundException) {
+        }
 
-        ($this->handler)(new UpdateVolumeCommand(mangaId: self::MANGA_ID, volumeId: self::VOLUME_ID));
+        $this->assertSame([UpdateVolumeStartedEvent::class, UpdateVolumeFailedEvent::class], $this->eventBus->eventClasses());
+        $failed = $this->eventBus->first(UpdateVolumeFailedEvent::class);
+        $this->assertSame(NotFoundException::class, $failed->exceptionClass);
+        $this->assertSame(self::VOLUME_ID, $failed->volumeId);
     }
 
     public function testThrowsNotFoundForUnknownVolume(): void
     {
-        $this->repository->method('findById')->willReturn($this->makeMangaWithVolume());
-        $this->repository->expects($this->never())->method('save');
+        $handler = $this->handler(null, $this->repositoryExpectingSaves($this->makeMangaWithVolume(), 0));
 
         $this->expectException(NotFoundException::class);
 
-        ($this->handler)(new UpdateVolumeCommand(mangaId: self::MANGA_ID, volumeId: 'other-volume'));
+        $handler(new UpdateVolumeCommand(mangaId: self::MANGA_ID, volumeId: 'other-volume'));
     }
 
     public function testPersistsIsbnAloneNormalizedToIsbn13(): void
     {
         $manga = $this->makeMangaWithVolume();
-        $this->repository->method('findById')->willReturn($manga);
-        $this->repository->expects($this->once())->method('save')->with($manga);
 
-        ($this->handler)(new UpdateVolumeCommand(
+        ($this->handler(null, $this->repositoryExpectingSaves($manga, 1)))(new UpdateVolumeCommand(
             mangaId:  self::MANGA_ID,
             volumeId: self::VOLUME_ID,
             isbn:     '978-2-7234-2548-3',
@@ -90,10 +110,9 @@ final class UpdateVolumeHandlerTest extends TestCase
     public function testConvertsScannedIsbn10ToIsbn13(): void
     {
         $manga = $this->makeMangaWithVolume();
-        $this->repository->method('findById')->willReturn($manga);
 
         // 2723425487 is a checksum-valid ISBN-10 (converts to 9782723425483)
-        ($this->handler)(new UpdateVolumeCommand(
+        ($this->handler($manga))(new UpdateVolumeCommand(
             mangaId:  self::MANGA_ID,
             volumeId: self::VOLUME_ID,
             isbn:     '2723425487',
@@ -105,26 +124,26 @@ final class UpdateVolumeHandlerTest extends TestCase
 
     public function testInvalidIsbnThrowsAndSavesNothing(): void
     {
-        $manga = $this->makeMangaWithVolume();
-        $this->repository->method('findById')->willReturn($manga);
-        $this->repository->expects($this->never())->method('save');
-        $this->eventBus->expects($this->never())->method('publish');
+        $handler = $this->handler(null, $this->repositoryExpectingSaves($this->makeMangaWithVolume(), 0));
 
-        $this->expectException(InvalidIsbnException::class);
+        try {
+            $handler(new UpdateVolumeCommand(
+                mangaId:  self::MANGA_ID,
+                volumeId: self::VOLUME_ID,
+                isbn:     'not-an-isbn',
+            ));
+            $this->fail('An invalid ISBN must be refused.');
+        } catch (InvalidIsbnException) {
+        }
 
-        ($this->handler)(new UpdateVolumeCommand(
-            mangaId:  self::MANGA_ID,
-            volumeId: self::VOLUME_ID,
-            isbn:     'not-an-isbn',
-        ));
+        $this->assertSame([UpdateVolumeStartedEvent::class, UpdateVolumeFailedEvent::class], $this->eventBus->eventClasses());
     }
 
     public function testUpdatesOnlyTheProvidedFields(): void
     {
         $manga = $this->makeMangaWithVolume();
-        $this->repository->method('findById')->willReturn($manga);
 
-        ($this->handler)(new UpdateVolumeCommand(
+        ($this->handler($manga))(new UpdateVolumeCommand(
             mangaId:     self::MANGA_ID,
             volumeId:    self::VOLUME_ID,
             coverUrl:    'https://covers.example/berserk-1.jpg',
@@ -139,22 +158,21 @@ final class UpdateVolumeHandlerTest extends TestCase
         $this->assertNull($volume->isbn);
     }
 
-    public function testPublishesSucceededEventAfterSave(): void
+    public function testJournalsTheChangeFromStartToSuccess(): void
     {
-        $manga = $this->makeMangaWithVolume();
-        $this->repository->method('findById')->willReturn($manga);
-
-        $this->eventBus->expects($this->once())
-            ->method('publish')
-            ->with($this->callback(
-                static fn (UpdateVolumeSucceededEvent $event) => $event->mangaId === self::MANGA_ID
-                    && $event->volumeId === self::VOLUME_ID,
-            ));
-
-        ($this->handler)(new UpdateVolumeCommand(
+        ($this->handler($this->makeMangaWithVolume()))(new UpdateVolumeCommand(
             mangaId:  self::MANGA_ID,
             volumeId: self::VOLUME_ID,
             price:    5.0,
         ));
+
+        $this->assertSame([UpdateVolumeStartedEvent::class, UpdateVolumeSucceededEvent::class], $this->eventBus->eventClasses());
+        $started   = $this->eventBus->first(UpdateVolumeStartedEvent::class);
+        $succeeded = $this->eventBus->first(UpdateVolumeSucceededEvent::class);
+        $this->assertSame($started->correlationId, $succeeded->correlationId);
+        $this->assertSame(self::MANGA_ID, $succeeded->mangaId);
+        $this->assertSame(self::VOLUME_ID, $succeeded->volumeId);
+        $this->assertSame('Berserk', $succeeded->mangaTitle);
+        $this->assertSame(1, $succeeded->number);
     }
 }

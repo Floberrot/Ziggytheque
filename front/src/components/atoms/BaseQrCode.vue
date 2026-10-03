@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watchEffect } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const props = withDefaults(
   defineProps<{
@@ -8,6 +9,8 @@ const props = withDefaults(
   }>(),
   { size: 220 },
 )
+
+const { t } = useI18n()
 
 const dataUrl = ref<string>('')
 
@@ -30,5 +33,5 @@ watchEffect(async () => {
 </script>
 
 <template>
-  <img v-if="dataUrl" :src="dataUrl" :width="size" :height="size" alt="QR Code" class="rounded-lg" />
+  <img v-if="dataUrl" :src="dataUrl" :width="size" :height="size" :alt="t('scan.qrCode')" class="rounded-lg" />
 </template>

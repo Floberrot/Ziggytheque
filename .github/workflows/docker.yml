@@ -29,11 +29,11 @@ jobs:
     name: Backend image (FrankenPHP, production PHP)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Build the prod stage
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: Dockerfile
@@ -77,19 +77,65 @@ jobs:
             exit 1
           fi
 
+      - name: The server runs without root
+        run: |
+          # The real uid of every process in the container (FrankenPHP, its PHP threads).
+          uids=$(docker exec back sh -c 'grep -H "^Uid:" /proc/[0-9]*/status 2>/dev/null; true')
+          echo "$uids"
+          test -n "$uids"
+          if grep -qE 'Uid:[[:space:]]+0[[:space:]]' <<< "$uids"; then
+            echo "a process runs as root"
+            exit 1
+          fi
+          # What the app and Caddy write at runtime stays writable: the entrypoint
+          # generated the JWT keys and warmed the cache before the server started.
+          docker exec back sh -c 'test -s config/jwt/private.pem && test -w var/cache/prod && test -w /data/caddy && test -w /config/caddy'
+
+      - name: Without root, the server still binds port 80 (PORT unset)
+        run: |
+          docker run -d --name back-port-80 -p 8081:80 \
+            -e APP_SECRET=ci-only-app-secret-not-used-anywhere-else \
+            -e JWT_PASSPHRASE=ci-only-jwt-passphrase \
+            -e MERCURE_PUBLISHER_JWT_KEY=ci-only-mercure-publisher-key-0000000000 \
+            -e MERCURE_SUBSCRIBER_JWT_KEY=ci-only-mercure-subscriber-key-000000000 \
+            ziggy-back:ci
+          for attempt in $(seq 1 60); do
+            curl -fsS -o /dev/null http://localhost:8081/health && break
+            sleep 2
+          done
+          curl -fsS http://localhost:8081/health
+          test "$(docker exec back-port-80 id -u)" != 0
+
       - name: Server logs
         if: always()
-        run: docker logs back 2>&1 | tail -80 || true
+        run: |
+          docker logs back 2>&1 | tail -80 || true
+          docker logs back-port-80 2>&1 | tail -40 || true
+
+      - name: Build the worker stage
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Dockerfile
+          target: worker
+          load: true
+          tags: ziggy-worker:ci
+          cache-from: type=gha,scope=pr-back
+
+      - name: The worker runs without root
+        # Its entrypoint waits for a database; the check runs in the image instead.
+        run: |
+          docker run --rm --entrypoint sh ziggy-worker:ci -c 'id && test "$(id -u)" != 0 && test -w var/cache/prod && test -w config/jwt'
 
   frontend:
     name: Frontend image (nginx compression and caching)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Build the image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: front
           file: front/Dockerfile
@@ -98,7 +144,7 @@ jobs:
           cache-from: type=gha,scope=pr-front
           cache-to: type=gha,mode=max,scope=pr-front
 
-      - name: nginx serves the SPA compressed, with the right cache headers
+      - name: nginx serves the SPA compressed, with the right cache and security headers
         run: |
           expect() {
             if ! grep -qi "$2" <<< "$1"; then
@@ -117,12 +163,21 @@ jobs:
           echo "$index"
           expect "$index" '^cache-control: no-cache'
           expect "$index" '^x-content-type-options: nosniff'
+          # Report-only Content Security Policy (front/nginx.conf.template).
+          expect "$index" "^content-security-policy-report-only: default-src 'self'; script-src 'self';"
+          expect "$index" "object-src 'none'"
+          expect "$index" "frame-ancestors 'self'"
 
           # A deep link falls back to index.html, revalidated too.
           deep_link=$(curl -fsS -D - -o /dev/null http://localhost:8080/collection)
           expect "$deep_link" '^cache-control: no-cache'
 
           html=$(curl -fsS http://localhost:8080/)
+          # script-src 'self' fits the build only while index.html has no inline script.
+          if grep -qP '<script(?![^>]*\bsrc=)[^>]*>' <<< "$html"; then
+            echo "index.html carries an inline script: the CSP's script-src 'self' would block it"
+            exit 1
+          fi
           bundle=$(grep -oE '/assets/[^"]+\.js' <<< "$html" | sed -n 1p)
           test -n "$bundle"
           asset=$(curl -fsS -D - -o /dev/null -H 'Accept-Encoding: gzip' "http://localhost:8080$bundle")
@@ -139,6 +194,19 @@ jobs:
             echo "a 404 bundle must not carry Cache-Control"
             exit 1
           fi
+
+      - name: nginx runs without root, on port 80
+        run: |
+          # The real uid of every process in the container (master and workers).
+          uids=$(docker exec front sh -c 'grep -H "^Uid:" /proc/[0-9]*/status 2>/dev/null; true')
+          echo "$uids"
+          test -n "$uids"
+          if grep -qE 'Uid:[[:space:]]+0[[:space:]]' <<< "$uids"; then
+            echo "a process runs as root"
+            exit 1
+          fi
+          # The unprivileged user rendered the config from its template at start.
+          docker exec front grep -q 'backend.invalid' /etc/nginx/conf.d/default.conf
 
       - name: nginx logs
         if: always()

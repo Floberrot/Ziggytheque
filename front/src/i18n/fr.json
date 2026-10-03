@@ -21,7 +21,9 @@
     "themeDark": "Sombre",
     "themeLight": "Clair",
     "switchToDark": "Passer au thème sombre",
-    "switchToLight": "Passer au thème clair"
+    "switchToLight": "Passer au thème clair",
+    "languageFrench": "Français",
+    "languageEnglish": "English"
   },
   "dashboard": {
     "title": "Tableau de bord",
@@ -48,23 +50,38 @@
   "collection": {
     "title": "Ma collection",
     "add": "Ajouter un manga",
-    "addToCollection": "Gérer ma collection",
     "added": "Série ajoutée à la collection",
     "removed": "Retiré de la collection",
     "empty": "Votre collection est vide",
     "volumes": "Tomes",
-    "owned": "possédés",
     "batchSetPrice": "Appliquer à tous",
-    "worksEditions": "{count} éditions"
+    "worksEditions": "{count} éditions",
+    "followedWorks": "{count} oeuvre suivie | {count} oeuvres suivies",
+    "noFilterResults": "Aucun résultat pour ces filtres",
+    "cardLabel": "{title} — {owned}/{total} tomes possédés",
+    "stackLabel": "{title} — {count} éditions"
   },
   "wishlist": {
     "title": "Liste de souhaits",
-    "addToWishlist": "Tout ajouter à la wishlist",
     "allAdded": "Tous les tomes ajoutés à la liste de souhaits",
-    "added": "Ajouté à la liste de souhaits",
     "purchased": "Tome acheté et ajouté à la collection",
-    "purchase": "Acheté",
-    "empty": "Votre liste de souhaits est vide"
+    "empty": "Votre liste de souhaits est vide",
+    "batchPurchased": "{count} tome marqué comme acheté | {count} tomes marqués comme achetés",
+    "removed": "Retiré de la liste de souhaits",
+    "seriesCount": "{count} série | {count} séries",
+    "wishedCount": "{count} tome souhaité | {count} tomes souhaités",
+    "selectAllVolumes": "Tous les tomes",
+    "noResults": "Aucun résultat pour « {query} »",
+    "clearSearch": "Effacer la recherche",
+    "emptyHint": "Depuis la vue collection, marquez des tomes comme souhaités ou utilisez le bouton \"Ajouter à la liste\"",
+    "removeTitle": "Retirer de la liste de souhaits",
+    "ofVolumes": "/ {count} tomes",
+    "volumeSelect": "Tome {number} — Sélectionner",
+    "volumePurchase": "Tome {number} — Marquer acheté",
+    "seeAll": "voir tout",
+    "hintSelect": "Appuyez sur les tomes pour les sélectionner",
+    "hintPurchase": "Appuyez sur un tome pour le marquer comme acheté",
+    "markPurchased": "Marquer acheté | Marquer achetés"
   },
   "add": {
     "title": "Ajouter un manga",
@@ -151,12 +168,8 @@
   },
   "manga": {
     "title": "Titre",
-    "edition": "Éditeur",
-    "language": "Langue",
     "author": "Auteur",
-    "genre": "Genre",
     "coverUrl": "URL de couverture",
-    "summary": "Résumé",
     "totalVolumes": "Nombre de tomes",
     "translate": "Traduire en français",
     "showOriginal": "Voir l'original",
@@ -173,19 +186,65 @@
     "moreOptionsTitle": "Plus d'options",
     "detailsAction": "Détails du tome",
     "specialEdition": "Édition spéciale",
-    "addSpecialEdition": "+ édition spéciale"
+    "addSpecialEdition": "+ édition spéciale",
+    "addVolumes": "Ajouter des tomes",
+    "editCoverTooltip": "Modifier la couverture (URL)",
+    "renameTooltip": "Renommer la série",
+    "editPublisherTooltip": "Cliquer pour changer l'éditeur (Kurokawa, Glénat, Pika, …)",
+    "editPublisher": "Changer l'éditeur",
+    "unknownPublisher": "Éditeur inconnu",
+    "meterOwned": "possédé | possédés",
+    "meterRead": "lu | lus",
+    "meterWished": "souhaité | souhaités",
+    "followTooltip": "Suivre les sorties de nouveaux tomes",
+    "followingTooltip": "Suivi — tu seras notifié des sorties. Cliquer pour arrêter.",
+    "wishMissing": "Souhaiter les {count} manquant | Souhaiter les {count} manquants",
+    "autoFillCovers": "Compléter les couvertures",
+    "setBatchPrice": "Définir le prix (en lot)",
+    "removeSeries": "Retirer la série",
+    "syncIntro": "Cette série compte actuellement {count}. Saisis le numéro du {last} tome à créer : les tomes manquants seront ajoutés sans statut (à compléter plus tard).",
+    "syncIntroLast": "dernier",
+    "tomeCount": "{count} tome | {count} tome | {count} tomes",
+    "syncUpTo": "Aller jusqu'au tome",
+    "syncPlaceholder": "ex: {number}",
+    "syncCreateRange": "Créer les tomes {from} à {to}",
+    "syncMinimum": "Le numéro doit être supérieur à {number}",
+    "syncCreate": "Créer les tomes",
+    "batchPriceTitle": "Prix unitaire (en lot)",
+    "batchPriceHelp": "Définit le même prix pour tous les tomes de la série en une seule action. Tu peux toujours ajuster le prix d'un tome individuellement.",
+    "batchPriceScope": "S'applique à tous les tomes ({count})",
+    "batchPriceMissing": "Saisis un prix pour activer",
+    "batchPriceApplyEach": "Appliquer {price} € à chaque tome",
+    "batchPriceApplied": "Prix appliqué à tous les tomes",
+    "missingWished": "Tomes manquants ajoutés à la liste de souhaits",
+    "volumesSynced": "Tomes mis à jour",
+    "updated": "Informations mises à jour",
+    "updateError": "Erreur lors de la mise à jour",
+    "removeConfirmTitle": "Retirer de la collection ?",
+    "removeConfirmBody": "{title} et tous ses tomes seront retirés de votre bibliothèque. Cette action est irréversible.",
+    "details": "Détails",
+    "autoFill": {
+      "starting": "Démarrage…",
+      "queued": "{total} tome(s) à traiter…",
+      "resolved": "Tome {number} — trouvée · {resolved} ok · {failed} raté(s) ({active}/{total})",
+      "failed": "Tome {number} — introuvable · {resolved} ok · {failed} raté(s) ({active}/{total})",
+      "processed": "{active}/{total} traité(s)",
+      "found": "{count} trouvée(s)",
+      "notFound": "{count} introuvable(s)",
+      "skipped": "{count} ignorée(s)",
+      "done": "Terminé",
+      "synced": "Couvertures mises à jour",
+      "error": "Erreur lors de la complétion automatique des couvertures"
+    }
   },
   "volume": {
-    "price": "Prix (€)",
-    "announced": "Annoncé",
-    "wished": "Souhaité",
     "untracked": "Non suivi",
     "batchUpdated": "Aucun tome mis à jour | 1 tome mis à jour | {count} tomes mis à jour",
-    "batchFailed": "Échec après {done} tome(s) sur {total} — réessaie."
+    "batchFailed": "Échec après {done} tome(s) sur {total} — réessaie.",
+    "wishlist": "Wishlist"
   },
   "notifications": {
     "title": "Actualités",
-    "subtitle": "Articles et actualités trouvés pour vos œuvres suivies",
     "empty": "Aucun article trouvé pour le moment",
     "filterBy": "Filtrer par",
     "allMangas": "Tous",
@@ -196,14 +255,11 @@
     "following": "Suivi ✓",
     "followOn": "Tu suis cette série — on te préviendra des nouvelles sorties.",
     "followOff": "Tu ne suis plus cette série.",
-    "markRead": "Marquer comme lu",
     "systemTitle": "Notifications système",
     "settings": {
       "title": "Mes préférences de notification",
       "description": "Choisis comment tu veux être prévenu·e des nouveaux articles. Tu peux envoyer un test pour vérifier ta configuration.",
-      "channel": "Canal",
       "channelEmail": "Email",
-      "channelDiscord": "Discord (webhook)",
       "email": "Adresse email",
       "discord": "URL du webhook Discord",
       "save": "Enregistrer",
@@ -211,11 +267,15 @@
       "savedToast": "Préférences enregistrées.",
       "saveErrorToast": "L'enregistrement a échoué.",
       "testDispatchedToast": "Test envoyé. En cas d'échec, tu recevras un message ici.",
-      "testErrorToast": "Impossible d'envoyer le test."
-    }
+      "testErrorToast": "Impossible d'envoyer le test.",
+      "emailExample": "adresse{'@'}exemple.com",
+      "discordName": "Discord",
+      "webhookCaption": "Webhook"
+    },
+    "byAuthor": "par {author}"
   },
   "status": {
-    "not_started": "Non commencé",
+    "not_started": "À lire",
     "in_progress": "En cours",
     "completed": "Terminé",
     "on_hold": "En pause",
@@ -226,7 +286,12 @@
     "title": "Ta note",
     "confirm": "Confirmer",
     "saved": "Note enregistrée",
-    "error": "Erreur lors de l'enregistrement de la note"
+    "error": "Erreur lors de l'enregistrement de la note",
+    "editTooltip": "Cliquer une demi-coeur pour modifier ta note",
+    "rateTooltip": "Donne une note à cette série",
+    "valueLabel": "Note : {value}/5",
+    "unrated": "Non noté",
+    "option": "{value} sur 5"
   },
   "journal": {
     "title": "Journal d'activité",
@@ -280,7 +345,6 @@
   "filter": {
     "searchPlaceholder": "Rechercher par titre...",
     "allGenres": "Tous les genres",
-    "allStatus": "Tous les statuts",
     "allSorts": "Par œuvre (A → Z)",
     "editionPlaceholder": "Éditeur ou édition…",
     "sortRatingDesc": "Meilleure note",
@@ -290,26 +354,24 @@
     "owned": "Possédés",
     "read": "Lus",
     "wished": "Souhaités",
-    "quick": "Accès rapide",
     "advanced": "Affiner",
     "resultsSingular": "résultat",
     "resultsPlural": "résultats",
     "reset": "Réinitialiser",
-    "loadingMore": "Chargement...",
     "sortAddedDesc": "Récemment ajoutés"
   },
   "common": {
-    "search": "Rechercher...",
     "save": "Enregistrer",
     "cancel": "Annuler",
     "edit": "Modifier",
     "delete": "Supprimer",
-    "remove": "Retirer",
     "next": "Suivant",
     "close": "Fermer",
     "noData": "Aucune donnée",
     "loading": "Chargement…",
-    "actionFailed": "Action impossible — réessaie."
+    "actionFailed": "Action impossible — réessaie.",
+    "previous": "Précédent",
+    "pageOf": "Page {page} / {total}"
   },
   "share": {
     "button": "Partager",
@@ -363,12 +425,8 @@
     "isbnSearchError": "Erreur lors de la recherche de couverture — réessayez.",
     "isbnFromPhone": "ISBN reçu du téléphone : {isbn}",
     "searchByTitle": "Chercher par titre",
-    "cameraError": "Caméra indisponible. Vérifiez les autorisations et que la page est en HTTPS.",
-    "applyThisCover": "Appliquer cette couverture",
-    "applying": "Application…",
     "scanLinkTitle": "Ouvrir sur le téléphone",
     "scanExpired": "Session expirée — régénérez le QR code sur l'ordinateur.",
-    "scanSuccess": "Code-barres envoyé !",
     "statusTitle": "Statut de ce tome",
     "statusHelp": "Aide",
     "statusUpdateError": "Échec de la mise à jour du statut — réessayez.",
@@ -381,7 +439,15 @@
     "statusAnnouncedLabel": "Annoncé",
     "statusAnnouncedDesc": "Pas encore sorti, sa parution est prévue.",
     "statusHintOwned": "« Lu » compte dans ta progression de lecture.",
-    "statusHintNotOwned": "Passe-le en « Possédé » dès que tu l’as : il quittera automatiquement les souhaits."
+    "statusHintNotOwned": "Passe-le en « Possédé » dès que tu l’as : il quittera automatiquement les souhaits.",
+    "coverUpdated": "Couverture mise à jour",
+    "zoomCover": "Agrandir la couverture",
+    "refreshSearch": "Relancer",
+    "searchEmptyHint": "Suggestions de couvertures — appuyez sur une couverture pour l'appliquer",
+    "scrollForMore": "Défiler pour plus",
+    "searchError": "Erreur lors de la recherche — réessayez",
+    "pasteUrl": "Ou coller une URL",
+    "applyUrl": "Appliquer"
   },
   "scan": {
     "title": "Scanner un ISBN",
@@ -390,8 +456,9 @@
     "scanAnother": "Scanner un autre",
     "expired": "Ce lien a expiré. Régénérez le QR code depuis l'ordinateur.",
     "invalidCode": "Code-barres non reconnu (ISBN invalide).",
-    "cameraError": "Impossible d'accéder à la caméra. Vérifiez les autorisations et que la page est en HTTPS.",
-    "batchSent": "Aucun tome envoyé | 1 tome envoyé à l’ordinateur | {count} tomes envoyés à l’ordinateur"
+    "batchSent": "Aucun tome envoyé | 1 tome envoyé à l’ordinateur | {count} tomes envoyés à l’ordinateur",
+    "searching": "Recherche du code-barres…",
+    "qrCode": "QR Code"
   },
   "guide": {
     "title": "Guide & aide",
@@ -532,12 +599,50 @@
     "viewOn": "Voir sur {merchant}",
     "merchantLive": "Offre en direct",
     "publisherReference": "Prix éditeur",
-    "selectVolume": "Sélectionnez un tome pour voir les prix."
+    "selectVolume": "Sélectionnez un tome pour voir les prix.",
+    "unavailable": "Prix indisponibles",
+    "volumePrices": "Prix du tome {number}"
   },
   "admin": {
     "approve": "Approuver",
     "resetLink": "Lien de réinitialisation",
-    "notConfigured": "non configuré"
+    "notConfigured": "non configuré",
+    "title": "Utilisateurs",
+    "accountCount": "{count} compte | {count} compte | {count} comptes",
+    "searchPlaceholder": "Rechercher email ou nom…",
+    "allStatuses": "Tous les statuts",
+    "status": {
+      "pending_email_verification": "Email à vérifier",
+      "pending_admin_approval": "À approuver",
+      "active": "Actif",
+      "disabled": "Désactivé"
+    },
+    "empty": "Aucun utilisateur trouvé.",
+    "roleAdmin": "Admin",
+    "roleUser": "Utilisateur",
+    "columns": {
+      "user": "Utilisateur",
+      "email": "Email",
+      "role": "Rôle",
+      "status": "Statut",
+      "notifications": "Notifications",
+      "actions": "Actions"
+    },
+    "resetLinkShort": "Reset link",
+    "displayName": "Nom d'affichage",
+    "channel": "Canal de notification",
+    "channelEmail": "Email",
+    "channelDiscord": "Discord",
+    "channelHelp": "L'adresse email et l'URL du webhook sont gérées par l'utilisateur depuis son onglet Notifications et ne sont jamais visibles ici.",
+    "updated": "Utilisateur mis à jour.",
+    "updateFailed": "La mise à jour a échoué.",
+    "approved": "{name} approuvé.",
+    "approveFailed": "L'approbation a échoué.",
+    "deleteConfirm": "Supprimer {name} ({email}) ? Toutes ses données seront perdues.",
+    "deleted": "Utilisateur supprimé.",
+    "deleteFailed": "La suppression a échoué.",
+    "linkCopied": "Lien copié pour {name}.",
+    "linkFailed": "La génération du lien a échoué."
   },
   "quickActions": {
     "open": "Ouvrir la série",
@@ -552,5 +657,125 @@
     "unfollowed": "Tu ne suis plus cette série.",
     "rated": "Note enregistrée",
     "error": "Action impossible — réessaie."
+  },
+  "scanner": {
+    "cameraDenied": "Accès caméra refusé. Vérifiez les permissions et que la page est en HTTPS.",
+    "noCamera": "Aucune caméra disponible sur cet appareil.",
+    "cameraBusy": "La caméra est déjà utilisée par une autre application.",
+    "cameraFailed": "Impossible de démarrer le scanner caméra."
+  },
+  "pageTitle": {
+    "login": "Connexion",
+    "register": "Inscription",
+    "verifyEmail": "Vérification email",
+    "forgotPassword": "Mot de passe oublié",
+    "resetPassword": "Réinitialiser le mot de passe",
+    "gate": "Accès admin",
+    "dashboard": "Tableau de bord",
+    "collection": "Collection",
+    "series": "Série",
+    "wishlist": "Liste de souhaits",
+    "add": "Ajouter une série",
+    "notifications": "Actualités",
+    "notificationPreferences": "Préférences de notification",
+    "journal": "Journal",
+    "adminUsers": "Utilisateurs",
+    "scan": "Scanner un ISBN",
+    "share": "Bibliothèque partagée"
+  },
+  "volumeGrid": {
+    "batchDone": "Terminer",
+    "batchSelect": "Sélectionner",
+    "selectLabel": "Sélectionner :",
+    "selectAll": "Tout",
+    "selectOwned": "Possédés",
+    "selectUnread": "Non lus",
+    "selectAnnounced": "Annoncés",
+    "clearSelection": "Vider",
+    "empty": "Aucun tome enregistré. Utilisez \"Ajouter tomes\" pour en créer.",
+    "hintDesktop": "Clic gauche pour gérer · Clic droit pour actions rapides · Sélectionner pour modifications en lot",
+    "hintMobile": "Appuyez sur un tome pour le gérer"
+  },
+  "volumeBatch": {
+    "toolbar": "Actions sur la sélection",
+    "count": "{count} tome | {count} tomes",
+    "markRead": "Marquer lus",
+    "markUnread": "Marquer non lus",
+    "markOwned": "Marquer possédés",
+    "announce": "Marquer annoncés",
+    "unannounce": "Retirer annoncés"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Mot de passe",
+    "confirmPassword": "Confirmer le mot de passe",
+    "showPassword": "Afficher le mot de passe",
+    "hidePassword": "Masquer le mot de passe",
+    "passwordsMismatch": "Les mots de passe ne correspondent pas.",
+    "backToLogin": "Retour à la connexion",
+    "goToLogin": "Aller à la connexion",
+    "login": {
+      "subtitle": "Connectez-vous à Ziggytheque",
+      "submit": "Se connecter",
+      "noAccount": "Pas encore de compte ? Inscrivez-vous",
+      "forgotPassword": "Mot de passe oublié ?",
+      "inactive": "Votre compte n'est pas encore actif. Vérifiez votre email ou attendez l'approbation admin.",
+      "tooManyAttempts": "Trop de tentatives. Réessayez dans quelques minutes.",
+      "invalid": "Email ou mot de passe invalide."
+    },
+    "register": {
+      "sentTitle": "Inscription envoyée !",
+      "sentBody": "Un email de vérification vous a été envoyé. Cliquez sur le lien pour activer votre compte. Un administrateur devra ensuite valider votre demande avant que vous puissiez vous connecter.",
+      "subtitle": "Créez votre compte",
+      "displayName": "Nom d'affichage",
+      "passwordHint": "Mot de passe (8 caractères min)",
+      "strength": "Force : {level}",
+      "strengthWeak": "Faible",
+      "strengthFair": "Moyen",
+      "strengthGood": "Bon",
+      "strengthStrong": "Fort",
+      "strengthVeryStrong": "Très fort",
+      "submit": "S'inscrire",
+      "haveAccount": "Déjà inscrit ? Connectez-vous",
+      "invalid": "Email invalide ou mot de passe trop court (8 caractères min).",
+      "tooManyAttempts": "Trop de tentatives. Réessayez dans un moment.",
+      "failed": "L'inscription a échoué. Réessayez plus tard."
+    },
+    "forgot": {
+      "sentTitle": "Email envoyé",
+      "sentBody": "Si un compte existe pour cette adresse, un lien de réinitialisation vient d'être envoyé.",
+      "title": "Mot de passe oublié ?",
+      "intro": "Entrez votre email pour recevoir un lien de réinitialisation.",
+      "submit": "Envoyer le lien"
+    },
+    "reset": {
+      "tooShort": "Le mot de passe doit faire au moins 8 caractères.",
+      "invalidLink": "Lien invalide.",
+      "expired": "Ce lien est invalide ou a expiré.",
+      "failed": "La réinitialisation a échoué.",
+      "doneTitle": "Mot de passe modifié !",
+      "doneBody": "Vous pouvez désormais vous connecter avec votre nouveau mot de passe.",
+      "title": "Nouveau mot de passe",
+      "newPassword": "Nouveau mot de passe",
+      "submit": "Réinitialiser"
+    },
+    "verify": {
+      "checking": "Vérification de votre email…",
+      "doneTitle": "Email vérifié !",
+      "doneBody": "Votre compte est en attente de validation par un administrateur. Vous recevrez un email dès que votre accès sera approuvé.",
+      "failedTitle": "Lien invalide",
+      "failedBody": "Ce lien de vérification est invalide ou a expiré."
+    },
+    "gate": {
+      "title": "Accès administrateur",
+      "intro": "Entrez le mot de passe d'accès pour débloquer cette section.",
+      "password": "Mot de passe d'accès",
+      "invalid": "Mot de passe d'accès invalide.",
+      "submit": "Débloquer"
+    }
+  },
+  "editionSelector": {
+    "placeholder": "Pika, Glénat, Kana…",
+    "clear": "Effacer l'édition"
   }
 }

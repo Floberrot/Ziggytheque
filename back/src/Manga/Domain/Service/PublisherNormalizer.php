@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Manga\Domain\Service;
 
+use App\Shared\Domain\Text\TextFold;
+
 /**
  * Turns the noisy publisher strings catalogues return — with cities, legal suffixes
  * and historical aliases — into a single canonical name, so the same publisher does
@@ -78,7 +80,8 @@ final readonly class PublisherNormalizer
             return null;
         }
 
-        $folded = $this->fold($cleaned);
+        // Punctuation kept: the aliases are written with it ("ki-oon", "comics-usa").
+        $folded = TextFold::foldAccents($cleaned);
         foreach (self::ALIASES as $needle => $canonical) {
             if (str_contains($folded, $needle)) {
                 return $canonical;
@@ -93,7 +96,7 @@ final readonly class PublisherNormalizer
     {
         $display = $this->displayName($raw);
 
-        return $display === null ? '' : $this->fold($display);
+        return $display === null ? '' : TextFold::foldAccents($display);
     }
 
     /**
@@ -109,10 +112,10 @@ final readonly class PublisherNormalizer
             return '';
         }
 
-        $folded = $this->fold($cleaned);
+        $folded = TextFold::foldAccents($cleaned);
         foreach (self::IMPRINT_ALIASES as $needle => $imprint) {
             if (str_contains($folded, $needle)) {
-                return $this->fold($imprint);
+                return TextFold::foldAccents($imprint);
             }
         }
 
@@ -148,19 +151,5 @@ final readonly class PublisherNormalizer
         }
 
         return implode(' ', $words);
-    }
-
-    private function fold(string $value): string
-    {
-        $lower = mb_strtolower(trim($value));
-
-        return strtr($lower, [
-            'à' => 'a', 'â' => 'a', 'ä' => 'a',
-            'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
-            'î' => 'i', 'ï' => 'i',
-            'ô' => 'o', 'ö' => 'o',
-            'ù' => 'u', 'û' => 'u', 'ü' => 'u',
-            'ç' => 'c',
-        ]);
     }
 }

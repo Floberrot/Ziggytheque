@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Manga\Domain;
 
 use DateTimeImmutable;
-use DateTimeInterface;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
@@ -31,18 +30,5 @@ class Volume
         #[ORM\Column(type: 'isbn', length: 20, nullable: true)]
         public ?Isbn $isbn = null,
     ) {
-    }
-
-    /** @return array<string, mixed> */
-    public function toArray(): array
-    {
-        return [
-            'id' => $this->id,
-            'number' => $this->number,
-            'coverUrl' => $this->coverUrl,
-            'price' => $this->price,
-            'releaseDate' => $this->releaseDate?->format(DateTimeInterface::ATOM),
-            'isbn' => $this->isbn?->value,
-        ];
     }
 }

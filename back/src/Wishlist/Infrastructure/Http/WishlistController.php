@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Wishlist\Infrastructure\Http;
 
-use App\Collection\Application\AddRemainingToWishlist\AddRemainingToWishlistCommand;
 use App\Collection\Application\ClearWishlist\ClearWishlistCommand;
 use App\Collection\Application\GetWishlist\GetWishlistQuery;
 use App\Collection\Application\PurchaseVolume\PurchaseVolumeCommand;
@@ -38,15 +37,6 @@ final readonly class WishlistController
         );
 
         return new JsonResponse($this->queryBus->ask($query));
-    }
-
-    /** Add all non-owned volumes of a collection entry to the wishlist */
-    #[Route('/{id}/add-remaining', methods: ['POST'])]
-    public function addRemaining(string $id): JsonResponse
-    {
-        $this->commandBus->dispatch(new AddRemainingToWishlistCommand($id));
-
-        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
     /** Remove all wished flags for a collection entry (clear wishlist for this oeuvre) */

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, shallowRef, watch, type Component } from 'vue'
+import { computed, onUnmounted, shallowRef, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { useUiStore } from '@/stores/useUiStore'
@@ -11,6 +11,7 @@ import {
 } from 'lucide-vue-next'
 import BaseToast from '@/components/atoms/BaseToast.vue'
 import AppLogo from '@/components/atoms/AppLogo.vue'
+import LanguageSwitcher from '@/components/atoms/LanguageSwitcher.vue'
 
 const auth = useAuthStore()
 const ui = useUiStore()
@@ -27,6 +28,18 @@ function logout() {
 const settingsOpen = shallowRef(false)
 
 watch(() => route.path, () => { settingsOpen.value = false })
+
+// The settings sheet closes on Escape, like every other dialog of the app.
+function onSettingsKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') closeSettings()
+}
+
+watch(settingsOpen, (open) => {
+  if (open) window.addEventListener('keydown', onSettingsKeydown)
+  else window.removeEventListener('keydown', onSettingsKeydown)
+})
+
+onUnmounted(() => window.removeEventListener('keydown', onSettingsKeydown))
 
 function openSettings() {
   settingsOpen.value = true
@@ -161,11 +174,11 @@ const notificationsActive = computed(() => route.path.startsWith('/notifications
             </span>
           </button>
 
-          <!-- Language toggle (disabled — coming soon) -->
-          <div class="flex items-center gap-3 px-3 py-2 rounded-lg w-full text-sm font-medium text-base-content/30 cursor-not-allowed select-none">
+          <!-- Language: FR / EN, remembered for the next visits -->
+          <div class="flex items-center gap-3 px-3 py-2 rounded-lg w-full text-sm font-medium text-base-content/60">
             <Globe class="w-5 h-5 shrink-0" stroke-width="1.5" />
             <span class="flex-1 text-left">{{ t('settings.language') }}</span>
-            <span class="badge badge-sm badge-ghost text-base-content/30 border-base-content/15 text-[10px]">bientôt</span>
+            <LanguageSwitcher />
           </div>
 
           <!-- Logout -->
@@ -252,11 +265,17 @@ const notificationsActive = computed(() => route.path.startsWith('/notifications
           enter-from-class="translate-y-full"
           leave-to-class="translate-y-full"
         >
-          <div v-if="settingsOpen" class="relative bg-base-100 rounded-t-2xl pb-safe-sheet shadow-xl">
+          <div
+            v-if="settingsOpen"
+            class="relative bg-base-100 rounded-t-2xl pb-safe-sheet shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-sheet-title"
+          >
             <div class="w-10 h-1 bg-base-300 rounded-full mx-auto mt-3 mb-2" />
 
             <div class="px-4 py-3">
-              <h2 class="text-base font-semibold">{{ t('nav.settings') }}</h2>
+              <h2 id="settings-sheet-title" class="text-base font-semibold">{{ t('nav.settings') }}</h2>
             </div>
 
             <!-- Pages that have no room in the bottom bar -->
@@ -281,10 +300,10 @@ const notificationsActive = computed(() => route.path.startsWith('/notifications
 
             <div class="mx-4 my-1 border-t border-base-200" />
 
-            <!-- Language row (disabled — coming soon) -->
-            <div class="flex items-center justify-between w-full px-4 py-3.5 opacity-40 cursor-not-allowed select-none">
+            <!-- Language row: FR / EN, remembered for the next visits -->
+            <div class="flex items-center justify-between w-full px-4 py-3.5">
               <span class="text-sm font-medium">{{ t('settings.language') }}</span>
-              <span class="badge badge-sm badge-ghost text-[10px]">bientôt</span>
+              <LanguageSwitcher />
             </div>
 
             <!-- Theme row : Ziggy Dark ⇄ Ziggy Light -->

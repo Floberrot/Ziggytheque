@@ -8,6 +8,7 @@ use App\Auth\Domain\AuthToken;
 use App\Auth\Domain\AuthTokenRepositoryInterface;
 use App\Auth\Domain\AuthTokenTypeEnum;
 use App\Auth\Domain\Exception\EmailAlreadyTakenException;
+use App\Auth\Domain\Service\PasswordHasherInterface;
 use App\Auth\Domain\Service\TokenGeneratorInterface;
 use App\Auth\Domain\User;
 use App\Auth\Domain\UserRepositoryInterface;
@@ -19,7 +20,6 @@ use App\Auth\Shared\Event\UserRegisteredEvent;
 use App\Shared\Application\Bus\EventBusInterface;
 use DateTimeImmutable;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
-use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Uid\Uuid;
 use Throwable;
 
@@ -29,7 +29,7 @@ final readonly class RegisterUserHandler
     public function __construct(
         private UserRepositoryInterface $userRepository,
         private AuthTokenRepositoryInterface $tokenRepository,
-        private UserPasswordHasherInterface $passwordHasher,
+        private PasswordHasherInterface $passwordHasher,
         private TokenGeneratorInterface $tokenGenerator,
         private EventBusInterface $eventBus,
     ) {
@@ -51,11 +51,9 @@ final readonly class RegisterUserHandler
             $user = new User(
                 id: Uuid::v4()->toRfc4122(),
                 email: strtolower($command->email),
-                passwordHash: '',
+                passwordHash: $this->passwordHasher->hash($command->password),
                 displayName: $command->displayName,
             );
-
-            $user->passwordHash = $this->passwordHasher->hashPassword($user, $command->password);
 
             $this->userRepository->save($user);
 
@@ -105,7 +103,7 @@ final readonly class RegisterUserHandler
         RegisterUserCommand $command,
         string $correlationId,
     ): void {
-        $this->passwordHasher->hashPassword($existingUser, $command->password);
+        $this->passwordHasher->hash($command->password);
 
         $this->eventBus->publish(new RegistrationOnExistingAccountEvent(
             email: $existingUser->email,

@@ -195,6 +195,12 @@ final class CollectionControllerTest extends AbstractApiTestCase
         $this->assertJsonStatus(404, $response);
     }
 
+    public function testUpdateStatusRequiresAuth(): void
+    {
+        $response = $this->jsonRequest('PATCH', '/api/collection/any/status', ['status' => 'completed'], auth: false);
+        $this->assertSame(401, $response->getStatusCode());
+    }
+
     // ── PATCH /api/collection/{id}/rating ────────────────────────────────────
 
     public function testUpdateRating(): void
@@ -223,6 +229,12 @@ final class CollectionControllerTest extends AbstractApiTestCase
     {
         $response = $this->jsonRequest('PATCH', '/api/collection/bad/rating', ['rating' => 5]);
         $this->assertJsonStatus(404, $response);
+    }
+
+    public function testUpdateRatingRequiresAuth(): void
+    {
+        $response = $this->jsonRequest('PATCH', '/api/collection/any/rating', ['rating' => 5], auth: false);
+        $this->assertSame(401, $response->getStatusCode());
     }
 
     // ── PATCH /api/collection/{id}/volumes/{veId}/toggle ─────────────────────
@@ -361,42 +373,6 @@ final class CollectionControllerTest extends AbstractApiTestCase
     public function testAddRemainingToWishlistNotFoundReturns404(): void
     {
         $response = $this->jsonRequest('POST', '/api/collection/bad/add-to-wishlist');
-        $this->assertJsonStatus(404, $response);
-    }
-
-    // ── POST /api/collection/{id}/volumes/{veId}/purchase ────────────────────
-
-    public function testPurchaseVolume(): void
-    {
-        $mangaId = $this->createManga(volumes: 1);
-        $entryId = $this->addToCollection($mangaId);
-        $detail  = $this->getDetail($entryId);
-        $veId    = $detail['volumes'][0]['id'];
-
-        // Wish it first
-        $this->jsonRequest(
-            'PATCH',
-            '/api/collection/' . $entryId . '/volumes/' . $veId . '/toggle',
-            ['field' => 'isWished'],
-        );
-
-        $response = $this->jsonRequest(
-            'POST',
-            '/api/collection/' . $entryId . '/volumes/' . $veId . '/purchase',
-        );
-        $this->assertSame(204, $response->getStatusCode());
-
-        $detail = $this->getDetail($entryId);
-        $this->assertTrue($detail['volumes'][0]['isOwned']);
-        $this->assertFalse($detail['volumes'][0]['isWished']);
-    }
-
-    public function testPurchaseVolumeNotFoundReturns404(): void
-    {
-        $mangaId = $this->createManga();
-        $entryId = $this->addToCollection($mangaId);
-
-        $response = $this->jsonRequest('POST', '/api/collection/' . $entryId . '/volumes/bad-ve/purchase');
         $this->assertJsonStatus(404, $response);
     }
 

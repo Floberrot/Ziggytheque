@@ -7,10 +7,10 @@ namespace App\Auth\Application\ResetPassword;
 use App\Auth\Domain\AuthTokenRepositoryInterface;
 use App\Auth\Domain\AuthTokenTypeEnum;
 use App\Auth\Domain\Exception\InvalidTokenException;
+use App\Auth\Domain\Service\PasswordHasherInterface;
 use App\Auth\Domain\Service\TokenGeneratorInterface;
 use App\Auth\Domain\UserRepositoryInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
-use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 #[AsMessageHandler(bus: 'command.bus')]
 final readonly class ResetPasswordHandler
@@ -19,7 +19,7 @@ final readonly class ResetPasswordHandler
         private AuthTokenRepositoryInterface $tokenRepository,
         private UserRepositoryInterface $userRepository,
         private TokenGeneratorInterface $tokenGenerator,
-        private UserPasswordHasherInterface $passwordHasher,
+        private PasswordHasherInterface $passwordHasher,
     ) {
     }
 
@@ -36,7 +36,7 @@ final readonly class ResetPasswordHandler
         $this->tokenRepository->save($authToken);
 
         $user = $authToken->user;
-        $user->changePassword($this->passwordHasher->hashPassword($user, $command->newPassword));
+        $user->changePassword($this->passwordHasher->hash($command->newPassword));
         $this->userRepository->save($user);
     }
 }

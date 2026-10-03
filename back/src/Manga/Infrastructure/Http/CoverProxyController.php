@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Manga\Infrastructure\Http;
 
+use App\Shared\Infrastructure\RateLimit\CacheRateLimiter;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -66,15 +67,30 @@ final readonly class CoverProxyController
     /** Covers are small; anything larger is not an image we want to buffer. */
     private const int MAX_BYTES = 8 * 1024 * 1024;
 
+    /**
+     * Public endpoint, and every call fetches from a third party: capped per client IP.
+     * Generous on purpose — a collection grid loads a hundred covers or more at once, the
+     * browser keeps them a week, and a refused cover only falls back to an icon.
+     */
+    public const int REQUESTS_PER_IP = 600;
+    public const int REQUESTS_WINDOW_SECONDS = 60;
+
     public function __construct(
         private HttpClientInterface $httpClient,
         private LoggerInterface $logger,
+        private CacheRateLimiter $rateLimiter,
     ) {
     }
 
     #[Route('/proxy/cover', methods: ['GET'])]
     public function __invoke(Request $request): Response
     {
+        $this->rateLimiter->consume(
+            'cover_proxy_ip:' . ($request->getClientIp() ?? 'unknown'),
+            self::REQUESTS_PER_IP,
+            self::REQUESTS_WINDOW_SECONDS,
+        );
+
         $url = (string) $request->query->get('url', '');
 
         if ($this->refererFor($url) === null) {

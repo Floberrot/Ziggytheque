@@ -21,12 +21,9 @@ framework:
                 middleware:
                     - doctrine_transaction
             query.bus: ~
-            event.bus:
-                default_middleware: allow_no_handlers
 
         routing:
             App\Manga\Application\Import\ImportMangaCommand: sync
-            App\Manga\Application\AddVolume\AddVolumeCommand: sync
             App\Collection\Application\Add\AddToCollectionCommand: sync
             App\Collection\Application\Remove\RemoveFromCollectionCommand: sync
             App\Collection\Application\ToggleVolume\ToggleVolumeCommand: sync

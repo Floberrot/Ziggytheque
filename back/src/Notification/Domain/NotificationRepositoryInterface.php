@@ -6,10 +6,8 @@ namespace App\Notification\Domain;
 
 interface NotificationRepositoryInterface
 {
-    /** @return Notification[] */
+    /** @return list<Notification> the current account's unread notifications, newest first */
     public function findUnread(): array;
-
-    public function findById(string $id): ?Notification;
 
     public function save(Notification $notification): void;
 }

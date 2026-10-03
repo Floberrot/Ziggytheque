@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Unit\Manga\Domain;
 
 use App\Manga\Domain\ExternalMangaDto;
-use App\Manga\Domain\ExternalVolumeDto;
 use PHPUnit\Framework\TestCase;
 
 final class ExternalMangaDtoTest extends TestCase
@@ -31,26 +30,5 @@ final class ExternalMangaDtoTest extends TestCase
         $this->assertSame('Oda', $dto->author);
         $this->assertSame('fr', $dto->language);
         $this->assertSame(108, $dto->totalVolumes);
-        $this->assertSame([], $dto->volumes);
-    }
-
-    public function testWithVolumes(): void
-    {
-        $vol = new ExternalVolumeDto(number: 1, coverUrl: null, releaseDate: null);
-        $dto = new ExternalMangaDto(
-            externalId: 'x',
-            title: 'Test',
-            edition: null,
-            author: null,
-            summary: null,
-            coverUrl: null,
-            genre: null,
-            language: 'fr',
-            source: 'jikan',
-            volumes: [$vol],
-        );
-
-        $this->assertCount(1, $dto->volumes);
-        $this->assertSame(1, $dto->volumes[0]->number);
     }
 }

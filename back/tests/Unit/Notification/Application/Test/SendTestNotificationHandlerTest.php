@@ -8,59 +8,37 @@ use App\Auth\Domain\NotificationChannelEnum;
 use App\Auth\Domain\User;
 use App\Notification\Application\Test\SendTestNotificationHandler;
 use App\Notification\Application\Test\SendTestNotificationMessage;
+use App\Notification\Domain\Exception\TestNotificationConfigurationException;
 use App\Notification\Domain\Notification;
 use App\Notification\Domain\NotificationRepositoryInterface;
 use App\Notification\Domain\TestNotificationRecipient;
 use App\Notification\Domain\TestNotificationRecipientResolverInterface;
+use App\Notification\Domain\TestNotificationSenderInterface;
 use App\Shared\Domain\Exception\NotFoundException;
-use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use RuntimeException;
-use Symfony\Component\Mailer\Exception\TransportExceptionInterface as MailerTransportException;
-use Symfony\Component\Mailer\MailerInterface;
-use Symfony\Component\Mime\Email;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Contracts\HttpClient\ResponseInterface;
-use Twig\Environment;
 
-#[AllowMockObjectsWithoutExpectations]
 final class SendTestNotificationHandlerTest extends TestCase
 {
-    private TestNotificationRecipientResolverInterface&MockObject $recipientResolver;
+    private TestNotificationSenderInterface&MockObject $sender;
     private NotificationRepositoryInterface&MockObject $notificationRepository;
-    private MailerInterface&MockObject $mailer;
-    private HttpClientInterface&MockObject $httpClient;
-    private Environment&MockObject $twig;
+    private TestNotificationRecipient $recipient;
 
     protected function setUp(): void
     {
-        $this->recipientResolver      = $this->createMock(TestNotificationRecipientResolverInterface::class);
+        $this->sender                 = $this->createMock(TestNotificationSenderInterface::class);
         $this->notificationRepository = $this->createMock(NotificationRepositoryInterface::class);
-        $this->mailer                 = $this->createMock(MailerInterface::class);
-        $this->httpClient             = $this->createMock(HttpClientInterface::class);
-        $this->twig                   = $this->createMock(Environment::class);
-
-        $this->twig->method('render')->willReturn('<html>body</html>');
     }
 
     public function testEmailSentSilentlyOnSuccess(): void
     {
-        $this->recipientResolver->method('resolve')
-            ->willReturn($this->emailRecipient('user@example.com'));
+        $this->recipient = $this->emailRecipient('user@example.com');
 
-        $this->mailer->expects($this->once())
-            ->method('send')
-            ->with($this->callback(function (Email $email): bool {
-                $this->assertSame('Ziggytheque — Test de notification', $email->getSubject());
-                $this->assertNotEmpty($email->getTo());
-                $this->assertSame('user@example.com', $email->getTo()[0]->getAddress());
-                $this->assertStringContainsString('ceci est ton test', (string) $email->getTextBody());
-                return true;
-            }));
-
+        $this->sender->expects($this->once())->method('sendEmail')->with('user@example.com', 'Alice');
+        $this->sender->expects($this->never())->method('sendDiscord');
         $this->notificationRepository->expects($this->never())->method('save');
 
         $this->handler()(new SendTestNotificationMessage('user-1'));
@@ -68,86 +46,64 @@ final class SendTestNotificationHandlerTest extends TestCase
 
     public function testEmailFailureSurfacesAsUserNotification(): void
     {
-        $recipient = $this->emailRecipient('user@example.com');
-        $this->recipientResolver->method('resolve')->willReturn($recipient);
-        $this->mailer->method('send')->willThrowException($this->mailerException());
+        $this->recipient = $this->emailRecipient('user@example.com');
+        $this->sender->expects($this->once())->method('sendEmail')->willThrowException(new RuntimeException('SMTP unreachable'));
 
-        $this->notificationRepository->expects($this->once())
-            ->method('save')
-            ->with($this->callback(function (Notification $notif) use ($recipient): bool {
-                $this->assertSame('test_failure', $notif->type);
-                $this->assertSame($recipient->user, $notif->owner);
-                $this->assertStringContainsString('email', $notif->message);
-                return true;
-            }));
+        $this->expectFailureNotification(function (Notification $notification): void {
+            $this->assertSame($this->recipient->user, $notification->owner);
+            $this->assertStringContainsString('email', $notification->message);
+            $this->assertStringContainsString('SMTP unreachable', $notification->message);
+        });
 
         $this->handler()(new SendTestNotificationMessage('user-1'));
     }
 
     public function testEmailMissingAddressCreatesFailureNotification(): void
     {
-        $this->recipientResolver->method('resolve')->willReturn($this->emailRecipient(null));
+        $this->recipient = $this->emailRecipient(null);
 
-        $this->mailer->expects($this->never())->method('send');
-        $this->notificationRepository->expects($this->once())
-            ->method('save')
-            ->with($this->callback(function (Notification $notif): bool {
-                $this->assertSame('test_failure', $notif->type);
-                $this->assertStringContainsString('email', $notif->message);
-                return true;
-            }));
+        $this->sender->expects($this->never())->method('sendEmail');
+        $this->expectFailureNotification(function (Notification $notification): void {
+            $this->assertStringContainsString('No notification email configured.', $notification->message);
+        });
 
         $this->handler()(new SendTestNotificationMessage('user-1'));
     }
 
     public function testDiscordSuccessSendsToWebhook(): void
     {
-        $this->recipientResolver->method('resolve')
-            ->willReturn($this->discordRecipient('https://discord.com/api/webhooks/1/abc'));
+        $this->recipient = $this->discordRecipient('https://discord.com/api/webhooks/1/abc');
 
-        $response = $this->createMock(ResponseInterface::class);
-        $response->method('getStatusCode')->willReturn(204);
-
-        $this->httpClient->expects($this->once())
-            ->method('request')
-            ->with('POST', 'https://discord.com/api/webhooks/1/abc', $this->callback(function (array $opts): bool {
-                $this->assertArrayHasKey('json', $opts);
-                $this->assertArrayHasKey('embeds', $opts['json']);
-                return true;
-            }))
-            ->willReturn($response);
-
+        $this->sender->expects($this->once())->method('sendDiscord')->with('https://discord.com/api/webhooks/1/abc', 'Alice');
+        $this->sender->expects($this->never())->method('sendEmail');
         $this->notificationRepository->expects($this->never())->method('save');
 
         $this->handler()(new SendTestNotificationMessage('user-1'));
     }
 
-    public function testDiscordNon2xxSurfacesAsUserNotification(): void
+    public function testDiscordRefusalSurfacesAsUserNotification(): void
     {
-        $this->recipientResolver->method('resolve')
-            ->willReturn($this->discordRecipient('https://discord.com/api/webhooks/1/abc'));
+        $this->recipient = $this->discordRecipient('https://discord.com/api/webhooks/1/abc');
+        $this->sender->expects($this->once())
+            ->method('sendDiscord')
+            ->willThrowException(new TestNotificationConfigurationException('Discord webhook returned HTTP 404.'));
 
-        $response = $this->createMock(ResponseInterface::class);
-        $response->method('getStatusCode')->willReturn(404);
-        $this->httpClient->method('request')->willReturn($response);
-
-        $this->notificationRepository->expects($this->once())
-            ->method('save')
-            ->with($this->callback(function (Notification $notif): bool {
-                $this->assertSame('test_failure', $notif->type);
-                $this->assertStringContainsString('Discord', $notif->message);
-                return true;
-            }));
+        $this->expectFailureNotification(function (Notification $notification): void {
+            $this->assertStringContainsString('Discord', $notification->message);
+            $this->assertStringContainsString('HTTP 404', $notification->message);
+        });
 
         $this->handler()(new SendTestNotificationMessage('user-1'));
     }
 
     public function testDiscordMissingWebhookCreatesFailureNotification(): void
     {
-        $this->recipientResolver->method('resolve')->willReturn($this->discordRecipient(null));
+        $this->recipient = $this->discordRecipient(null);
 
-        $this->httpClient->expects($this->never())->method('request');
-        $this->notificationRepository->expects($this->once())->method('save');
+        $this->sender->expects($this->never())->method('sendDiscord');
+        $this->expectFailureNotification(function (Notification $notification): void {
+            $this->assertStringContainsString('No Discord webhook configured.', $notification->message);
+        });
 
         $this->handler()(new SendTestNotificationMessage('user-1'));
     }
@@ -159,15 +115,12 @@ final class SendTestNotificationHandlerTest extends TestCase
     #[DataProvider('nonDiscordWebhooks')]
     public function testDiscordWebhookOutsideDiscordIsNeverRequested(string $webhook): void
     {
-        $this->recipientResolver->method('resolve')->willReturn($this->discordRecipient($webhook));
+        $this->recipient = $this->discordRecipient($webhook);
 
-        $this->httpClient->expects($this->never())->method('request');
-        $this->notificationRepository->expects($this->once())
-            ->method('save')
-            ->with($this->callback(function (Notification $notification): bool {
-                $this->assertSame('test_failure', $notification->type);
-                return true;
-            }));
+        $this->sender->expects($this->never())->method('sendDiscord');
+        $this->expectFailureNotification(function (Notification $notification): void {
+            $this->assertStringContainsString('not a valid discord.com webhook URL', $notification->message);
+        });
 
         $this->handler()(new SendTestNotificationMessage('user-1'));
     }
@@ -181,26 +134,62 @@ final class SendTestNotificationHandlerTest extends TestCase
         yield 'userinfo smuggling' => ['https://discord.com@attacker.example/api/webhooks/1/t'];
     }
 
+    public function testAnUnknownChannelCreatesFailureNotification(): void
+    {
+        $this->recipient = new TestNotificationRecipient(
+            user: $this->makeUser(NotificationChannelEnum::Email, null, null),
+            displayName: 'Alice',
+            channel: 'carrier-pigeon',
+            notificationEmail: null,
+            discordWebhookUrl: null,
+        );
+
+        $this->sender->expects($this->never())->method('sendEmail');
+        $this->sender->expects($this->never())->method('sendDiscord');
+        $this->expectFailureNotification(function (Notification $notification): void {
+            $this->assertStringContainsString('Unknown channel "carrier-pigeon".', $notification->message);
+        });
+
+        $this->handler()(new SendTestNotificationMessage('user-1'));
+    }
+
     public function testUnknownUserPropagatesNotFound(): void
     {
-        $this->recipientResolver->method('resolve')
-            ->willThrowException(new NotFoundException('User', 'ghost'));
+        $recipientResolver = $this->createStub(TestNotificationRecipientResolverInterface::class);
+        $recipientResolver->method('resolve')->willThrowException(new NotFoundException('User', 'ghost'));
+        $this->sender->expects($this->never())->method('sendEmail');
+        $this->notificationRepository->expects($this->never())->method('save');
 
         $this->expectException(NotFoundException::class);
 
-        $this->handler()(new SendTestNotificationMessage('ghost'));
+        (new SendTestNotificationHandler($recipientResolver, $this->notificationRepository, $this->sender, new NullLogger()))(
+            new SendTestNotificationMessage('ghost'),
+        );
+    }
+
+    /** @param callable(Notification): void $inspect */
+    private function expectFailureNotification(callable $inspect): void
+    {
+        $this->notificationRepository->expects($this->once())
+            ->method('save')
+            ->with($this->callback(function (Notification $notification) use ($inspect): bool {
+                $this->assertSame('test_failure', $notification->type);
+                $inspect($notification);
+
+                return true;
+            }));
     }
 
     private function handler(): SendTestNotificationHandler
     {
+        $recipientResolver = $this->createStub(TestNotificationRecipientResolverInterface::class);
+        $recipientResolver->method('resolve')->willReturn($this->recipient);
+
         return new SendTestNotificationHandler(
-            $this->recipientResolver,
+            $recipientResolver,
             $this->notificationRepository,
-            $this->mailer,
-            $this->httpClient,
-            $this->twig,
+            $this->sender,
             new NullLogger(),
-            'notifications@ziggytheque.fr',
         );
     }
 
@@ -240,24 +229,5 @@ final class SendTestNotificationHandlerTest extends TestCase
             notificationEmail: $notificationEmail,
             discordWebhookUrl: $discordWebhookUrl,
         );
-    }
-
-    private function mailerException(): MailerTransportException
-    {
-        return new class extends RuntimeException implements MailerTransportException {
-            public function __construct()
-            {
-                parent::__construct('SMTP unreachable');
-            }
-
-            public function getDebug(): string
-            {
-                return '';
-            }
-
-            public function appendDebug(string $debug): void
-            {
-            }
-        };
     }
 }

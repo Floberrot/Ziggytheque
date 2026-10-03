@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Manga\Domain;
 
 use App\Manga\Domain\Service\PublisherNormalizer;
+use App\Shared\Domain\Text\TextFold;
 
 /**
  * What makes two records the same series in a collector's eyes: the work, the

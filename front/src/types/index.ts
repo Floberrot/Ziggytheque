@@ -1,12 +1,3 @@
-export interface Volume {
-  id: string
-  number: number
-  coverUrl: string | null
-  price: number | null
-  releaseDate: string | null
-  isbn: string | null
-}
-
 export interface Manga {
   id: string
   title: string
@@ -22,10 +13,6 @@ export interface Manga {
   externalId: string | null
   totalVolumes: number
   createdAt: string
-}
-
-export interface MangaDetail extends Manga {
-  volumes: Volume[]
 }
 
 export type ReadingStatus = 'not_started' | 'in_progress' | 'completed' | 'on_hold' | 'dropped'
@@ -214,6 +201,17 @@ export interface CatalogueSelection {
 }
 
 export type ScanFeedStatus = 'pending' | 'added' | 'owned' | 'notFound' | 'invalid' | 'error' | 'undone'
+
+/** A series no catalogue knows, typed by hand on the add page. */
+export interface ManualSeriesDraft {
+  title: string
+  publisher: string
+  specialEdition: string
+  author: string
+  /** '' while empty: a number input yields the raw string then. */
+  totalVolumes: string | number
+  coverUrl: string
+}
 
 /** One barcode read while scanning a shelf, with what it did to the collection. */
 export interface ScanFeedItem {

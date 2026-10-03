@@ -67,35 +67,11 @@ final readonly class JikanMangaApiClient implements ExternalApiClientInterface
         }
     }
 
-    public function getMangaById(string $externalId): ?ExternalMangaDto
-    {
-        $this->logger->info('Jikan: fetching by id', ['externalId' => $externalId]);
-
-        try {
-            $response = $this->httpClient->request('GET', self::BASE_URL . '/manga/' . $externalId);
-            $data = $response->toArray();
-            $item = $data['data'] ?? null;
-
-            if ($item === null) {
-                return null;
-            }
-
-            $result = $this->mapToDto($item);
-            $this->logger->info('Jikan: fetch complete', ['found' => $result !== null]);
-
-            return $result;
-        } catch (Throwable $e) {
-            $this->logger->error('Jikan: fetch by id failed', ['error' => $e->getMessage()]);
-            throw $e;
-        }
-    }
-
     /** @param array<string, mixed> $item */
     private function mapToDto(array $item): ?ExternalMangaDto
     {
         // Defence in depth: drop NSFW / 18+ entries even when they slip past the
-        // server-side `sfw` filter (e.g. Ecchi/Erotica) or come from the by-id
-        // endpoint, which has no such parameter.
+        // server-side `sfw` filter (e.g. Ecchi/Erotica).
         if ($this->isAdultContent($item)) {
             $this->logger->info('Jikan: filtered out adult entry', ['mal_id' => $item['mal_id'] ?? null]);
 

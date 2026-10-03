@@ -10,7 +10,6 @@ use App\Collection\Application\BatchSetVolumePrice\BatchSetVolumePriceCommand;
 use App\Collection\Application\SyncVolumes\SyncVolumesCommand;
 use App\Collection\Application\Get\GetCollectionQuery;
 use App\Collection\Application\GetDetail\GetCollectionDetailQuery;
-use App\Collection\Application\PurchaseVolume\PurchaseVolumeCommand;
 use App\Collection\Application\Remove\RemoveFromCollectionCommand;
 use App\Collection\Application\ToggleFollow\ToggleFollowCommand;
 use App\Collection\Application\ToggleVolume\ToggleVolumeCommand;
@@ -106,14 +105,6 @@ final readonly class CollectionController
     public function addRemainingToWishlist(string $id): JsonResponse
     {
         $this->commandBus->dispatch(new AddRemainingToWishlistCommand($id));
-
-        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
-    }
-
-    #[Route('/{id}/volumes/{volumeEntryId}/purchase', methods: ['POST'])]
-    public function purchaseVolume(string $id, string $volumeEntryId): JsonResponse
-    {
-        $this->commandBus->dispatch(new PurchaseVolumeCommand($id, $volumeEntryId));
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }

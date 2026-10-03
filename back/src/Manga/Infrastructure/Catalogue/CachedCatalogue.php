@@ -7,7 +7,7 @@ namespace App\Manga\Infrastructure\Catalogue;
 use App\Manga\Domain\Catalogue\CatalogueInterface;
 use App\Manga\Domain\Catalogue\CatalogueRecord;
 use App\Manga\Domain\Isbn;
-use App\Manga\Domain\TextFold;
+use App\Shared\Domain\Text\TextFold;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 

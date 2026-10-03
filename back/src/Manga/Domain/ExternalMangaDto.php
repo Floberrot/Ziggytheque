@@ -6,9 +6,6 @@ namespace App\Manga\Domain;
 
 final readonly class ExternalMangaDto
 {
-    /**
-     * @param ExternalVolumeDto[] $volumes
-     */
     public function __construct(
         public string $externalId,
         public string $title,
@@ -20,7 +17,6 @@ final readonly class ExternalMangaDto
         public string $language,
         public string $source,
         public ?int $totalVolumes = null,
-        public array $volumes = [],
     ) {
     }
 }

@@ -37,10 +37,10 @@ jobs:
           - 5432:5432
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: '8.4'
           extensions: pdo_pgsql, intl
@@ -48,7 +48,7 @@ jobs:
           coverage: none
 
       - name: Cache Composer dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: back/vendor
           key: composer-${{ hashFiles('back/composer.lock') }}
@@ -88,12 +88,12 @@ jobs:
           - 5432:5432
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 0
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: '8.4'
           extensions: pdo_pgsql, intl
@@ -101,7 +101,7 @@ jobs:
           coverage: none
 
       - name: Cache Composer dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: back/vendor
           key: composer-${{ hashFiles('back/composer.lock') }}
@@ -147,26 +147,26 @@ jobs:
           if [ -n "$REPORT" ]; then
             gh pr comment "$PR_NUMBER" --body "## ⚠️ Destructive Migration Detected
 
-This PR adds migration(s) with potentially **destructive SQL operations** that can cause data loss or long table locks in production.
+          This PR adds migration(s) with potentially **destructive SQL operations** that can cause data loss or long table locks in production.
 
-$REPORT
+          $REPORT
 
-### Risk reference
-| Pattern | Risk |
-|---|---|
-| \`DROP TABLE\` / \`DROP COLUMN\` | Permanent data loss |
-| \`TRUNCATE\` | Empties the table — cannot be rolled back |
-| \`DROP CONSTRAINT\` | Breaks referential integrity |
-| \`ALTER COLUMN ... NOT NULL\` without DEFAULT | Fails instantly on non-empty tables |
-| \`ALTER COLUMN ... TYPE\` | May truncate or corrupt existing values |
+          ### Risk reference
+          | Pattern | Risk |
+          |---|---|
+          | \`DROP TABLE\` / \`DROP COLUMN\` | Permanent data loss |
+          | \`TRUNCATE\` | Empties the table — cannot be rolled back |
+          | \`DROP CONSTRAINT\` | Breaks referential integrity |
+          | \`ALTER COLUMN ... NOT NULL\` without DEFAULT | Fails instantly on non-empty tables |
+          | \`ALTER COLUMN ... TYPE\` | May truncate or corrupt existing values |
 
-### Safe migration path
-1. Add the column as **nullable** first → deploy
-2. **Backfill** existing rows in a background job
-3. Add the NOT NULL constraint → deploy
-4. Drop the old column in a **separate** deploy (after verifying nothing reads it)
+          ### Safe migration path
+          1. Add the column as **nullable** first → deploy
+          2. **Backfill** existing rows in a background job
+          3. Add the NOT NULL constraint → deploy
+          4. Drop the old column in a **separate** deploy (after verifying nothing reads it)
 
-Please confirm this migration is safe before merging. 🙏"
+          Please confirm this migration is safe before merging. 🙏"
           fi
 
       - name: Dry-run new migrations against simulated prod state

@@ -8,9 +8,6 @@ interface MangaRepositoryInterface
 {
     public function findById(string $id): ?Manga;
 
-    /** @return Manga[] */
-    public function search(string $query): array;
-
     /**
      * Series whose title equals one of the given titles, case-insensitively — the
      * candidates an {@see EditionIdentity} is then matched against.

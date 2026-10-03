@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Manga\Domain\Service;
 
 use App\Manga\Domain\Catalogue\ParsedTitle;
-use App\Manga\Domain\TextFold;
+use App\Shared\Domain\Text\TextFold;
 
 /**
  * Splits a catalogue title into work, edition qualifier and volume number by reading

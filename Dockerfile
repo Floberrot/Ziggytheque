@@ -24,7 +24,7 @@ FROM base AS app
 
 ENV APP_ENV=prod
 ENV APP_DEBUG=0
-# FrankenPHP runs as root; without this Composer silently disables all plugins,
+# Composer runs as root at build time; without this it silently disables all plugins,
 # including symfony/runtime, so vendor/autoload_runtime.php is never generated.
 ENV COMPOSER_ALLOW_SUPERUSER=1
 # PORT is injected by Railway at runtime; Caddyfile binds to :{$PORT:80}
@@ -40,11 +40,19 @@ RUN composer install \
     --optimize \
     --classmap-authoritative
 
+# The containers run as the unprivileged www-data user. The code stays root-owned
+# (read-only to the app); only what the app writes at runtime is handed over:
+# var/ (cache warmed at start) and config/jwt (keys generated on first start).
+RUN mkdir -p var config/jwt && \
+    chown -R www-data:www-data var config/jwt
+
 # ── Stage 3: Messenger worker (no Caddy — pure PHP consumer) ──────────────────
 FROM app AS worker
 
 COPY back/worker-supervisor.sh /usr/local/bin/worker-supervisor.sh
 RUN chmod +x /usr/local/bin/worker-supervisor.sh
+
+USER www-data
 
 ENTRYPOINT ["worker-supervisor.sh"]
 
@@ -54,6 +62,17 @@ FROM app AS prod
 COPY back/Caddyfile /etc/caddy/Caddyfile
 COPY back/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Without root, Caddy still needs to write its config (autosave) and data (the Mercure
+# hub's database) dirs, and to bind port 80 when Railway's PORT is unset: the binary
+# carries CAP_NET_BIND_SERVICE (FrankenPHP's documented non-root setup).
+ENV XDG_CONFIG_HOME=/config
+ENV XDG_DATA_HOME=/data
+RUN setcap CAP_NET_BIND_SERVICE=+eip /usr/local/bin/frankenphp && \
+    mkdir -p /config/caddy /data/caddy && \
+    chown -R www-data:www-data /config/caddy /data/caddy
+
+USER www-data
 
 EXPOSE 80
 

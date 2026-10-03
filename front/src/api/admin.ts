@@ -20,11 +20,6 @@ export async function getUsers(params: UserListParams = {}): Promise<UserListRes
   return res.data
 }
 
-export async function getUser(id: string): Promise<User> {
-  const res = await client.get(`/admin/users/${id}`)
-  return res.data
-}
-
 export interface UpdateUserPayload {
   displayName?: string | null
   status?: User['status'] | null

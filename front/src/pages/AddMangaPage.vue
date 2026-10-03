@@ -1,32 +1,26 @@
 <script setup lang="ts">
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useI18n } from 'vue-i18n'
-import {
-  Camera, CheckCircle2, HelpCircle, PenLine, ScanBarcode, Search, Smartphone, Star, X,
-} from 'lucide-vue-next'
+import { HelpCircle, PenLine, ScanBarcode, Search } from 'lucide-vue-next'
 import {
   addFromCatalogue, getCatalogueEdition, scanIsbn, searchCatalogue,
   type AddFromCataloguePayload, type CatalogueEdition, type CatalogueRegistration, type CatalogueSearchMode,
 } from '@/api/catalogue'
 import { addRemainingToWishlist, addToCollection, toggleVolume } from '@/api/collection'
-import { createScanSession, importManga } from '@/api/manga'
-import { useBarcodeScanner } from '@/composables/useBarcodeScanner'
-import { useScanSession } from '@/composables/useScanSession'
+import { importManga } from '@/api/manga'
 import { useUiStore } from '@/stores/useUiStore'
-import type { CatalogueSelection, ScanFeedItem } from '@/types'
+import type { CatalogueSelection, ManualSeriesDraft, ScanFeedItem } from '@/types'
 import { normalizeIsbn13 } from '@/utils/isbn'
-import BaseButton from '@/components/atoms/BaseButton.vue'
-import BaseEditionSelector from '@/components/atoms/BaseEditionSelector.vue'
-import BaseLoader from '@/components/atoms/BaseLoader.vue'
-import BaseQrCode from '@/components/atoms/BaseQrCode.vue'
-import EditionBadge from '@/components/molecules/EditionBadge.vue'
-import ScanViewfinder from '@/components/molecules/ScanViewfinder.vue'
-import CatalogueEditionCard from '@/components/organisms/CatalogueEditionCard.vue'
+import AddedSeriesAlert from '@/components/molecules/AddedSeriesAlert.vue'
 import CatalogueEditionSheet from '@/components/organisms/CatalogueEditionSheet.vue'
+import CatalogueSearchPanel from '@/components/organisms/CatalogueSearchPanel.vue'
 import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vue'
-import ScanFeed from '@/components/organisms/ScanFeed.vue'
+import ManualSeriesForm from '@/components/organisms/ManualSeriesForm.vue'
+import ShelfScanPanel from '@/components/organisms/ShelfScanPanel.vue'
+
+type AddTab = 'search' | 'scan' | 'manual'
 
 const route = useRoute()
 const router = useRouter()
@@ -35,7 +29,8 @@ const ui = useUiStore()
 const { t } = useI18n()
 
 const showGuide = ref(false)
-const tab = ref<'search' | 'scan' | 'manual'>(route.query.tab === 'scan' ? 'scan' : 'search')
+const tab = ref<AddTab>(route.query.tab === 'scan' ? 'scan' : 'search')
+const TABS: readonly AddTab[] = ['search', 'scan', 'manual']
 
 function refreshCollection(): void {
   queryClient.invalidateQueries({ queryKey: ['collection'] })
@@ -186,21 +181,17 @@ function openScannedSeries(item: ScanFeedItem): void {
 }
 
 // ── Scan: every barcode read adds its tome — the series follows ──────────────
+// The camera and the phone live in the scan panel (leaving the tab unmounts it, which
+// stops both); the feed stays here, still listed when the user comes back to the tab.
 
-const viewfinder = ref<InstanceType<typeof ScanViewfinder> | null>(null)
-const cameraOn = ref(false)
 const readCount = ref(0)
-const scanner = useBarcodeScanner()
-const phoneSession = useScanSession()
-const phoneQrValue = ref<string | null>(null)
-const isOpeningPhoneSession = ref(false)
 const scanFeed = ref<ScanFeedItem[]>([])
 let nextScanId = 1
 
 const scannedCount = computed(() => scanFeed.value.filter((item) => item.status === 'added').length)
 
-function updateScan(id: number, patch: Partial<ScanFeedItem>): void {
-  scanFeed.value = scanFeed.value.map((item) => (item.id === id ? { ...item, ...patch } : item))
+function updateScan(scanId: number, patch: Partial<ScanFeedItem>): void {
+  scanFeed.value = scanFeed.value.map((item) => (item.id === scanId ? { ...item, ...patch } : item))
 }
 
 async function onBarcode(code: string): Promise<void> {
@@ -208,11 +199,11 @@ async function onBarcode(code: string): Promise<void> {
   // A price sticker or a shop label read again and again is listed once.
   if (!isbn && scanFeed.value.some((item) => item.code === code)) return
 
-  const id = nextScanId++
+  const scanId = nextScanId++
   readCount.value++
   scanFeed.value = [
     {
-      id,
+      id: scanId,
       code,
       status: isbn ? 'pending' : 'invalid',
       workTitle: null,
@@ -232,7 +223,7 @@ async function onBarcode(code: string): Promise<void> {
   try {
     const result = await scanIsbn(isbn)
     const volume = result.edition.volumes.find((candidate) => candidate.number === result.volumeNumber)
-    updateScan(id, {
+    updateScan(scanId, {
       status: result.alreadyOwned ? 'owned' : 'added',
       workTitle: result.edition.workTitle,
       publisher: result.edition.publisher,
@@ -246,41 +237,8 @@ async function onBarcode(code: string): Promise<void> {
     })
     refreshCollection()
   } catch (error) {
-    updateScan(id, { status: httpStatus(error) === 404 ? 'notFound' : 'error' })
+    updateScan(scanId, { status: httpStatus(error) === 404 ? 'notFound' : 'error' })
   }
-}
-
-async function startCamera(): Promise<void> {
-  cameraOn.value = true
-  // The <video> is rendered once cameraOn flips — wait for it.
-  await nextTick()
-  const video = viewfinder.value?.video
-  if (video) {
-    await scanner.startContinuous(video, onBarcode)
-  }
-}
-
-function stopCamera(): void {
-  scanner.stop()
-  cameraOn.value = false
-}
-
-async function startPhoneScan(): Promise<void> {
-  isOpeningPhoneSession.value = true
-  try {
-    const session = await createScanSession()
-    phoneQrValue.value = `${window.location.origin}/scan/${session.scanToken}?batch=1`
-    phoneSession.start(session, { onResult: onBarcode })
-  } catch {
-    ui.addToast(t('scanBatch.phoneError'), 'error')
-  } finally {
-    isOpeningPhoneSession.value = false
-  }
-}
-
-function stopPhoneScan(): void {
-  phoneSession.close()
-  phoneQrValue.value = null
 }
 
 async function undoScan(item: ScanFeedItem): Promise<void> {
@@ -299,25 +257,18 @@ function searchScannedCode(item: ScanFeedItem): void {
   tab.value = 'search'
 }
 
-watch(tab, (next) => {
-  if (next !== 'scan') {
-    stopCamera()
-    stopPhoneScan()
-  }
-})
-
 onUnmounted(() => {
   if (debounceTimer) clearTimeout(debounceTimer)
 })
 
 // ── Manual entry: last resort when no catalogue knows the book ───────────────
 
-const manual = ref({
+const manual = ref<ManualSeriesDraft>({
   title: '',
   publisher: '',
   specialEdition: '',
   author: '',
-  totalVolumes: '' as string | number,
+  totalVolumes: '',
   coverUrl: '',
 })
 
@@ -376,7 +327,7 @@ const manualMutation = useMutation({
     <!-- Tabs -->
     <div role="tablist" class="grid grid-cols-3 p-1 bg-base-200 rounded-xl gap-1">
       <button
-        v-for="option in (['search', 'scan', 'manual'] as const)"
+        v-for="option in TABS"
         :key="option"
         role="tab"
         :aria-selected="tab === option"
@@ -392,195 +343,48 @@ const manualMutation = useMutation({
     </div>
 
     <!-- Confirmation after an addition -->
-    <div v-if="lastAdded" class="alert alert-success items-start">
-      <CheckCircle2 class="h-6 w-6 shrink-0" />
-      <div class="flex-1 min-w-0 space-y-1">
-        <p class="font-semibold">{{ lastAdded.workTitle }}</p>
-        <EditionBadge :publisher="lastAdded.publisher" :special-edition="lastAdded.specialEdition" />
-        <p class="text-sm">
-          <template v-if="lastAdded.registration.seriesCreated">
-            {{ t('add.seriesCreated', { count: lastAdded.registration.totalVolumes }) }}
-          </template>
-          <template v-if="lastAdded.registration.addedNumbers.length">
-            {{ t('add.tomesAdded', { list: lastAdded.registration.addedNumbers.join(', ') }) }}
-          </template>
-          <template v-else>{{ t('add.seriesFollowed') }}</template>
-        </p>
-        <div class="flex flex-wrap gap-2 pt-1">
-          <button class="btn btn-sm" @click="openLastAddedSeries">
-            {{ t('add.openSeries') }}
-          </button>
-          <BaseButton
-            class="btn btn-sm btn-ghost gap-1"
-            :loading="wishlistMutation.isPending.value"
-            @click="sendMissingToWishlist"
-          >
-            <template #icon><Star class="h-4 w-4" /></template>
-            {{ t('add.missingToWishlist') }}
-          </BaseButton>
-        </div>
-      </div>
-      <button class="btn btn-ghost btn-xs btn-circle" :aria-label="t('common.close')" @click="lastAdded = null">
-        <X class="h-4 w-4" />
-      </button>
-    </div>
+    <AddedSeriesAlert
+      v-if="lastAdded"
+      :summary="lastAdded"
+      :sending-to-wishlist="wishlistMutation.isPending.value"
+      @open-series="openLastAddedSeries"
+      @send-to-wishlist="sendMissingToWishlist"
+      @dismiss="lastAdded = null"
+    />
 
     <!-- ── Search ── -->
-    <section v-if="tab === 'search'" class="space-y-3">
-      <div class="flex flex-col sm:flex-row gap-2">
-        <label class="input input-bordered flex items-center gap-2 flex-1">
-          <Search class="h-4 w-4 opacity-50 shrink-0" />
-          <input
-            v-model="searchInput"
-            type="search"
-            class="grow"
-            :placeholder="searchMode === 'title' ? t('add.searchPlaceholderTitle') : t('add.searchPlaceholderAuthor')"
-            autocomplete="off"
-            autofocus
-          />
-          <BaseLoader v-if="isSearching" size="xs" class="opacity-50" />
-        </label>
-        <div class="join shrink-0">
-          <button
-            v-for="option in (['title', 'author'] as const)"
-            :key="option"
-            class="btn join-item"
-            :class="searchMode === option ? 'btn-primary' : 'btn-outline'"
-            @click="searchMode = option"
-          >
-            {{ t(`add.mode.${option}`) }}
-          </button>
-        </div>
-      </div>
-      <p class="text-xs text-base-content/40">{{ t('add.searchHint') }}</p>
-
-      <template v-if="hasQuery">
-        <div v-if="searchErrorMessage" class="alert alert-warning text-sm py-2">{{ searchErrorMessage }}</div>
-
-        <div v-else-if="searchResult && searchResult.editions.length" class="space-y-2">
-          <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">
-            {{ t('add.resultsCount', { count: searchResult.editions.length }, searchResult.editions.length) }}
-          </p>
-          <CatalogueEditionCard
-            v-for="edition in searchResult.editions"
-            :key="`${edition.workTitle}|${edition.publisher}|${edition.specialEdition}`"
-            :edition="edition"
-            @select="openEdition"
-          />
-        </div>
-
-        <div
-          v-else-if="searchResult && !isSearching"
-          class="text-center py-8 space-y-3"
-        >
-          <p class="text-sm text-base-content/50">{{ t('add.noResults') }}</p>
-          <button class="btn btn-outline btn-sm" @click="tab = 'manual'">{{ t('add.fillManually') }}</button>
-        </div>
-      </template>
-    </section>
+    <CatalogueSearchPanel
+      v-if="tab === 'search'"
+      v-model:query="searchInput"
+      v-model:mode="searchMode"
+      :is-searching="isSearching"
+      :has-query="hasQuery"
+      :error-message="searchErrorMessage"
+      :result="searchResult"
+      @select="openEdition"
+      @fill-manually="tab = 'manual'"
+    />
 
     <!-- ── Scan ── -->
-    <section v-else-if="tab === 'scan'" class="space-y-4">
-      <p class="text-sm text-base-content/60">{{ t('scanBatch.intro') }}</p>
-
-      <div class="grid gap-2 sm:grid-cols-2">
-        <button v-if="!cameraOn" class="btn btn-primary gap-2" @click="startCamera">
-          <Camera class="h-5 w-5" />
-          {{ t('scanBatch.startCamera') }}
-        </button>
-        <button v-else class="btn btn-outline gap-2" @click="stopCamera">
-          <X class="h-5 w-5" />
-          {{ t('scanBatch.stopCamera') }}
-        </button>
-
-        <BaseButton v-if="!phoneQrValue" class="btn btn-outline gap-2" :loading="isOpeningPhoneSession" @click="startPhoneScan">
-          <template #icon><Smartphone class="h-5 w-5" /></template>
-          {{ t('scanBatch.usePhone') }}
-        </BaseButton>
-        <button v-else class="btn btn-outline gap-2" @click="stopPhoneScan">
-          <X class="h-5 w-5" />
-          {{ t('scanBatch.stopPhone') }}
-        </button>
-      </div>
-
-      <div v-if="cameraOn" class="space-y-2">
-        <ScanViewfinder
-          ref="viewfinder"
-          :read-count="readCount"
-          :torch-available="scanner.torchAvailable.value"
-          :torch-on="scanner.torchOn.value"
-          @toggle-torch="scanner.toggleTorch()"
-        />
-        <p v-if="scanner.errorMessage.value" class="alert alert-error text-sm py-2">{{ scanner.errorMessage.value }}</p>
-        <p v-else class="text-xs text-center text-base-content/50">{{ t('scanBatch.cameraHint') }}</p>
-      </div>
-
-      <div v-if="phoneQrValue" class="flex flex-col items-center gap-2 p-4 bg-base-100 rounded-2xl border border-base-200">
-        <BaseQrCode :value="phoneQrValue" :size="200" />
-        <p class="text-xs text-center text-base-content/60 max-w-xs">{{ t('scanBatch.phoneHint') }}</p>
-      </div>
-
-      <div v-if="scanFeed.length" class="space-y-2">
-        <div class="flex items-center justify-between">
-          <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">
-            {{ t('scanBatch.summary', { count: scannedCount }, scannedCount) }}
-          </p>
-          <button class="btn btn-ghost btn-xs" @click="scanFeed = []">{{ t('scanBatch.clear') }}</button>
-        </div>
-        <ScanFeed
-          :items="scanFeed"
-          @undo="undoScan"
-          @open-series="openScannedSeries"
-          @search-manually="searchScannedCode"
-        />
-      </div>
-    </section>
+    <ShelfScanPanel
+      v-else-if="tab === 'scan'"
+      :feed="scanFeed"
+      :read-count="readCount"
+      :scanned-count="scannedCount"
+      @barcode="onBarcode"
+      @undo="undoScan"
+      @open-series="openScannedSeries"
+      @search-manually="searchScannedCode"
+      @clear-feed="scanFeed = []"
+    />
 
     <!-- ── Manual entry ── -->
-    <section v-else class="space-y-4">
-      <p class="text-sm text-base-content/60">{{ t('add.manualIntro') }}</p>
-      <form class="space-y-3" @submit.prevent="manualMutation.mutate()">
-        <label class="flex flex-col gap-1">
-          <span class="text-xs font-semibold text-base-content/60">{{ t('manga.title') }} *</span>
-          <input v-model="manual.title" type="text" class="input input-bordered w-full" maxlength="255" required />
-        </label>
-        <div class="grid gap-3 sm:grid-cols-2">
-          <div class="flex flex-col gap-1">
-            <span class="text-xs font-semibold text-base-content/60">{{ t('catalogue.publisher') }}</span>
-            <BaseEditionSelector
-              :model-value="manual.publisher || null"
-              input-class="input input-bordered w-full"
-              @update:model-value="manual.publisher = $event ?? ''"
-            />
-          </div>
-          <label class="flex flex-col gap-1">
-            <span class="text-xs font-semibold text-base-content/60">{{ t('catalogue.specialEdition') }}</span>
-            <input
-              v-model="manual.specialEdition"
-              type="text"
-              class="input input-bordered w-full"
-              maxlength="150"
-              :placeholder="t('catalogue.standardEdition')"
-            />
-          </label>
-          <label class="flex flex-col gap-1">
-            <span class="text-xs font-semibold text-base-content/60">{{ t('manga.author') }}</span>
-            <input v-model="manual.author" type="text" class="input input-bordered w-full" />
-          </label>
-          <label class="flex flex-col gap-1">
-            <span class="text-xs font-semibold text-base-content/60">{{ t('manga.totalVolumes') }}</span>
-            <input v-model="manual.totalVolumes" type="number" min="0" max="500" class="input input-bordered w-full" />
-          </label>
-        </div>
-        <label class="flex flex-col gap-1">
-          <span class="text-xs font-semibold text-base-content/60">{{ t('manga.coverUrl') }}</span>
-          <input v-model="manual.coverUrl" type="url" class="input input-bordered w-full" placeholder="https://…" />
-        </label>
-        <BaseButton type="submit" class="btn btn-primary w-full" :loading="manualMutation.isPending.value" :disabled="!manual.title.trim()">
-          {{ t('add.createManually') }}
-        </BaseButton>
-      </form>
-    </section>
+    <ManualSeriesForm
+      v-else
+      v-model="manual"
+      :submitting="manualMutation.isPending.value"
+      @submit="manualMutation.mutate()"
+    />
 
     <CatalogueEditionSheet
       :open="selectedEdition !== null"

@@ -12,7 +12,6 @@ use App\Manga\Domain\Manga;
 use App\Manga\Domain\MangaRepositoryInterface;
 use App\Shared\Domain\Exception\NotFoundException;
 use App\Tests\Doubles\Manga\StubCoverBatchSubscriberAuthorizer;
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -20,31 +19,45 @@ use Symfony\Component\Messenger\Stamp\DelayStamp;
 
 final class StartCoverBatchHandlerTest extends TestCase
 {
-    private MangaRepositoryInterface&MockObject $mangaRepository;
-    private MessageBusInterface&MockObject $messageBus;
-    private StartCoverBatchHandler $handler;
-
-    protected function setUp(): void
+    private function handler(?Manga $storedManga, MessageBusInterface $messageBus): StartCoverBatchHandler
     {
-        $this->mangaRepository = $this->createMock(MangaRepositoryInterface::class);
-        $this->messageBus = $this->createMock(MessageBusInterface::class);
-        $authorizer = new StubCoverBatchSubscriberAuthorizer();
+        $mangaRepository = $this->createStub(MangaRepositoryInterface::class);
+        $mangaRepository->method('findById')->willReturn($storedManga);
 
-        $this->handler = new StartCoverBatchHandler(
-            mangaRepository: $this->mangaRepository,
-            messageBus: $this->messageBus,
-            subscriberAuthorizer: $authorizer,
+        return new StartCoverBatchHandler(
+            mangaRepository: $mangaRepository,
+            messageBus: $messageBus,
+            subscriberAuthorizer: new StubCoverBatchSubscriberAuthorizer(),
         );
+    }
+
+    private function manga(): Manga
+    {
+        return new Manga(
+            id: 'manga-1',
+            title: 'Test Manga',
+            edition: null,
+            language: 'fr',
+        );
+    }
+
+    /** A bus that accepts whatever is dispatched, for tests that only read the result. */
+    private function acceptingBus(): MessageBusInterface
+    {
+        $messageBus = $this->createStub(MessageBusInterface::class);
+        $messageBus->method('dispatch')->willReturnCallback(static fn (object $message) => new Envelope($message));
+
+        return $messageBus;
     }
 
     public function testThrowsNotFoundExceptionWhenMangaDoesNotExist(): void
     {
-        $this->mangaRepository->method('findById')->willReturn(null);
-        $this->messageBus->expects($this->never())->method('dispatch');
+        $messageBus = $this->createMock(MessageBusInterface::class);
+        $messageBus->expects($this->never())->method('dispatch');
 
         $this->expectException(NotFoundException::class);
 
-        ($this->handler)(new StartCoverBatchCommand(
+        ($this->handler(null, $messageBus))(new StartCoverBatchCommand(
             mangaId: 'nonexistent-id',
             force: false,
             volumeIds: null,
@@ -53,16 +66,8 @@ final class StartCoverBatchHandlerTest extends TestCase
 
     public function testDispatchesAsyncMessageAndReturnsBatchResult(): void
     {
-        $manga = new Manga(
-            id: 'manga-1',
-            title: 'Test Manga',
-            edition: null,
-            language: 'fr',
-        );
-
-        $this->mangaRepository->method('findById')->willReturn($manga);
-
-        $this->messageBus
+        $messageBus = $this->createMock(MessageBusInterface::class);
+        $messageBus
             ->expects($this->once())
             ->method('dispatch')
             ->with(
@@ -79,7 +84,7 @@ final class StartCoverBatchHandlerTest extends TestCase
             )
             ->willReturnCallback(static fn (object $message) => new Envelope($message));
 
-        $result = ($this->handler)(new StartCoverBatchCommand(
+        $result = ($this->handler($this->manga(), $messageBus))(new StartCoverBatchCommand(
             mangaId: 'manga-1',
             force: false,
             volumeIds: null,
@@ -94,19 +99,7 @@ final class StartCoverBatchHandlerTest extends TestCase
 
     public function testResultToArrayContainsRequiredKeys(): void
     {
-        $manga = new Manga(
-            id: 'manga-1',
-            title: 'Test Manga',
-            edition: null,
-            language: 'fr',
-        );
-
-        $this->mangaRepository->method('findById')->willReturn($manga);
-        $this->messageBus
-            ->method('dispatch')
-            ->willReturnCallback(static fn (object $message) => new Envelope($message));
-
-        $result = ($this->handler)(new StartCoverBatchCommand(
+        $result = ($this->handler($this->manga(), $this->acceptingBus()))(new StartCoverBatchCommand(
             mangaId: 'manga-1',
             force: false,
             volumeIds: null,
