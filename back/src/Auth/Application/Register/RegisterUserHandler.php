@@ -14,6 +14,7 @@ use App\Auth\Domain\UserRepositoryInterface;
 use App\Auth\Shared\Event\RegisterFailedEvent;
 use App\Auth\Shared\Event\RegisterStartedEvent;
 use App\Auth\Shared\Event\RegisterSucceededEvent;
+use App\Auth\Shared\Event\RegistrationOnExistingAccountEvent;
 use App\Auth\Shared\Event\UserRegisteredEvent;
 use App\Shared\Application\Bus\EventBusInterface;
 use DateTimeImmutable;
@@ -40,8 +41,11 @@ final readonly class RegisterUserHandler
         $this->eventBus->publish($started);
 
         try {
-            if ($this->userRepository->findByEmail($command->email) !== null) {
-                throw new EmailAlreadyTakenException();
+            $existingUser = $this->userRepository->findByEmail($command->email);
+            if ($existingUser !== null) {
+                $this->answerForExistingAccount($existingUser, $command, $started->correlationId);
+
+                return;
             }
 
             $user = new User(
@@ -89,5 +93,31 @@ final readonly class RegisterUserHandler
             ));
             throw $exception;
         }
+    }
+
+    /**
+     * The caller gets the very answer of a new registration, after the same password
+     * hashing, so neither the response nor its timing tells that the address has an
+     * account. Its owner is told by email; the journal keeps the failed attempt.
+     */
+    private function answerForExistingAccount(
+        User $existingUser,
+        RegisterUserCommand $command,
+        string $correlationId,
+    ): void {
+        $this->passwordHasher->hashPassword($existingUser, $command->password);
+
+        $this->eventBus->publish(new RegistrationOnExistingAccountEvent(
+            email: $existingUser->email,
+            displayName: $existingUser->displayName,
+        ));
+
+        $alreadyTaken = new EmailAlreadyTakenException();
+        $this->eventBus->publish(new RegisterFailedEvent(
+            correlationId: $correlationId,
+            error: $alreadyTaken->getMessage(),
+            exceptionClass: $alreadyTaken::class,
+            email: $command->email,
+        ));
     }
 }

@@ -59,4 +59,14 @@ final readonly class CacheRateLimiter
             // Cache unavailable → fail open.
         }
     }
+
+    /** Forgets the calls counted for $key (a successful login clears its failed attempts). */
+    public function reset(string $key): void
+    {
+        try {
+            $this->pool->deleteItem('ratelimit.' . sha1($key));
+        } catch (Throwable) {
+            // Cache unavailable: nothing was blocking anyway (fail open).
+        }
+    }
 }

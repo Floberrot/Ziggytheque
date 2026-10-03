@@ -66,10 +66,12 @@ async function submit() {
     await postRegister(email.value.trim(), password.value, displayName.value.trim())
     success.value = true
   } catch (err) {
-    if (axios.isAxiosError(err) && err.response?.status === 409) {
-      error.value = 'Cet email est déjà utilisé.'
-    } else if (axios.isAxiosError(err) && err.response?.status === 422) {
+    // An address that already has an account gets the same answer as a new one
+    // (its owner is told by email), so there is no "already taken" case here.
+    if (axios.isAxiosError(err) && err.response?.status === 422) {
       error.value = 'Email invalide ou mot de passe trop court (8 caractères min).'
+    } else if (axios.isAxiosError(err) && err.response?.status === 429) {
+      error.value = 'Trop de tentatives. Réessayez dans un moment.'
     } else {
       error.value = 'L\'inscription a échoué. Réessayez plus tard.'
     }

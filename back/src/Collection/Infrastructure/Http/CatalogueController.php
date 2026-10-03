@@ -108,8 +108,8 @@ final readonly class CatalogueController
     }
 
     /**
-     * Keyed on the authenticated user, not the client IP: the app runs behind a proxy
-     * without trusted-proxy configuration, so every request reports the same IP.
+     * Keyed on the authenticated user, not the client IP: the quota follows the
+     * account across its devices, and several accounts can share one address.
      */
     private function consumeCatalogueQuota(): void
     {

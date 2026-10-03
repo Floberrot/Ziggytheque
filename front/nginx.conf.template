@@ -8,6 +8,14 @@ map $uri $static_cache_control {
     default                      "no-cache";
 }
 
+# The client's address. Railway's edge sets X-Real-IP on every request it forwards;
+# without it (nginx reached directly, local run) the connecting address is the client.
+# The backend reads it from X-Forwarded-For, believed only from the private network.
+map $http_x_real_ip $client_ip {
+    ""      $remote_addr;
+    default $http_x_real_ip;
+}
+
 server {
     listen 80;
     server_name _;
@@ -57,8 +65,9 @@ server {
 
         # Use the upstream host, not the frontend host, so the backend accepts the request.
         proxy_set_header Host              $proxy_host;
-        proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Real-IP         $client_ip;
+        # Replaced, never appended: a client-sent X-Forwarded-For goes no further.
+        proxy_set_header X-Forwarded-For   $client_ip;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
@@ -72,8 +81,9 @@ server {
         proxy_ssl_verify     off;
 
         proxy_set_header Host              $proxy_host;
-        proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Real-IP         $client_ip;
+        # Replaced, never appended: a client-sent X-Forwarded-For goes no further.
+        proxy_set_header X-Forwarded-For   $client_ip;
         proxy_set_header X-Forwarded-Proto $scheme;
 
         # Server-Sent Events: forward chunks immediately and hold the connection open.

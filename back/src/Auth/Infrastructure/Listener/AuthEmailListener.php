@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Auth\Infrastructure\Listener;
 
 use App\Auth\Shared\Event\PasswordResetRequestedEvent;
+use App\Auth\Shared\Event\RegistrationOnExistingAccountEvent;
 use App\Auth\Shared\Event\UserApprovedEvent;
 use App\Auth\Shared\Event\UserRegisteredEvent;
 use Psr\Log\LoggerInterface;
@@ -15,7 +16,8 @@ use Throwable;
 use Twig\Environment;
 
 /**
- * Sends the transactional auth emails (verification, password reset, approval).
+ * Sends the transactional auth emails (verification, password reset, approval, and
+ * the "you already have an account" notice).
  *
  * Dispatched synchronously by SymfonyEventBus. A delivery failure is logged but
  * never bubbles up — it must not roll back the user-facing action that triggered it.
@@ -23,6 +25,7 @@ use Twig\Environment;
 #[AsEventListener(event: UserRegisteredEvent::class, method: 'onUserRegistered')]
 #[AsEventListener(event: PasswordResetRequestedEvent::class, method: 'onPasswordResetRequested')]
 #[AsEventListener(event: UserApprovedEvent::class, method: 'onUserApproved')]
+#[AsEventListener(event: RegistrationOnExistingAccountEvent::class, method: 'onRegistrationOnExistingAccount')]
 final readonly class AuthEmailListener
 {
     public function __construct(
@@ -64,6 +67,22 @@ final readonly class AuthEmailListener
             'Votre compte Ziggytheque est activé',
             'emails/auth/account_approved.html.twig',
             ['displayName' => $event->displayName, 'loginUrl' => rtrim($this->frontUrl, '/') . '/login'],
+        );
+    }
+
+    public function onRegistrationOnExistingAccount(RegistrationOnExistingAccountEvent $event): void
+    {
+        $frontUrl = rtrim($this->frontUrl, '/');
+
+        $this->send(
+            $event->email,
+            'Vous avez déjà un compte Ziggytheque',
+            'emails/auth/account_exists.html.twig',
+            [
+                'displayName'       => $event->displayName,
+                'loginUrl'          => $frontUrl . '/login',
+                'forgotPasswordUrl' => $frontUrl . '/forgot-password',
+            ],
         );
     }
 
