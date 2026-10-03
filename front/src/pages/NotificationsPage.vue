@@ -1,19 +1,24 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useQuery } from '@tanstack/vue-query'
 import { getArticles, getFollowedEntries } from '@/api/notification'
+import { useCollectionFiltersStore } from '@/stores/useCollectionFiltersStore'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { ChevronDown, Check, Search } from 'lucide-vue-next'
 import ArticleCard from '@/components/molecules/ArticleCard.vue'
 import BaseCover from '@/components/atoms/BaseCover.vue'
+import BaseLoader from '@/components/atoms/BaseLoader.vue'
 import type { ArticleCollectionEntry } from '@/types'
 
 const { t } = useI18n()
 
-const page = ref(1)
+// The series filter and the page are remembered when the reader leaves the news and comes back.
+const { notificationsPage: page, notificationsSeriesId: selectedCollectionId } = storeToRefs(
+  useCollectionFiltersStore(),
+)
 const limit = 12
-const selectedCollectionId = ref<string | undefined>(undefined)
 const followedSearch = ref('')
 
 // Source of truth for the filter: ALL followed works, never truncated by
@@ -22,6 +27,9 @@ const { data: followedEntries } = useQuery({
   queryKey: ['followed-entries'],
   queryFn: () => getFollowedEntries(),
   initialData: [] as ArticleCollectionEntry[],
+  // The empty placeholder is stale at once: fetched on the first visit, not 30 s later,
+  // so a remembered series filter shows in its dropdown (and is checked) right away.
+  initialDataUpdatedAt: 0,
 })
 
 const selectedEntry = computed<ArticleCollectionEntry | undefined>(
@@ -40,6 +48,13 @@ const { data: articlePage, isPending } = useQuery({
 })
 
 watch(selectedCollectionId, () => { page.value = 1 })
+
+// A remembered page beyond the last one (fewer articles since): show the last page.
+watch(articlePage, (result) => {
+  if (result && result.totalPages > 0 && page.value > result.totalPages) {
+    page.value = result.totalPages
+  }
+})
 
 // Reset to "All" if the active selection is no longer followed (unfollowed elsewhere).
 watch(followedEntries, (entries) => {
@@ -155,9 +170,7 @@ function selectEntry(id: string | undefined): void {
       </div>
 
       <!-- Loading -->
-      <div v-if="isPending" class="space-y-3">
-        <div v-for="i in 6" :key="i" class="h-28 rounded-xl bg-base-200 animate-pulse" />
-      </div>
+      <BaseLoader v-if="isPending" variant="section" />
 
       <!-- Empty state -->
       <div

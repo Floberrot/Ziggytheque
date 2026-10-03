@@ -191,10 +191,8 @@ const STATUSES: { value: LogStatus | ''; label: string }[] = [
       </div>
     </div>
 
-    <!-- Loading skeleton -->
-    <div v-if="isLoading" class="space-y-1">
-      <div v-for="index in 10" :key="index" class="h-10 rounded bg-base-200 animate-pulse" />
-    </div>
+    <!-- Loading -->
+    <BaseLoader v-if="isLoading" variant="section" />
 
     <template v-else>
       <!-- Desktop table -->

@@ -1,8 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/useAuthStore'
+import { scrollBehavior } from './scrollBehavior'
 
 const router = createRouter({
   history: createWebHistory(),
+  scrollBehavior,
   routes: [
     {
       path: '/login',
@@ -56,7 +58,8 @@ const router = createRouter({
           path: 'collection',
           name: 'collection',
           component: () => import('@/pages/CollectionPage.vue'),
-          meta: { title: 'Collection' },
+          // Search, filters and scroll offset are kept when the reader opens a series and comes back.
+          meta: { title: 'Collection', rememberScroll: true },
         },
         {
           path: 'collection/:id',
@@ -68,7 +71,7 @@ const router = createRouter({
           path: 'wishlist',
           name: 'wishlist',
           component: () => import('@/pages/WishlistPage.vue'),
-          meta: { title: 'Liste de souhaits' },
+          meta: { title: 'Liste de souhaits', rememberScroll: true },
         },
         {
           path: 'add',

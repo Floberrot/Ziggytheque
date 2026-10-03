@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { postRequestPasswordReset } from '@/api/auth'
 import { useThemeStore } from '@/stores/useThemeStore'
-import BaseLoader from '@/components/atoms/BaseLoader.vue'
+import BaseButton from '@/components/atoms/BaseButton.vue'
 
 const router = useRouter()
 const themeStore = useThemeStore()
@@ -63,14 +63,13 @@ async function submit() {
               autofocus
             />
 
-            <button
+            <BaseButton
               type="submit"
               class="btn btn-primary w-full"
-              :disabled="loading"
+              :loading="loading"
             >
-              <BaseLoader v-if="loading" size="xs" />
               Envoyer le lien
-            </button>
+            </BaseButton>
           </form>
 
           <router-link to="/login" class="link link-hover text-sm">

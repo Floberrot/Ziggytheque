@@ -6,7 +6,7 @@ import { patchNotificationPreferences, postNotificationTest } from '@/api/auth'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { useUiStore } from '@/stores/useUiStore'
 import { useI18n } from 'vue-i18n'
-import BaseLoader from '@/components/atoms/BaseLoader.vue'
+import BaseButton from '@/components/atoms/BaseButton.vue'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -194,31 +194,33 @@ const { data: unread } = useQuery({
           <div class="divider my-0" />
 
           <div class="flex gap-3 justify-end">
-            <button
-              type="button"
+            <BaseButton
               class="btn btn-ghost gap-2"
-              :disabled="!canTest || testing || saving"
+              :loading="testing"
+              :disabled="!canTest || saving"
               @click="sendTest"
             >
-              <BaseLoader v-if="testing" size="xs" />
-              <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13"/>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-              </svg>
+              <template #icon>
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"/>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+              </template>
               {{ t('notifications.settings.test') }}
-            </button>
-            <button
-              type="button"
+            </BaseButton>
+            <BaseButton
               class="btn btn-primary gap-2"
-              :disabled="saving || testing"
+              :loading="saving"
+              :disabled="testing"
               @click="savePreferences"
             >
-              <BaseLoader v-if="saving" size="xs" />
-              <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
+              <template #icon>
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </template>
               {{ t('notifications.settings.save') }}
-            </button>
+            </BaseButton>
           </div>
         </div>
       </section>

@@ -21,6 +21,7 @@ import CollectionGuideModal from '@/components/organisms/CollectionGuideModal.vu
 import { useI18n } from 'vue-i18n'
 import type { CollectionEntryDetail, VolumeEntry, VolumeToggleField } from '@/types'
 import { coverUrl } from '@/utils/coverUrl'
+import BaseButton from '@/components/atoms/BaseButton.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
 import BaseModal from '@/components/atoms/BaseModal.vue'
 
@@ -756,10 +757,9 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                       />
                       <BaseLoader v-if="isSearching" size="xs" class="opacity-40" />
                     </label>
-                    <button class="btn btn-square btn-outline btn-sm shrink-0" :disabled="isSearching || searchQuery.trim().length < 2" title="Relancer" @click="runSearch(searchQuery)">
-                      <BaseLoader v-if="isSearching" size="xs" />
-                      <RefreshCw v-else class="h-4 w-4" />
-                    </button>
+                    <BaseButton class="btn btn-square btn-outline btn-sm shrink-0" :loading="isSearching" :disabled="searchQuery.trim().length < 2" title="Relancer" @click="runSearch(searchQuery)">
+                      <template #icon><RefreshCw class="h-4 w-4" /></template>
+                    </BaseButton>
                   </div>
                   <p v-if="!searchResults.length && !isSearching" class="text-sm text-base-content/30 text-center py-10">
                     Suggestions de couvertures — appuyez sur une couverture pour l'appliquer
@@ -809,10 +809,9 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                       @keyup.enter="runIsbnSearch()"
                       @blur="autoSaveIsbn()"
                     />
-                    <button class="btn btn-sm btn-primary shrink-0" :disabled="!isbnInput.trim() || isbnLoading" @click="runIsbnSearch()">
-                      <BaseLoader v-if="isbnLoading" size="xs" />
+                    <BaseButton class="btn btn-sm btn-primary shrink-0" :loading="isbnLoading" :disabled="!isbnInput.trim()" @click="runIsbnSearch()">
                       {{ t('enrich.searchIsbn') }}
-                    </button>
+                    </BaseButton>
                   </div>
                   <p v-if="isbnError" class="text-error text-xs mt-2">{{ t(isbnError) }}</p>
                 </template>
@@ -854,11 +853,10 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                   </button>
                   <p v-if="cameraError" class="text-error text-xs">{{ cameraError }}</p>
                   <video v-show="isScanning" ref="videoRef" class="w-full rounded-lg aspect-video object-cover bg-base-200" autoplay muted playsinline />
-                  <button class="btn btn-sm btn-outline gap-2 w-full" :disabled="isFetchingSession" @click="startPhoneScan()">
-                    <BaseLoader v-if="isFetchingSession" size="xs" />
-                    <Smartphone v-else class="h-4 w-4" />
+                  <BaseButton class="btn btn-sm btn-outline gap-2 w-full" :loading="isFetchingSession" @click="startPhoneScan()">
+                    <template #icon><Smartphone class="h-4 w-4" /></template>
                     {{ t('enrich.scanPhone') }}
-                  </button>
+                  </BaseButton>
                   <div v-if="scanQrValue" class="flex flex-col items-center gap-2 pt-1">
                     <BaseQrCode :value="scanQrValue" :size="180" />
                     <a :href="scanQrValue" target="_blank" class="link link-primary text-xs">{{ t('enrich.scanLinkTitle') }}</a>
@@ -867,9 +865,7 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
 
                 <!-- Prix : offres marchands par ISBN -->
                 <div v-if="mode === 'prix'" class="flex flex-col gap-3">
-                  <div v-if="pricesLoading" class="flex justify-center py-8">
-                    <BaseLoader size="lg" class="text-primary" />
-                  </div>
+                  <BaseLoader v-if="pricesLoading" variant="section" />
                   <p v-else-if="pricesError" class="text-sm text-error">{{ pricesError }}</p>
                   <template v-else-if="pricesLoaded">
                     <!-- No ISBN: explain + shortcut to the ISBN tab (no dead end) -->
@@ -922,14 +918,14 @@ const possessionToggles = computed<{ config: StatusToggleConfig; active: boolean
                 <p class="text-[11px] text-base-content/40 mb-1.5 font-semibold uppercase tracking-wide">Ou coller une URL</p>
                 <div class="flex gap-2 items-center">
                   <input v-model="manualCoverUrl" type="url" class="input input-bordered input-xs flex-1 min-w-0" placeholder="https://…" />
-                  <button
+                  <BaseButton
                     class="btn btn-primary btn-xs shrink-0"
-                    :disabled="!manualCoverUrl.trim() || enrichMutation.isPending.value"
+                    :loading="enrichMutation.isPending.value"
+                    :disabled="!manualCoverUrl.trim()"
                     @click="manualCoverUrl.trim() && enrichMutation.mutate({ coverUrl: manualCoverUrl.trim() })"
                   >
-                    <BaseLoader v-if="enrichMutation.isPending.value" size="xs" />
                     Appliquer
-                  </button>
+                  </BaseButton>
                   <div v-if="manualCoverUrl.trim()" class="w-9 aspect-[2/3] rounded overflow-hidden bg-base-200 ring-1 ring-base-300 shrink-0">
                     <BaseCover :src="manualCoverUrl.trim()" class="w-full h-full" icon-class="h-4 w-4" />
                   </div>

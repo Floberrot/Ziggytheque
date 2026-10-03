@@ -17,6 +17,7 @@ import { useScanSession } from '@/composables/useScanSession'
 import { useUiStore } from '@/stores/useUiStore'
 import type { CatalogueSelection, ScanFeedItem } from '@/types'
 import { normalizeIsbn13 } from '@/utils/isbn'
+import BaseButton from '@/components/atoms/BaseButton.vue'
 import BaseEditionSelector from '@/components/atoms/BaseEditionSelector.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
 import BaseQrCode from '@/components/atoms/BaseQrCode.vue'
@@ -409,15 +410,14 @@ const manualMutation = useMutation({
           <button class="btn btn-sm" @click="openLastAddedSeries">
             {{ t('add.openSeries') }}
           </button>
-          <button
+          <BaseButton
             class="btn btn-sm btn-ghost gap-1"
-            :disabled="wishlistMutation.isPending.value"
+            :loading="wishlistMutation.isPending.value"
             @click="sendMissingToWishlist"
           >
-            <BaseLoader v-if="wishlistMutation.isPending.value" size="xs" />
-            <Star v-else class="h-4 w-4" />
+            <template #icon><Star class="h-4 w-4" /></template>
             {{ t('add.missingToWishlist') }}
-          </button>
+          </BaseButton>
         </div>
       </div>
       <button class="btn btn-ghost btn-xs btn-circle" :aria-label="t('common.close')" @click="lastAdded = null">
@@ -493,11 +493,10 @@ const manualMutation = useMutation({
           {{ t('scanBatch.stopCamera') }}
         </button>
 
-        <button v-if="!phoneQrValue" class="btn btn-outline gap-2" :disabled="isOpeningPhoneSession" @click="startPhoneScan">
-          <BaseLoader v-if="isOpeningPhoneSession" size="xs" />
-          <Smartphone v-else class="h-5 w-5" />
+        <BaseButton v-if="!phoneQrValue" class="btn btn-outline gap-2" :loading="isOpeningPhoneSession" @click="startPhoneScan">
+          <template #icon><Smartphone class="h-5 w-5" /></template>
           {{ t('scanBatch.usePhone') }}
-        </button>
+        </BaseButton>
         <button v-else class="btn btn-outline gap-2" @click="stopPhoneScan">
           <X class="h-5 w-5" />
           {{ t('scanBatch.stopPhone') }}
@@ -577,10 +576,9 @@ const manualMutation = useMutation({
           <span class="text-xs font-semibold text-base-content/60">{{ t('manga.coverUrl') }}</span>
           <input v-model="manual.coverUrl" type="url" class="input input-bordered w-full" placeholder="https://…" />
         </label>
-        <button type="submit" class="btn btn-primary w-full" :disabled="manualMutation.isPending.value || !manual.title.trim()">
-          <BaseLoader v-if="manualMutation.isPending.value" size="xs" />
+        <BaseButton type="submit" class="btn btn-primary w-full" :loading="manualMutation.isPending.value" :disabled="!manual.title.trim()">
           {{ t('add.createManually') }}
-        </button>
+        </BaseButton>
       </form>
     </section>
 

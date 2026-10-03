@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { getMe, postGate, postLogin, type User } from '@/api/auth'
+import { useCollectionFiltersStore } from '@/stores/useCollectionFiltersStore'
 
 interface JwtPayload {
   exp?: number
@@ -63,6 +64,8 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = null
     user.value = null
     sessionStorage.removeItem('token')
+    // The next account on this tab must not find the previous one's searches and filters.
+    useCollectionFiltersStore().clear()
   }
 
   return {

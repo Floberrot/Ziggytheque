@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Bell, BellOff, BookOpen, Heart, Trash2 } from 'lucide-vue-next'
 import type { CollectionEntry } from '@/types'
+import BaseButton from '@/components/atoms/BaseButton.vue'
 import BaseCover from '@/components/atoms/BaseCover.vue'
 import EditionBadge from '@/components/molecules/EditionBadge.vue'
 
@@ -86,9 +87,9 @@ function heartFill(heart: number): string {
       <div v-else class="px-3 py-2 space-y-2">
         <p class="text-xs text-base-content/70">{{ t('quickActions.removeConfirm') }}</p>
         <div class="flex gap-2">
-          <button type="button" class="btn btn-error btn-sm flex-1" :disabled="busy" @click="emit('remove')">
+          <BaseButton class="btn btn-error btn-sm flex-1" :loading="busy" @click="emit('remove')">
             {{ t('quickActions.removeYes') }}
-          </button>
+          </BaseButton>
           <button type="button" class="btn btn-ghost btn-sm flex-1" @click="confirmingRemove = false">
             {{ t('common.cancel') }}
           </button>

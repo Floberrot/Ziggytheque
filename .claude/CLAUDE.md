@@ -130,7 +130,9 @@ Human-readable names (e.g. `fk_volumes_manga`) will always conflict with Doctrin
 - Auth: useAuthStore (sessionStorage), Bearer JWT via axios interceptor (a 401 logs out)
 - vue-query: default `staleTime` 30 s (main.ts) — every mutation invalidates the keys it changes; a mutation without its own `onError` gets the global "action failed" toast
 - Heavy code is loaded on demand: pages are lazy routes; zxing (only without a native `BarcodeDetector`), chart.js (`GenrePieChart`), qrcode (`BaseQrCode`) and `EnrichVolumeModal` are dynamic imports. A failed chunk after a deploy reloads the page once (`vite:preloadError`)
-- Stores: useAuthStore, useThemeStore (dark default), useUiStore (toasts)
+- Stores: useAuthStore, useThemeStore (dark default), useUiStore (toasts), useCollectionFiltersStore (list state: collection search / filters / sort / refine panel, wishlist search, news filter and page, scroll positions — sessionStorage, cleared on logout)
+- Loading: one loader. `BaseLoader` (`variant` inline / section / page, `tone`, hidden `common.loading` text, section / page shown after 150 ms) and `BaseButton` (`:loading` → busy, not disabled: keeps its colours and focus, refuses clicks and submits; the loader replaces the `#icon` slot). Never DaisyUI `loading-*`, `animate-pulse` skeletons or a hand-made `:disabled` + spinner
+- Scroll: `router/scrollBehavior.ts` — a new page opens at the top, back / forward returns to the saved position, a query-only change does not scroll; `meta.rememberScroll` pages (collection, wishlist) restore their own position with `useRememberedScroll`
 - API layer: api/client.ts (axios), api/auth.ts, manga.ts, collection.ts, wishlist.ts, stats.ts, notification.ts
 - Covers: always `BaseCover` (or `BaseLazyImage` + `coverUrl()`), never a raw `<img :src>` — it proxies anti-hotlink hosts (Google Books, MangaDex, BnF) through `/proxy/cover`, upgrades `http://`, and falls back to an icon on a broken or placeholder image
 - Collection grid: one card per work (`groupByWork`: same folded title, or a title starting with it by the same author); several editions show as a stacked `MangaCard` that opens `WorkEditionsSheet`

@@ -13,6 +13,7 @@ import type { User } from '@/api/auth'
 import { useUiStore } from '@/stores/useUiStore'
 import { X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import BaseButton from '@/components/atoms/BaseButton.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
 import BaseModal from '@/components/atoms/BaseModal.vue'
 
@@ -163,9 +164,7 @@ async function copyResetLink(user: User): Promise<void> {
     </div>
 
     <!-- Table -->
-    <div v-if="isPending" class="flex justify-center py-12">
-      <BaseLoader size="lg" class="text-primary" />
-    </div>
+    <BaseLoader v-if="isPending" variant="section" />
 
     <div v-else-if="(data?.items.length ?? 0) === 0" class="text-center py-12 text-base-content/60">
       Aucun utilisateur trouvé.
@@ -369,10 +368,9 @@ async function copyResetLink(user: User): Promise<void> {
         <!-- Footer -->
         <div class="flex justify-end gap-2 px-5 py-4 border-t border-base-200 bg-base-200/40">
           <button class="btn btn-ghost btn-sm" :disabled="saving" @click="closeEdit">Annuler</button>
-          <button class="btn btn-primary btn-sm" :disabled="saving" @click="saveEdit">
-            <BaseLoader v-if="saving" size="xs" />
+          <BaseButton class="btn btn-primary btn-sm" :loading="saving" @click="saveEdit">
             Enregistrer
-          </button>
+          </BaseButton>
         </div>
       </template>
     </BaseModal>
