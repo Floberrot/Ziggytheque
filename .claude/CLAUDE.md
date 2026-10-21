@@ -32,7 +32,7 @@ Every time a feature is planned, developed, or removed — this rule is non-nego
 - **GitHub Actions are pinned by commit SHA**, the version in a comment (`uses: actions/checkout@<sha> # v5.1.0`) — never `@vX`. Dependabot (`.github/dependabot.yml`, github-actions) bumps them.
 
 ## Stack
-- Backend: Symfony 8 + PHP 8.4 + FrankenPHP + PostgreSQL 17 (`back/`)
+- Backend: Symfony 8 + PHP 8.5 + FrankenPHP + PostgreSQL 17 (`back/`)
 - Frontend: Vue 3 + TypeScript + Vite + DaisyUI (`front/`)
 - Docker: 5 containers via `docker-compose.yml` at root
 

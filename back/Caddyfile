@@ -14,6 +14,11 @@
 		header @mercure Access-Control-Allow-Credentials "true"
 
 		mercure {
+			# The Mercure bundled since the PHP 8.5 images accepts publisher_jwt /
+			# subscriber_jwt only in compatibility mode: opt in explicitly, so token
+			# validation stays what it was. Modern mode moves the keys into an
+			# "issuer" block.
+			protocol_version_compatibility 8
 			publisher_jwt {env.MERCURE_PUBLISHER_JWT_KEY} HS256
 			subscriber_jwt {env.MERCURE_SUBSCRIBER_JWT_KEY} HS256
 		}

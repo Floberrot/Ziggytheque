@@ -26,7 +26,7 @@ The apex `ziggytheque.fr` redirects (301) to `www.ziggytheque.fr` via an OVH red
 ## 🛠️ Tech Stack
 
 ### Backend
-- **Framework:** Symfony 8 + PHP 8.4
+- **Framework:** Symfony 8 + PHP 8.5
 - **Server:** FrankenPHP (modern PHP application server)
 - **Database:** PostgreSQL 17
 - **Architecture:** Hexagonal + CQRS (Symfony Messenger)
@@ -315,11 +315,11 @@ make logs-worker          # Tail worker logs
 
 | Service | Container | Purpose |
 |---------|-----------|---------|
-| **back** | PHP 8.4 + FrankenPHP | Symfony API (port 8000) |
+| **back** | PHP 8.5 + FrankenPHP | Symfony API (port 8000) |
 | **app** | Node.js | Vite dev server (port 5173) |
 | **db** | PostgreSQL 17 | Data persistence (port 5432) |
 | **mailer** | Mailpit | Email catcher for local dev (port 8025) — production uses Resend, see [`docs/resend.md`](docs/resend.md) |
-| **worker** | PHP 8.4 | Symfony Messenger consumer |
+| **worker** | PHP 8.5 | Symfony Messenger consumer |
 
 ---
 
