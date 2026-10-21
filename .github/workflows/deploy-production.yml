@@ -339,25 +339,47 @@ jobs:
         # Restore the original railway.json afterwards for the backend step.
         run: |
           cp worker/railway.json railway.json
+          # Fails the step when every attempt failed: a refused deploy must not look green.
+          deployed=false
           for attempt in 1 2; do
-            railway up \
-              --service ziggytheque-worker \
-              --ci \
-              -m "$DEPLOY_MSG" && break
-            echo "Attempt $attempt failed — retrying in 30s..."
-            sleep 30
+            if railway up \
+                --service ziggytheque-worker \
+                --ci \
+                -m "$DEPLOY_MSG"; then
+              deployed=true
+              break
+            fi
+            if [ "$attempt" -lt 2 ]; then
+              echo "Attempt $attempt failed — retrying in 30s..."
+              sleep 30
+            fi
           done
           git checkout railway.json
+          if [ "$deployed" != true ]; then
+            echo "::error::railway up failed twice for ziggytheque-worker: nothing was deployed"
+            exit 1
+          fi
       - name: Deploy backend service (frankenphp run)
         run: |
+          # Fails the step when every attempt failed: a refused deploy must not look green.
+          deployed=false
           for attempt in 1 2; do
-            railway up \
-              --service ziggytheque-back \
-              --ci \
-              -m "$DEPLOY_MSG" && break
-            echo "Attempt $attempt failed — retrying in 30s..."
-            sleep 30
+            if railway up \
+                --service ziggytheque-back \
+                --ci \
+                -m "$DEPLOY_MSG"; then
+              deployed=true
+              break
+            fi
+            if [ "$attempt" -lt 2 ]; then
+              echo "Attempt $attempt failed — retrying in 30s..."
+              sleep 30
+            fi
           done
+          if [ "$deployed" != true ]; then
+            echo "::error::railway up failed twice for ziggytheque-back: nothing was deployed"
+            exit 1
+          fi
 
   deploy-front:
     name: "Production: Deploy Frontend"
@@ -372,11 +394,22 @@ jobs:
         env:
           DEPLOY_MSG: "Deploy ${{ github.ref_name }}"
         run: |
+          # Fails the step when every attempt failed: a refused deploy must not look green.
+          deployed=false
           for attempt in 1 2; do
-            railway up \
-              --service ziggytheque-front \
-              --ci \
-              -m "$DEPLOY_MSG" && break
-            echo "Attempt $attempt failed — retrying in 30s..."
-            sleep 30
+            if railway up \
+                --service ziggytheque-front \
+                --ci \
+                -m "$DEPLOY_MSG"; then
+              deployed=true
+              break
+            fi
+            if [ "$attempt" -lt 2 ]; then
+              echo "Attempt $attempt failed — retrying in 30s..."
+              sleep 30
+            fi
           done
+          if [ "$deployed" != true ]; then
+            echo "::error::railway up failed twice for ziggytheque-front: nothing was deployed"
+            exit 1
+          fi
