@@ -39,6 +39,8 @@ jobs:
           file: Dockerfile
           target: prod
           load: true
+          # Re-resolve the base image tag: a cached layer must not keep an older PHP.
+          pull: true
           tags: ziggy-back:ci
           cache-from: type=gha,scope=pr-back
           cache-to: type=gha,mode=max,scope=pr-back
@@ -51,6 +53,11 @@ jobs:
           grep -qE '^opcache.validate_timestamps => Off' <<< "$settings"
           grep -qE '^memory_limit => 512M' <<< "$settings"
           grep -qE '^expose_php => Off' <<< "$settings"
+
+      - name: PHP carries the latest security fixes
+        # 8.5.12 fixes a critical CVE: an image built on an older base must not ship.
+        run: |
+          docker run --rm --entrypoint php ziggy-back:ci -r 'echo PHP_VERSION, PHP_EOL; exit(version_compare(PHP_VERSION, "8.5.12", ">=") ? 0 : 1);'
 
       - name: No dev or test values and no SPA copy in the image
         run: docker run --rm --entrypoint sh ziggy-back:ci -c 'test ! -e .env.dev && test ! -e .env.test && test ! -e public/spa'
@@ -119,6 +126,7 @@ jobs:
           file: Dockerfile
           target: worker
           load: true
+          pull: true
           tags: ziggy-worker:ci
           cache-from: type=gha,scope=pr-back
 

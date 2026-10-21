@@ -161,7 +161,6 @@ final readonly class ActivityLogEventHandler
         try {
             $reflection = new ReflectionObject($object);
             $property = $reflection->getProperty($propertyName);
-            $property->setAccessible(true);
             return $property->getValue($object);
         } catch (Throwable) {
             return null;
@@ -202,7 +201,6 @@ final readonly class ActivityLogEventHandler
                 if (preg_match(self::SENSITIVE_NAME_PATTERN, $propertyName) === 1) {
                     continue;
                 }
-                $property->setAccessible(true);
                 $sanitizedValue = $this->sanitizeValue($property->getValue($event));
                 if ($sanitizedValue !== null) {
                     $metadata[$propertyName] = $sanitizedValue;

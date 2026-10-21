@@ -2,7 +2,7 @@
 # it and proxies /api to this backend.
 
 # ── Stage 1: PHP base ─────────────────────────────────────────────────────────
-FROM dunglas/frankenphp:1-php8.4 AS base
+FROM dunglas/frankenphp:1-php8.5 AS base
 
 WORKDIR /app
 
