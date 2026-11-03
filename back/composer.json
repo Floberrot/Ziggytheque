@@ -30,7 +30,7 @@
         "symfony/twig-bundle": "8.0.*",
         "symfony/uid": "8.0.*",
         "symfony/validator": "*",
-        "symfony/yaml": "8.0.*",
+        "symfony/yaml": "8.1.*",
         "zenstruck/messenger-monitor-bundle": "^0.6.0"
     },
     "config": {
